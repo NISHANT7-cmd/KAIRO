@@ -1,0 +1,6 @@
+{
+  "name": "KAIRO",
+  "description": "A production-ready social storytelling and anime fandom platform for discovering, reading, and creating original universes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
