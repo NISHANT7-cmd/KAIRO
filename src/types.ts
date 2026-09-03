@@ -173,6 +173,7 @@ export interface Community {
   rules?: string[];
   moderators?: string[];
   categories?: string[];
+  category?: string;
   membersCount?: number;
   memberCount?: number;
   activeMembersCount?: number;
@@ -368,6 +369,31 @@ export interface CommunityContestSubmission {
   votes: number;
   votedUserIds: string[];
   createdAt: string;
+}
+
+export interface Contest {
+  id: string;
+  title: string;
+  description: string;
+  type?: string;
+  category?: string;
+  prizeDescription?: string;
+  prizeXP?: number;
+  deadline?: string;
+  bannerUrl?: string;
+  status?: string;
+  submissions?: Array<{
+    id: string;
+    title: string;
+    content?: string;
+    description?: string;
+    mediaUrl?: string;
+    authorName?: string;
+    username?: string;
+    votes?: number;
+    userVoted?: boolean;
+    createdAt?: string;
+  }>;
 }
 
 export interface CommunityContest {

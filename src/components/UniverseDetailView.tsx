@@ -89,11 +89,27 @@ export const UniverseDetailView: React.FC<UniverseDetailViewProps> = ({
     }
   };
 
-  if (loading || !universe) {
+  if (loading) {
     return (
       <div className="text-center py-28 text-[#877276]">
         <Sparkles className="w-8 h-8 mx-auto mb-2 text-[#635882] animate-spin" />
         <p className="font-semibold text-sm">Synchronizing universe codex...</p>
+      </div>
+    );
+  }
+
+  if (!universe) {
+    return (
+      <div className="text-center py-28 max-w-md mx-auto px-4 space-y-4">
+        <h2 className="text-2xl font-bold font-display text-[#26152b]">Universe Not Found</h2>
+        <p className="text-sm text-[#877276]">The universe lore or codex you requested does not exist or may have been archived.</p>
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#635882] text-white text-xs font-bold shadow-md hover:bg-[#50456c] transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Universes</span>
+        </button>
       </div>
     );
   }

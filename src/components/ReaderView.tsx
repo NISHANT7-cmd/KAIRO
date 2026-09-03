@@ -142,10 +142,27 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     }
   };
 
-  if (loading || !chapter || !story) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-[#877276]">
-        <Sparkles className="w-8 h-8 mx-auto mb-2 text-[#9e3b5f] animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center text-[#877276] space-y-3 bg-[#fff7fb]">
+        <Sparkles className="w-8 h-8 mx-auto text-[#9e3b5f] animate-spin" />
+        <p className="font-semibold text-sm">Opening chapter...</p>
+      </div>
+    );
+  }
+
+  if (!chapter || !story) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-[#877276] space-y-4 px-4 bg-[#fff7fb]">
+        <h2 className="text-2xl font-bold font-display text-[#26152b]">Chapter Not Found</h2>
+        <p className="text-sm text-[#877276] text-center max-w-sm">The chapter or story you were trying to read could not be loaded.</p>
+        <button
+          onClick={onExit}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#9e3b5f] text-white text-xs font-bold shadow-md hover:bg-[#852e4e] transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Return to Story</span>
+        </button>
       </div>
     );
   }

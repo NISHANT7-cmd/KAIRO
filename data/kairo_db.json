@@ -1,0 +1,2061 @@
+{
+  "users": [
+    {
+      "id": "usr_1",
+      "username": "althea_v",
+      "email": "althea@kairo.app",
+      "displayName": "Althea Vance",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "bio": "Author of the Astral Universe light novels. Worldbuilder, anime enthusiast, and narrative architect.",
+      "role": "WRITER",
+      "xp": 4850,
+      "level": 14,
+      "readingStreak": 12,
+      "lastActiveDate": "2026-09-03T09:14:35.498Z",
+      "followersCount": 1420,
+      "followingCount": 38,
+      "totalReads": 38240,
+      "favoriteGenres": [
+        "Fantasy",
+        "Sci-Fi",
+        "Light Novel"
+      ],
+      "favoriteThemes": [
+        "Magic Systems",
+        "Character Growth",
+        "Space Opera"
+      ],
+      "createdAt": "2025-01-10T10:00:00Z"
+    },
+    {
+      "id": "usr_2",
+      "username": "voidknight",
+      "email": "void@kairo.app",
+      "displayName": "Void Knight",
+      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "bio": "Crafting dark high-fantasy and psychological tales. Living inside character relationships.",
+      "role": "WRITER",
+      "xp": 6200,
+      "level": 18,
+      "readingStreak": 25,
+      "lastActiveDate": "2026-09-03T09:14:35.498Z",
+      "followersCount": 2890,
+      "followingCount": 45,
+      "totalReads": 89400,
+      "favoriteGenres": [
+        "Dark Fantasy",
+        "Mystery",
+        "Action"
+      ],
+      "favoriteThemes": [
+        "Grimdark",
+        "Political Intrigue",
+        "Rivalries"
+      ],
+      "createdAt": "2025-01-05T12:00:00Z"
+    },
+    {
+      "id": "usr_3",
+      "username": "sakura_dreamer",
+      "email": "sakura@kairo.app",
+      "displayName": "Sakura Dreamer",
+      "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "bio": "Avid anime watcher, serialized light novel binge-reader, and passionate theory crafter.",
+      "role": "USER",
+      "xp": 1850,
+      "level": 7,
+      "readingStreak": 5,
+      "lastActiveDate": "2026-09-03T09:14:35.498Z",
+      "followersCount": 180,
+      "followingCount": 64,
+      "totalReads": 1420,
+      "favoriteGenres": [
+        "Romance",
+        "Fantasy",
+        "Isekai"
+      ],
+      "favoriteThemes": [
+        "Wholesome",
+        "Slice of Life",
+        "Magic Academia"
+      ],
+      "createdAt": "2025-02-01T08:00:00Z"
+    },
+    {
+      "id": "usr_admin",
+      "username": "admin",
+      "email": "admin@kairo.app",
+      "displayName": "KAIRO Staff",
+      "avatar": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&auto=format&fit=crop&q=80",
+      "bio": "Official KAIRO platform team and community curators.",
+      "role": "ADMIN",
+      "xp": 9999,
+      "level": 50,
+      "readingStreak": 120,
+      "lastActiveDate": "2026-09-03T09:14:35.498Z",
+      "followersCount": 15400,
+      "followingCount": 12,
+      "totalReads": 250000,
+      "favoriteGenres": [
+        "All Genres"
+      ],
+      "favoriteThemes": [
+        "All Themes"
+      ],
+      "createdAt": "2024-12-01T00:00:00Z"
+    },
+    {
+      "id": "usr_1788428969349_qlh8",
+      "username": "star_voyager",
+      "email": "voyager@kairo.app",
+      "displayName": "Star Voyager",
+      "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "bio": "Story explorer & avid reader on KAIRO.",
+      "role": "USER",
+      "xp": 0,
+      "level": 1,
+      "readingStreak": 0,
+      "streakDays": 0,
+      "lastActiveDate": "2026-09-03T09:49:29.349Z",
+      "followersCount": 0,
+      "followingCount": 0,
+      "chaptersReadCount": 0,
+      "totalReads": 0,
+      "favoriteGenres": [
+        "Fantasy",
+        "Anime-Inspired"
+      ],
+      "favoriteThemes": [
+        "World Building"
+      ],
+      "createdAt": "2026-09-03T09:49:29.349Z"
+    },
+    {
+      "id": "usr_1788429666059_gv3w",
+      "username": "tester_1788429665932",
+      "email": "tester_1788429665932@kairo.app",
+      "displayName": "Test Explorer",
+      "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "bio": "Story explorer & avid reader on KAIRO.",
+      "role": "USER",
+      "xp": 0,
+      "level": 1,
+      "readingStreak": 0,
+      "streakDays": 0,
+      "lastActiveDate": "2026-09-03T10:01:06.059Z",
+      "followersCount": 0,
+      "followingCount": 0,
+      "chaptersReadCount": 0,
+      "totalReads": 0,
+      "favoriteGenres": [
+        "Fantasy",
+        "Anime-Inspired"
+      ],
+      "favoriteThemes": [
+        "World Building"
+      ],
+      "createdAt": "2026-09-03T10:01:06.059Z"
+    }
+  ],
+  "passwords": {
+    "usr_1": {
+      "salt": "58a889aade1e784513e80d1ac1b0f977",
+      "hash": "b9f21df4b57c6ff8c12e4a69420a5976a66597415b70a11686c20c8e5ebc3083a18e885af705fce4ee0d89fff6130b8acbb1a0796469607f3e31fa76b1e2097f"
+    },
+    "usr_2": {
+      "salt": "930ec60ff7bb8e975e28b915492847c2",
+      "hash": "fc32549bbfb99fd189db7334244a57507a8991e310ed91d5604a3979ab9b6df32801c1585880ac4b6b1991ab8ea10f36e3434993e39d048c8914ca24392efb42"
+    },
+    "usr_3": {
+      "salt": "e45992c6d4f665b4ee3ceae273e07769",
+      "hash": "7612211e6767a59794108e9cbc6166abe0e33651f15e179f0c9ea72f96a4e656bb833a1c51feb3a6ef8e8ff24d732b6a8334ace76ef10c13bd535f326b297cfe"
+    },
+    "usr_admin": {
+      "salt": "9be4e1b20b9121b59261b09855e982b7",
+      "hash": "211b78111b1aa0ef35f1cf9ffe08a331df95fcd085c2f5420a93469c7450e49ba35b6a5f4f67605a92904345f506dd592f3320adab21c1d6ae6b1e54252ee8df"
+    },
+    "usr_1788428969349_qlh8": {
+      "salt": "23e0814f7b0f436516a3204bb0427b6d",
+      "hash": "fcf648f342dc7621d354819ff5eee7cb898d4c36ca3447b1d684467fb5c7b7652c32b68d387b6ffe9d484c13529fc40bfae2c25f6674c46518ea1d3c717b7a2c"
+    },
+    "usr_1788429666059_gv3w": {
+      "salt": "903d3b7e7866ecc7033909e7dcc14307",
+      "hash": "882d3cc2afcd5d8632a60de962d59c951256cbdd93e0faa53e2bd0937e948d794d461a079a0f5b05bb59e66f2a8f0d701c80185b6392652121e80bfb5bbb71d5"
+    }
+  },
+  "sessions": {
+    "kairo_sig.usr_1.1791021675659.2a73179135677d555957f0a7450b9926a7c59801dd2f453bd300b46e4a887ed1": {
+      "userId": "usr_1",
+      "createdAt": "2026-09-03T10:01:15.662Z",
+      "expiresAt": "2026-10-03T10:01:15.659Z"
+    }
+  },
+  "stories": [
+    {
+      "id": "story_1",
+      "authorId": "usr_1",
+      "authorUsername": "althea_v",
+      "authorDisplayName": "Althea Vance",
+      "authorAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "title": "Celestial Drifters: Awakening",
+      "slug": "celestial-drifters-awakening",
+      "description": "In the sky-isles of Aethelgard, orphan scavenger Aria awakens a forbidden cosmic crest during a midnight eclipse. Thrust into the elite Zenith Academy, she must survive cutthroat rivals, uncover her bloodline's dark heritage, and stop a cataclysmic void fracture.",
+      "coverImage": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80",
+      "genre": "Fantasy",
+      "tags": [
+        "Anime-Inspired",
+        "Light Novel",
+        "Magic Academy",
+        "Rivals to Lovers",
+        "Original Universe",
+        "Stellar Magic"
+      ],
+      "language": "English",
+      "ageRating": "Teen",
+      "storyType": "Light Novel",
+      "status": "Ongoing",
+      "views": 38240,
+      "likes": 4210,
+      "rating": 4.9,
+      "ratingCount": 842,
+      "universeId": "uni_1",
+      "universeName": "The Astral Universe",
+      "chaptersCount": 4,
+      "liveReadersCount": 142,
+      "featured": true,
+      "createdAt": "2025-01-15T09:00:00Z",
+      "updatedAt": "2025-02-28T16:00:00Z"
+    },
+    {
+      "id": "story_2",
+      "authorId": "usr_2",
+      "authorUsername": "voidknight",
+      "authorDisplayName": "Void Knight",
+      "authorAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "title": "The Shattered Crown",
+      "slug": "the-shattered-crown",
+      "description": "When the immortal Emperor is assassinated by his own shadow-sworn guard, eight fractured kingdoms plunge into brutal civil war. An exile prince wielding forbidden blood runes embarks on a bloody path to reclaim the throne.",
+      "coverImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+      "genre": "Dark Fantasy",
+      "tags": [
+        "Grimdark",
+        "Serialized Novel",
+        "Political Intrigue",
+        "Anti-Hero",
+        "Epic Magic"
+      ],
+      "language": "English",
+      "ageRating": "Mature",
+      "storyType": "Serialized Novel",
+      "status": "Ongoing",
+      "views": 64100,
+      "likes": 7120,
+      "rating": 4.8,
+      "ratingCount": 1250,
+      "chaptersCount": 3,
+      "liveReadersCount": 210,
+      "featured": true,
+      "createdAt": "2025-01-10T08:00:00Z",
+      "updatedAt": "2025-02-25T14:30:00Z"
+    },
+    {
+      "id": "story_3",
+      "authorId": "usr_1",
+      "authorUsername": "althea_v",
+      "authorDisplayName": "Althea Vance",
+      "authorAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "title": "Neon Serenade: City of Echoes",
+      "slug": "neon-serenade-city-of-echoes",
+      "description": "In Neo-Kyoto 2149, memories can be extracted, synthesized, and sold as digital drugs. A renegade synth-artist uncovers an illegal memory chip containing the final thoughts of the megacorp's founder.",
+      "coverImage": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80",
+      "genre": "Sci-Fi",
+      "tags": [
+        "Cyberpunk",
+        "Short Story",
+        "Anime Aesthetic",
+        "Mystery",
+        "Synthwave"
+      ],
+      "language": "English",
+      "ageRating": "Teen",
+      "storyType": "Short Story",
+      "status": "Completed",
+      "views": 18450,
+      "likes": 2190,
+      "rating": 4.7,
+      "ratingCount": 420,
+      "chaptersCount": 2,
+      "liveReadersCount": 45,
+      "featured": false,
+      "createdAt": "2025-01-20T11:00:00Z",
+      "updatedAt": "2025-02-10T12:00:00Z"
+    },
+    {
+      "id": "story_4",
+      "authorId": "usr_3",
+      "authorUsername": "sakura_dreamer",
+      "authorDisplayName": "Sakura Dreamer",
+      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "title": "Whispers in the Starlight",
+      "slug": "whispers-in-the-starlight",
+      "description": "A quiet romance unfolding between an introverted astronomical librarian and a star-captain with a cursed heart that only calms when listening to ancient folk tales.",
+      "coverImage": "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&auto=format&fit=crop&q=80",
+      "genre": "Romance",
+      "tags": [
+        "Slow Burn",
+        "Comfort Read",
+        "Cosmic Romance",
+        "Original Fiction",
+        "Wholesome"
+      ],
+      "language": "English",
+      "ageRating": "Everyone",
+      "storyType": "Original Fiction",
+      "status": "Ongoing",
+      "views": 14200,
+      "likes": 1890,
+      "rating": 4.95,
+      "ratingCount": 310,
+      "chaptersCount": 3,
+      "liveReadersCount": 68,
+      "featured": false,
+      "createdAt": "2025-02-01T15:00:00Z",
+      "updatedAt": "2025-02-27T10:00:00Z"
+    },
+    {
+      "id": "story_5",
+      "authorId": "usr_2",
+      "authorUsername": "voidknight",
+      "authorDisplayName": "Void Knight",
+      "authorAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "title": "Abyssal Vanguard: Resonance",
+      "slug": "abyssal-vanguard-resonance",
+      "description": "Deep below the ocean of a volcanic exoplanet, giant biotic leviathans threaten the surviving colonies. Cadets synchronize neural link interfaces to pilot biomechanical titans.",
+      "coverImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+      "genre": "Action",
+      "tags": [
+        "Mecha",
+        "Shonen",
+        "High Stakes",
+        "Anime-Inspired",
+        "Survival"
+      ],
+      "language": "English",
+      "ageRating": "Teen",
+      "storyType": "Manga-Style Story",
+      "status": "Ongoing",
+      "views": 29800,
+      "likes": 3400,
+      "rating": 4.85,
+      "ratingCount": 590,
+      "chaptersCount": 2,
+      "liveReadersCount": 89,
+      "featured": false,
+      "createdAt": "2025-02-05T07:00:00Z",
+      "updatedAt": "2025-02-26T18:00:00Z"
+    }
+  ],
+  "chapters": [
+    {
+      "id": "chap_1_1",
+      "storyId": "story_1",
+      "chapterNumber": 1,
+      "title": "The Midnight Convergence",
+      "subtitle": "Where the stars weep liquid gold",
+      "content": "The sky above Port Lunaris burned in hues of violet and shattered rose.\n\nAria Vance balanced on the rusted copper edge of Dock 9, the wind whipping strands of dark silver hair across her goggles. Far below, through the swirling vapor of the cloud sea, the glowing leviathan currents of mana hummed like a subterranean cello.\n\n\"Hold the stabilizer steady, Aria!\" Lyra's voice crackled through the comm-bead, tinged with static and nervous energy. \"If that ether-converter blows, we'll both be vaporized into sparkly purple dust!\"\n\n\"I've got it,\" Aria whispered, her gloved fingers tracing the ancient crystalline glyph on the intake valve. \n\nIt was warm. Too warm.\n\nNormally, dormant star-relics felt like ice against the skin. But this piece—pulled from the wreckage of a pre-Cleaving skiff—pulsed with a rhythm that matched the beat of her own pulse.\n\n*Thump. Thump. Thump.*\n\nThen, the sky cracked.\n\nThe twin moons of Aethelgard shifted in their orbital lock. A brilliant beam of silver light pierced through the cloud cover, striking the relic directly. \n\nPain—pure, blinding, celestial fire—surged through Aria's right forearm. She gasped as her glove disintegrated, revealing four glowing lines carving themselves into her skin like molten starlight. \n\nThe Starcrest of the First Dawn had chosen its bearer. And across the floating continent, every bell in the Grand Citadel of Zenith began to toll.",
+      "wordCount": 1420,
+      "readingTime": 6,
+      "status": "published",
+      "publishedAt": "2025-01-15T10:00:00Z",
+      "createdAt": "2025-01-15T09:30:00Z",
+      "updatedAt": "2025-01-15T10:00:00Z"
+    },
+    {
+      "id": "chap_1_2",
+      "storyId": "story_1",
+      "chapterNumber": 2,
+      "title": "The Azure Blade of Voss",
+      "subtitle": "A duel beneath the glass dome",
+      "content": "The Zenith Astral Academy sat atop Mount Caelum like a fortress carved from a single diamond.\n\nAria stood in the center of the Grand Duelling Arena, her borrowed combat tunic feeling three sizes too large. Thousands of students looked down from the floating tiered balconies, their murmurs like the rustle of dry leaves.\n\n\"You have ten seconds to yield, scavenger,\" Kaelen Voss said, stepping into the ring.\n\nHe wore the midnight-blue uniform of the Voss dynasty, his dark hair falling neatly over sharp, calculating eyes. In his right hand, the ancestral Moonshard blade hummed with a pure azure frequency that chilled the ambient air.\n\n\"I didn't climb eight thousand steps just to wave a white flag,\" Aria replied, tightening her stance.\n\nKaelen sighed. \"Pity.\"\n\nIn the blink of an eye, he was gone.\n\nAria felt the displacement of air before she saw the blade. She instinctively raised her right arm, the newly awakened Starcrest blazing through her bandages. A barrier of shimmering golden gravitons erupted between them with the force of a thunderclap.\n\nThe impact echoed across the arena. Kaelen was hurled back, landing cleanly on his feet with his eyes wide in sheer disbelief.\n\n\"That crest...\" Kaelen breathed, his blade trembling. \"That's impossible. That lineage died three centuries ago.\"",
+      "wordCount": 1680,
+      "readingTime": 7,
+      "status": "published",
+      "publishedAt": "2025-01-22T14:00:00Z",
+      "createdAt": "2025-01-22T12:00:00Z",
+      "updatedAt": "2025-01-22T14:00:00Z"
+    },
+    {
+      "id": "chap_1_3",
+      "storyId": "story_1",
+      "chapterNumber": 3,
+      "title": "Whispers in the Starlight Archive",
+      "subtitle": "Secrets locked in crystal scrolls",
+      "content": "The lower archives smelled of ozone, crushed star-dust, and old parchment that had survived the atmospheric transitions.\n\n\"If the Archon guards catch us down here,\" Lyra whispered, pointing her handheld scanner at the sealed vault door, \"we're not just getting expelled. We're getting sentenced to mana-harvesting duty in the lower trenches.\"\n\n\"They won't catch us,\" Aria murmured, placing her hand against the vault's central core.\n\nThe golden glyphs on her forearm flared. The heavy stone doors groans in harmonic resonance, slowly sliding open into an abyss of floating starlight prisms.\n\nInside, thousands of historical memories floated like glowing orbs.\n\n\"Look at this,\" Aria said, reaching toward a crimson orb at the center.\n\nAs her fingers brushed the sphere, a holographic vision burst to life: the seven floating isles were not created as a paradise. They were anchors—chains holding down an ancient celestial entity slumbering beneath the cloud sea.\n\nAnd the chains were beginning to crack.",
+      "wordCount": 1550,
+      "readingTime": 6,
+      "status": "published",
+      "publishedAt": "2025-02-05T16:00:00Z",
+      "createdAt": "2025-02-05T14:00:00Z",
+      "updatedAt": "2025-02-05T16:00:00Z"
+    },
+    {
+      "id": "chap_1_4",
+      "storyId": "story_1",
+      "chapterNumber": 4,
+      "title": "The Void Breach at Dawn",
+      "subtitle": "When the sky bleeds black",
+      "content": "The warning sirens wailed across the Seventh Isle just as the first rays of sunlight kissed the horizon.\n\nA tear in the fabric of space had opened above Port Lunaris. From the obsidian rift, winged void-beasts poured out like swarming locusts, their screeching shattering glass across the lower district.\n\n\"Cadets, form defensive positions!\" Commander Thorne's voice echoed through the telepathic broadcast network.\n\nAria sprinted toward the skiff docks, her heart pounding in her ears. Beside her, Kaelen drew his Azure Blade, the two rivals matching strides without a word spoken.\n\n\"Front flank is yours,\" Kaelen said curtly. \"Don't let them flank the civilians.\"\n\n\"Watch my back, Voss,\" Aria grinned, launching herself into the air with a Graviton burst. \"And try to keep up!\"",
+      "wordCount": 1820,
+      "readingTime": 8,
+      "status": "published",
+      "publishedAt": "2025-02-20T18:00:00Z",
+      "createdAt": "2025-02-20T16:00:00Z",
+      "updatedAt": "2025-02-20T18:00:00Z"
+    },
+    {
+      "id": "chap_2_1",
+      "storyId": "story_2",
+      "chapterNumber": 1,
+      "title": "The Blood on the Marble",
+      "subtitle": "The night an empire fell",
+      "content": "The throne of Valerius was forged from the petrified bones of seven fallen dragons.\n\nPrince Lucian stood before the severed body of his father, the blood soaking into the gold-threaded velvet of his boots. The shadow-guard stood around the corpse with drawn rapiers, their silver masks reflecting the guttering torches.\n\n\"Why?\" Lucian asked, his voice steady despite the cold rage freezing his veins.\n\n\"The Emperor grew weak, my Prince,\" Lord Commander Vane replied calmly. \"And weakness in the Iron Reign is an invitation to ruin.\"\n\nLucian did not argue. He drew his ceremonial dagger and sliced the palm of his left hand, smearing his blood across the ancient runic bracelet chained to his wrist.\n\nThe dead dragons in the walls began to scream.",
+      "wordCount": 1950,
+      "readingTime": 8,
+      "status": "published",
+      "publishedAt": "2025-01-10T12:00:00Z",
+      "createdAt": "2025-01-10T10:00:00Z",
+      "updatedAt": "2025-01-10T12:00:00Z"
+    },
+    {
+      "id": "chap_2_2",
+      "storyId": "story_2",
+      "chapterNumber": 2,
+      "title": "Exile of the Crimson Raven",
+      "subtitle": "Walking the ash wastes",
+      "content": "Beyond the Northern Wall lay the Obsidian Wastes—a barren graveyard where neither crops nor mercy grew.\n\nLucian pulled his tattered wolfskin cloak tighter against the stinging frost. Behind him, three loyal knights rode in silence, their armor stripped of all crests and insignia.\n\n\"We have food for five days, Sire,\" Sir Galahad reported. \"The mountain clans will not welcome us.\"\n\n\"They don't have to welcome us,\" Lucian said, his eyes glowing with dark crimson aether. \"They only need to fear what we bring.\"",
+      "wordCount": 1720,
+      "readingTime": 7,
+      "status": "published",
+      "publishedAt": "2025-01-28T14:00:00Z",
+      "createdAt": "2025-01-28T12:00:00Z",
+      "updatedAt": "2025-01-28T14:00:00Z"
+    },
+    {
+      "id": "chap_2_3",
+      "storyId": "story_2",
+      "chapterNumber": 3,
+      "title": "The Siege of Ravenhold",
+      "subtitle": "First blood in the rebellion",
+      "content": "The iron gates of Ravenhold Fortress had withstood three hundred years of tribal rebellions.\n\nThey did not withstand Lucian's blood-forged siege ram. With a deafening roar of splintering stone and magical wards collapsing, the vanguard breached the courtyard.\n\nBy nightfall, the black banner of the Crimson Raven fluttered over the highest keep. The civil war had officially begun.",
+      "wordCount": 2100,
+      "readingTime": 9,
+      "status": "published",
+      "publishedAt": "2025-02-15T15:00:00Z",
+      "createdAt": "2025-02-15T13:00:00Z",
+      "updatedAt": "2025-02-15T15:00:00Z"
+    }
+  ],
+  "readingProgress": [
+    {
+      "id": "rp_1",
+      "userId": "usr_3",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "storyCover": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80",
+      "chapterId": "chap_1_2",
+      "chapterNumber": 2,
+      "chapterTitle": "The Azure Blade of Voss",
+      "totalChapters": 4,
+      "progressPercent": 50,
+      "lastPosition": 1200,
+      "lastReadAt": "2026-09-03T08:14:35.498Z"
+    },
+    {
+      "id": "rp_2",
+      "userId": "usr_1",
+      "storyId": "story_2",
+      "storyTitle": "The Shattered Crown",
+      "storyCover": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+      "chapterId": "chap_2_1",
+      "chapterNumber": 1,
+      "chapterTitle": "The Blood on the Marble",
+      "totalChapters": 3,
+      "progressPercent": 33,
+      "lastPosition": 800,
+      "lastReadAt": "2026-09-02T09:14:35.498Z"
+    }
+  ],
+  "library": [
+    {
+      "id": "lib_1",
+      "userId": "usr_3",
+      "storyId": "story_1",
+      "listType": "reading",
+      "addedAt": "2025-02-01T10:00:00Z"
+    },
+    {
+      "id": "lib_2",
+      "userId": "usr_3",
+      "storyId": "story_4",
+      "listType": "saved",
+      "addedAt": "2025-02-10T12:00:00Z"
+    },
+    {
+      "id": "lib_3",
+      "userId": "usr_1",
+      "storyId": "story_2",
+      "listType": "reading",
+      "addedAt": "2025-01-20T10:00:00Z"
+    }
+  ],
+  "reviews": [
+    {
+      "id": "rev_1",
+      "userId": "usr_3",
+      "username": "sakura_dreamer",
+      "userAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "storyId": "story_1",
+      "rating": 5,
+      "reviewText": "The world-building of Aethelgard is peak light novel material! Aria and Kaelen's dynamic has that classic rivals-to-allies tension that makes every chapter an adrenaline rush.",
+      "createdAt": "2025-02-10T18:00:00Z",
+      "updatedAt": "2025-02-10T18:00:00Z"
+    },
+    {
+      "id": "rev_2",
+      "userId": "usr_2",
+      "username": "voidknight",
+      "userAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "storyId": "story_1",
+      "rating": 5,
+      "reviewText": "Pacing in Chapter 2 during the arena duel was immaculate. The magic system has genuine weight and consequences.",
+      "createdAt": "2025-02-12T12:00:00Z",
+      "updatedAt": "2025-02-12T12:00:00Z"
+    }
+  ],
+  "comments": [
+    {
+      "id": "com_1",
+      "chapterId": "chap_1_1",
+      "storyId": "story_1",
+      "userId": "usr_3",
+      "username": "sakura_dreamer",
+      "userAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "content": "THAT ENDING! When the crest awakened and the bells started tolling in the Grand Citadel... literal goosebumps!",
+      "likes": 28,
+      "likedByUsers": [
+        "usr_1",
+        "usr_2"
+      ],
+      "createdAt": "2025-01-16T12:00:00Z",
+      "replies": [
+        {
+          "id": "com_1_rep_1",
+          "chapterId": "chap_1_1",
+          "storyId": "story_1",
+          "userId": "usr_1",
+          "username": "althea_v",
+          "userAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+          "content": "Thank you! Chapter 2 is where the real rivalry begins with Kaelen!",
+          "likes": 14,
+          "likedByUsers": [
+            "usr_3"
+          ],
+          "parentId": "com_1",
+          "createdAt": "2025-01-16T14:30:00Z"
+        }
+      ]
+    },
+    {
+      "id": "com_2",
+      "chapterId": "chap_1_2",
+      "storyId": "story_1",
+      "userId": "usr_2",
+      "username": "voidknight",
+      "userAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "content": "Kaelen’s zero-point slash technique being repelled by sheer primal Aether gravitons is such a great setup for their power dynamic.",
+      "likes": 19,
+      "likedByUsers": [
+        "usr_3"
+      ],
+      "createdAt": "2025-01-23T10:00:00Z",
+      "replies": []
+    }
+  ],
+  "communities": [
+    {
+      "id": "comm_1",
+      "name": "The Astral Universe Fandom",
+      "slug": "astral-universe-fandom",
+      "description": "The official sanctuary for readers, lore explorers, and theory crafters following Althea Vance's celestial works.",
+      "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&auto=format&fit=crop&q=80",
+      "type": "story",
+      "memberCount": 8420,
+      "membersCount": 8420,
+      "postsCount": 14,
+      "createdAt": "2025-01-12T00:00:00Z"
+    },
+    {
+      "id": "comm_2",
+      "name": "Dark Fantasy & Isekai Guild",
+      "slug": "dark-fantasy-isekai-guild",
+      "description": "Discussions around grimdark worldbuilding, anti-hero protagonists, and high-stakes magic systems.",
+      "bannerImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "type": "genre",
+      "memberCount": 14200,
+      "membersCount": 14200,
+      "postsCount": 28,
+      "createdAt": "2025-01-05T00:00:00Z"
+    },
+    {
+      "id": "comm_3",
+      "name": "Light Novel Writers Workshop",
+      "slug": "light-novel-writers-workshop",
+      "description": "Peer critiques, pacing discussions, magic system design, and serialized storytelling masterclasses.",
+      "bannerImage": "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "type": "creator",
+      "memberCount": 6510,
+      "membersCount": 6510,
+      "postsCount": 9,
+      "createdAt": "2025-01-08T00:00:00Z"
+    },
+    {
+      "id": "comm_4",
+      "name": "Anime Theories & Seasonal Hype",
+      "slug": "anime-theories-seasonal-hype",
+      "description": "Weekly episode breakdowns, manga-to-anime comparisons, animation studio analyses, and trackings.",
+      "bannerImage": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "type": "anime",
+      "memberCount": 22100,
+      "membersCount": 22100,
+      "postsCount": 35,
+      "createdAt": "2025-01-02T00:00:00Z"
+    },
+    {
+      "id": "comm_astral",
+      "name": "The Astral Sanctuary",
+      "slug": "astral-sanctuary",
+      "description": "Official community for Celestial Drifters and the Astral Universe saga. Explore cosmic lore, discuss theories, and meet the author.",
+      "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&auto=format&fit=crop&q=80",
+      "type": "story",
+      "ownerId": "usr_1",
+      "ownerName": "Althea Vance",
+      "ownerRole": "WRITER",
+      "linkedStoryId": "story_1",
+      "linkedStoryTitle": "Celestial Drifters: Awakening",
+      "categories": [
+        "Discussion",
+        "Theories",
+        "Characters",
+        "World",
+        "Fan Art",
+        "Announcements"
+      ],
+      "rules": [
+        "Be respectful of fellow lore crafters",
+        "Tag all Chapter 4+ plot details with spoiler warnings",
+        "Original fan art must credit references"
+      ],
+      "membersCount": 8420,
+      "activeMembersCount": 142,
+      "postsCount": 18,
+      "createdAt": "2025-01-12T00:00:00Z"
+    },
+    {
+      "id": "comm_shattered",
+      "name": "The Shattered Keep",
+      "slug": "the-shattered-keep",
+      "description": "Dark fantasy haven for Prince Lucian's rebellion. Blood runes, grim political intrigue, and battle discussions.",
+      "bannerImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "type": "story",
+      "ownerId": "usr_2",
+      "ownerName": "Void Knight",
+      "ownerRole": "WRITER",
+      "linkedStoryId": "story_2",
+      "linkedStoryTitle": "The Shattered Crown",
+      "categories": [
+        "Discussion",
+        "Theories",
+        "Characters",
+        "World",
+        "Announcements"
+      ],
+      "membersCount": 6850,
+      "activeMembersCount": 98,
+      "postsCount": 12,
+      "createdAt": "2025-01-08T00:00:00Z"
+    },
+    {
+      "id": "comm_dark_fantasy",
+      "name": "Dark Fantasy & Grim Lore",
+      "slug": "dark-fantasy-lore",
+      "description": "For lovers of anti-heroes, high stakes, forbidden magic systems, and morally grey epics.",
+      "bannerImage": "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&auto=format&fit=crop&q=80",
+      "type": "genre",
+      "categories": [
+        "General",
+        "Recommendations",
+        "Worldbuilding",
+        "Debates"
+      ],
+      "membersCount": 14200,
+      "activeMembersCount": 310,
+      "postsCount": 34,
+      "createdAt": "2025-01-05T00:00:00Z"
+    },
+    {
+      "id": "comm_writers_workshop",
+      "name": "Light Novel Writers Workshop",
+      "slug": "writers-workshop",
+      "description": "Peer critiques, pacing discussions, magic system design, and serialized storytelling masterclasses.",
+      "bannerImage": "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "type": "creator",
+      "categories": [
+        "Critique",
+        "Worldbuilding",
+        "Dialogue",
+        "Milestones"
+      ],
+      "membersCount": 6510,
+      "activeMembersCount": 85,
+      "postsCount": 16,
+      "createdAt": "2025-01-08T00:00:00Z"
+    },
+    {
+      "id": "comm_althea",
+      "name": "Althea Vance Official Archive",
+      "slug": "althea-vance-archive",
+      "description": "Direct author notes, exclusive world codex sketches, Q&A logs, and early draft sneak peeks.",
+      "bannerImage": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "type": "author",
+      "ownerId": "usr_1",
+      "ownerName": "Althea Vance",
+      "ownerRole": "WRITER",
+      "linkedAuthorId": "usr_1",
+      "categories": [
+        "Author Notes",
+        "Q&A",
+        "Drafts",
+        "Community Chat"
+      ],
+      "membersCount": 9400,
+      "activeMembersCount": 180,
+      "postsCount": 22,
+      "createdAt": "2025-01-10T00:00:00Z"
+    },
+    {
+      "id": "comm_astral_alpha",
+      "name": "Astral Alpha Lorekeepers",
+      "slug": "astral-alpha-lorekeepers",
+      "description": "Private circle for beta readers reviewing unreleased cosmology notes and lore drafts.",
+      "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
+      "iconImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&auto=format&fit=crop&q=80",
+      "type": "private",
+      "isPrivate": true,
+      "accessCode": "ASTRAL2025",
+      "ownerId": "usr_1",
+      "ownerName": "Althea Vance",
+      "ownerRole": "WRITER",
+      "membersCount": 350,
+      "activeMembersCount": 24,
+      "postsCount": 8,
+      "createdAt": "2025-01-25T00:00:00Z"
+    }
+  ],
+  "communityPosts": [
+    {
+      "id": "post_1",
+      "communityId": "comm_1",
+      "communityName": "The Astral Universe Fandom",
+      "authorId": "usr_3",
+      "authorUsername": "sakura_dreamer",
+      "authorDisplayName": "Sakura Dreamer",
+      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "title": "Who will master the Twin Eclipse resonance first?",
+      "content": "In chapter 4 we saw the void rift expand over Port Lunaris. Do you think Aria will unlock her second affinity or will Kaelen have to sacrifice his ancestral blade?",
+      "tag": "Theory",
+      "likes": 42,
+      "likedByUsers": [
+        "usr_1"
+      ],
+      "commentsCount": 18,
+      "mediaType": "poll",
+      "poll": {
+        "id": "poll_1",
+        "question": "Who will master the Twin Eclipse resonance first?",
+        "options": [
+          {
+            "id": "opt_1",
+            "text": "Aria unlocks pure Nova Flare",
+            "votes": [
+              "usr_1",
+              "usr_3"
+            ]
+          },
+          {
+            "id": "opt_2",
+            "text": "Kaelen embraces the void rune",
+            "votes": [
+              "usr_2"
+            ]
+          },
+          {
+            "id": "opt_3",
+            "text": "Lyra builds a dampening matrix",
+            "votes": []
+          },
+          {
+            "id": "opt_4",
+            "text": "They combine affinities in tandem",
+            "votes": [
+              "usr_admin"
+            ]
+          }
+        ],
+        "totalVotes": 4,
+        "expiresAt": "2025-04-01T00:00:00Z"
+      },
+      "createdAt": "2025-02-22T14:00:00Z"
+    },
+    {
+      "id": "post_2",
+      "communityId": "comm_1",
+      "communityName": "The Astral Universe Fandom",
+      "authorId": "usr_1",
+      "authorUsername": "althea_v",
+      "authorDisplayName": "Althea Vance",
+      "authorAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "title": "Chapter 5 Teaser: The Archon Chamber",
+      "content": "Here is an official snippet from next week’s chapter: \"The stained glass of the High Spire began to sing in three distinct keys. None of them belonged to the living world.\"",
+      "mediaUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1000&auto=format&fit=crop&q=80",
+      "mediaType": "image",
+      "tag": "Official Update",
+      "likes": 128,
+      "likedByUsers": [
+        "usr_2",
+        "usr_3"
+      ],
+      "commentsCount": 34,
+      "createdAt": "2025-02-26T18:00:00Z"
+    },
+    {
+      "id": "post_3",
+      "communityId": "comm_dark_fantasy",
+      "communityName": "Dark Fantasy & Grim Lore",
+      "communitySlug": "dark-fantasy-lore",
+      "communityType": "genre",
+      "authorId": "usr_2",
+      "authorUsername": "voidknight",
+      "authorDisplayName": "Void Knight",
+      "authorAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "authorRole": "WRITER",
+      "title": "Why anti-heroes need emotional anchors to stay compelling",
+      "content": "An anti-hero who only kills and broods becomes tedious by chapter 10. In The Shattered Crown, Prince Lucian’s ruthless streak is only meaningful because he remembers the oath he swore to the hearth-children of Ravenhold. What are your favorite moral anchors in fiction?",
+      "type": "DISCUSSION",
+      "tag": "Craft & Critique",
+      "tags": [
+        "Writing",
+        "Anti-Hero",
+        "Character Design"
+      ],
+      "likes": 76,
+      "likedByUsers": [
+        "usr_1"
+      ],
+      "commentsCount": 8,
+      "createdAt": "2025-02-25T11:30:00Z"
+    },
+    {
+      "id": "post_4",
+      "communityId": "comm_anime_hype",
+      "communityName": "Anime Theories & Seasonal Hype",
+      "communitySlug": "anime-theories-seasonal-hype",
+      "communityType": "fandom",
+      "authorId": "usr_3",
+      "authorUsername": "sakura_dreamer",
+      "authorDisplayName": "Sakura Dreamer",
+      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "title": "Fan Art: Aria & Kaelen Dual Stance Under Eclipse",
+      "content": "Finished this piece after re-reading the arena duel! Tried to capture the contrast between the cyan graviton pulses and the crimson void blades.",
+      "type": "ART",
+      "mediaUrl": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1000&auto=format&fit=crop&q=80",
+      "mediaType": "image",
+      "tag": "Fan Art",
+      "tags": [
+        "Fan Art",
+        "Celestial Drifters",
+        "Digital Art"
+      ],
+      "likes": 189,
+      "likedByUsers": [
+        "usr_1",
+        "usr_2"
+      ],
+      "commentsCount": 14,
+      "createdAt": "2025-02-27T16:00:00Z"
+    },
+    {
+      "id": "post_5",
+      "communityId": "comm_astral",
+      "communityName": "The Astral Sanctuary",
+      "communitySlug": "astral-sanctuary",
+      "communityType": "story",
+      "authorId": "usr_3",
+      "authorUsername": "sakura_dreamer",
+      "authorDisplayName": "Sakura Dreamer",
+      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "title": "⚠️ The Titan Ships Theory: The Floating Isles are ancient hulls!",
+      "content": "If you look closely at the map in World Codex, the inverted graviton lattices follow the exact curvature of pre-ancient interstellar ships. The Archons are actually maintaining ancient life-support!",
+      "type": "THEORY",
+      "tag": "Theory",
+      "tags": [
+        "Cosmology",
+        "Lore",
+        "Titans"
+      ],
+      "isSpoiler": true,
+      "spoilerChapter": 3,
+      "linkedStoryId": "story_1",
+      "linkedStoryTitle": "Celestial Drifters: Awakening",
+      "agreeCount": 94,
+      "disagreeCount": 12,
+      "likes": 112,
+      "likedByUsers": [
+        "usr_1"
+      ],
+      "commentsCount": 22,
+      "createdAt": "2025-02-24T09:00:00Z"
+    },
+    {
+      "id": "post_6",
+      "communityId": "comm_dark_fantasy",
+      "communityName": "Dark Fantasy & Grim Lore",
+      "communitySlug": "dark-fantasy-lore",
+      "communityType": "genre",
+      "authorId": "usr_3",
+      "authorUsername": "sakura_dreamer",
+      "authorDisplayName": "Sakura Dreamer",
+      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "title": "Weekly Recommendation: If you love grim political intrigue",
+      "content": "Check out The Shattered Crown by Void Knight. The dialogue in Chapter 1 during the throne room betrayal sets up an extraordinary civil war arc with zero plot armor.",
+      "type": "RECOMMENDATION",
+      "tag": "Recommendation",
+      "recommendation": {
+        "title": "The Shattered Crown",
+        "category": "Story",
+        "note": "Fast-paced grimdark light novel with blood rune magic.",
+        "linkSlug": "the-shattered-crown"
+      },
+      "likes": 64,
+      "likedByUsers": [
+        "usr_2"
+      ],
+      "commentsCount": 6,
+      "createdAt": "2025-02-26T14:00:00Z"
+    }
+  ],
+  "theories": [
+    {
+      "id": "th_1",
+      "title": "The Floating Isles are actually petrified Titan Ships",
+      "description": "If you look at the map of Aethelgard in the World Codex, the inverted graviton lattices follow the exact curvature of pre-ancient interstellar hulls. The Archons are not mages—they are maintenance technicians running automated ship life-support!",
+      "authorId": "usr_3",
+      "authorUsername": "sakura_dreamer",
+      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "chapterReference": 3,
+      "status": "UNCONFIRMED",
+      "agreeCount": 94,
+      "disagreeCount": 12,
+      "commentsCount": 22,
+      "createdAt": "2025-02-10T15:00:00Z"
+    },
+    {
+      "id": "th_2",
+      "title": "Kaelen’s father made a pact with the Void Entity",
+      "description": "In Chapter 3, the memory orb shows a figure with the Voss family seal opening the vault wards from the outside during the Eclipse War.",
+      "authorId": "usr_2",
+      "authorUsername": "voidknight",
+      "authorAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "chapterReference": 3,
+      "status": "CONFIRMED",
+      "agreeCount": 148,
+      "disagreeCount": 3,
+      "commentsCount": 38,
+      "createdAt": "2025-02-12T19:00:00Z"
+    }
+  ],
+  "characters": [
+    {
+      "id": "char_1",
+      "authorId": "usr_1",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "worldId": "world_1",
+      "name": "Aria Vance",
+      "portrait": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+      "age": 19,
+      "role": "Protagonist",
+      "personality": "Fiercely determined, compassionate, with an unquenchable curiosity for forbidden ancient ruins.",
+      "primaryPower": "Stellar Aether Weaver (Light & Gravity manipulation)",
+      "abilities": [
+        "Prism Dash",
+        "Graviton Seal",
+        "Nova Flare Strike",
+        "Astral Perception"
+      ],
+      "biography": "Born in the outer rim of Port Lunaris, Aria discovered her latent crest during the midnight eclipse. Now enrolled in the Zenith Astral Academy, she seeks the truth behind her lost lineage.",
+      "arc": [
+        {
+          "id": "arc_1",
+          "phase": "Beginning",
+          "title": "The Unmarked Drifter",
+          "description": "Struggling as an orphan scavver on the low docks."
+        },
+        {
+          "id": "arc_2",
+          "phase": "Rising Action",
+          "title": "Awakening of the Starcrest",
+          "description": "Accidentally manifests dual elemental affinities during a void beast raid."
+        },
+        {
+          "id": "arc_3",
+          "phase": "Climax",
+          "title": "Defender of the Floating Isles",
+          "description": "Stands against the Syndicate alongside her rival turned sworn ally."
+        }
+      ],
+      "createdAt": "2025-01-12T10:00:00Z"
+    },
+    {
+      "id": "char_2",
+      "authorId": "usr_1",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "worldId": "world_1",
+      "name": "Kaelen Voss",
+      "portrait": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80",
+      "age": 21,
+      "role": "Rival",
+      "personality": "Stoic, mathematically precise, bound by family honor but harboring deep doubts about the Archon Council.",
+      "primaryPower": "Blade of the Azure Eclipse (Kinetic resonance)",
+      "abilities": [
+        "Zero-Point Slash",
+        "Sonic Barrier",
+        "Flash Step",
+        "Phantom Echo"
+      ],
+      "biography": "Heir to the illustrious Voss Noble House. Trained since childhood to wield the ancestral Moonshard blade, he finds himself constantly challenged by Aria's unconventional battle instincts.",
+      "arc": [
+        {
+          "id": "arc_4",
+          "phase": "Beginning",
+          "title": "The Golden Prodigy",
+          "description": "Unbeaten student duelist adhering strictly to academy dogma."
+        },
+        {
+          "id": "arc_5",
+          "phase": "Turning Point",
+          "title": "Cracks in the Dynasty",
+          "description": "Discovers his father’s complicity with the forbidden void trade."
+        }
+      ],
+      "createdAt": "2025-01-12T10:15:00Z"
+    },
+    {
+      "id": "char_3",
+      "authorId": "usr_1",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "worldId": "world_1",
+      "name": "Lyra Vane",
+      "portrait": "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&auto=format&fit=crop&q=80",
+      "age": 18,
+      "role": "Supporting",
+      "personality": "Eccentric technomancer, caffeine enthusiast, loyal sister-figure and tactical genius.",
+      "primaryPower": "Magitech Artificer & Glyph Hacker",
+      "abilities": [
+        "Sentry Drones",
+        "Energy Shield Matrix",
+        "Overclock Burst"
+      ],
+      "biography": "A genius tinkerer who built her own hover-board at age 12. Provides technical firepower and endless witty commentary for Aria’s squadron.",
+      "arc": [
+        {
+          "id": "arc_6",
+          "phase": "Allied",
+          "title": "The Tech Alchemist",
+          "description": "Transforms junk scraps into world-class defensive gear."
+        }
+      ],
+      "createdAt": "2025-01-12T10:30:00Z"
+    }
+  ],
+  "characterRelationships": [
+    {
+      "id": "rel_1",
+      "sourceCharacterId": "char_1",
+      "sourceName": "Aria Vance",
+      "targetCharacterId": "char_2",
+      "targetName": "Kaelen Voss",
+      "relationType": "Rival",
+      "description": "Intense academy rivals with growing mutual respect and unspoken romantic tension."
+    },
+    {
+      "id": "rel_2",
+      "sourceCharacterId": "char_1",
+      "sourceName": "Aria Vance",
+      "targetCharacterId": "char_3",
+      "targetName": "Lyra Vane",
+      "relationType": "Sister",
+      "description": "Found family; swore an oath of mutual protection over a glowing bowl of noodle broth."
+    },
+    {
+      "id": "rel_3",
+      "sourceCharacterId": "char_2",
+      "sourceName": "Kaelen Voss",
+      "targetCharacterId": "char_3",
+      "targetName": "Lyra Vane",
+      "relationType": "Ally",
+      "description": "Kaelen relies on Lyra's gadgets despite pretending to find her inventions chaotic."
+    }
+  ],
+  "worlds": [
+    {
+      "id": "world_1",
+      "authorId": "usr_1",
+      "universeId": "uni_1",
+      "name": "Aethelgard",
+      "slug": "aethelgard",
+      "tagline": "The Floating Continent of Crystalized Starlight",
+      "description": "Suspended above an endless tempest of cosmic clouds, Aethelgard is powered by subterranean Mana Core nodes and guarded by the Order of the Radiant Dawn.",
+      "globalScale": "Continental Array (7 Floating Isles)",
+      "techLevel": "Aether-Magitech (Stellar Crystal Infusion)",
+      "bannerImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
+      "magicTypes": [
+        "Stellar Resonance",
+        "Aether Alchemy",
+        "Gravity Weaver"
+      ],
+      "mainDocument": "# Lore of Aethelgard\n\nAethelgard was founded three millennia ago following the Great Celestial Cleaving. The seven archipelago sky-islands float due to inverted graviton lattices anchored inside the Great Spire of Zenith.\n\n### The Aether Currents\nEvery 12 days, the twin moons synchronize in orbital harmonic resonance, intensifying all spellcraft by tenfold. Those untrained in mind-shielding risk astral madness if exposed directly to the raw night sky.\n\n### Societal Hierarchy\n- **The Archons**: Custodians of the Celestial Engines.\n- **The Vanguard Knights**: Airborne combatants utilizing glyph-gliders and resonance blades.\n- **The Grounded**: Descendants of those who remained on the lower crust before elevation.",
+      "locations": [
+        {
+          "id": "loc_1",
+          "name": "The Grand Citadel of Zenith",
+          "description": "A crystalline palace soaring 8,000 meters into the stratosphere, housing the Harmonic Chamber.",
+          "tags": [
+            "Capital",
+            "Government",
+            "Holy Site"
+          ],
+          "imageUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=600&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "loc_2",
+          "name": "The Whispering Rift",
+          "description": "A subterranean chasm pulsing with violet astral energy where ancient spirits communicate.",
+          "tags": [
+            "Dangerous",
+            "Ruins",
+            "Energy Well"
+          ],
+          "imageUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "loc_3",
+          "name": "Port Lunaris",
+          "description": "The bustling sky-dock where ether-skiffs trade exotic star spices and forged runes.",
+          "tags": [
+            "Trade Hub",
+            "Seaport",
+            "Diverse"
+          ],
+          "imageUrl": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80"
+        }
+      ],
+      "factions": [
+        {
+          "id": "fac_1",
+          "name": "Order of the Radiant Dawn",
+          "description": "Elite knights sworn to preserve the stability of the Floating Isles and neutralize void breaches.",
+          "tags": [
+            "Military",
+            "Protectors",
+            "Honorable"
+          ],
+          "imageUrl": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=600&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "fac_2",
+          "name": "The Eclipse Syndicate",
+          "description": "An underground guild seeking to harvest raw void fragments to break the monopoly of the Archons.",
+          "tags": [
+            "Rebels",
+            "Black Market",
+            "Shadow"
+          ],
+          "imageUrl": "https://images.unsplash.com/photo-1563089145-599997674d42?w=600&auto=format&fit=crop&q=80"
+        }
+      ],
+      "chronology": [
+        {
+          "id": "chr_1",
+          "timeLabel": "Year 0 (First Dawn)",
+          "title": "The Great Cleaving & Ascension",
+          "description": "The continental crust is shattered by falling star shards; Archon Valerius anchors the floating continents.",
+          "isCurrentEra": false,
+          "sortOrder": 1
+        },
+        {
+          "id": "chr_2",
+          "timeLabel": "Year 1420",
+          "title": "The Eclipse War",
+          "description": "First void incursion repelled by the newly formed Order of the Radiant Dawn.",
+          "isCurrentEra": false,
+          "sortOrder": 2
+        },
+        {
+          "id": "chr_3",
+          "timeLabel": "Year 2840 (Present)",
+          "title": "The Awakening Era",
+          "description": "Stellar resonance frequencies begin fluctuating wildly across the archipelago.",
+          "isCurrentEra": true,
+          "sortOrder": 3
+        }
+      ],
+      "createdAt": "2025-01-11T12:30:00Z"
+    }
+  ],
+  "universes": [
+    {
+      "id": "uni_1",
+      "authorId": "usr_1",
+      "name": "The Astral Universe",
+      "slug": "the-astral-universe",
+      "tagline": "Where ancient stellar resonance meets forgotten cosmic dynasties.",
+      "description": "A sprawling multi-world continuity linked by ancient astral conduits and the resonant pulse of dead stars. Across five galaxies, wielders of Celestial Aether battle for the fate of reality.",
+      "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
+      "storiesCount": 3,
+      "charactersCount": 12,
+      "readersCount": 42800,
+      "rating": 4.9,
+      "overviewDoc": "The Astral Realm exists parallel to mortal perception. Those born under convergence moons manifest Aetherial Crests, allowing manipulation of dimensional currents and cosmic energy.",
+      "featuredCharacterIds": [
+        "char_1",
+        "char_2",
+        "char_3"
+      ],
+      "createdAt": "2025-01-11T12:00:00Z"
+    }
+  ],
+  "animeEntries": [
+    {
+      "id": "ani_1",
+      "title": "Frieren: Beyond Journey's End",
+      "altTitles": "Sousou no Frieren",
+      "poster": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80",
+      "synopsis": "The demon king has been defeated, and the victorious hero party returns home before disbanding. The four—mage Frieren, hero Himmel, priest Heiter, and warrior Eisen—reminisce about their decade-long journey. But the passing of time is different for elves.",
+      "genres": [
+        "Fantasy",
+        "Adventure",
+        "Drama",
+        "Magic"
+      ],
+      "score": 9.35,
+      "episodes": 28,
+      "status": "Finished Airing",
+      "season": "Fall 2023",
+      "characters": [
+        {
+          "name": "Frieren",
+          "role": "Main",
+          "portrait": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
+        },
+        {
+          "name": "Fern",
+          "role": "Main",
+          "portrait": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80"
+        },
+        {
+          "name": "Stark",
+          "role": "Main",
+          "portrait": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80"
+        }
+      ],
+      "whereToWatch": [
+        {
+          "platform": "Crunchyroll",
+          "url": "https://www.crunchyroll.com",
+          "iconName": "tv"
+        },
+        {
+          "platform": "Netflix",
+          "url": "https://www.netflix.com",
+          "iconName": "film"
+        }
+      ],
+      "reviews": [
+        {
+          "id": "ar_1",
+          "userId": "usr_3",
+          "username": "sakura_dreamer",
+          "userAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+          "rating": 10,
+          "text": "A transcendent meditation on time, grief, friendship, and quiet magic. One of the greatest fantasy works ever produced.",
+          "createdAt": "2025-01-20T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "ani_2",
+      "title": "Solo Leveling",
+      "altTitles": "Ore dake Level Up na Ken",
+      "poster": "https://images.unsplash.com/photo-1563089145-599997674d42?w=600&auto=format&fit=crop&q=80",
+      "synopsis": "In a world where hunters, humans who possess magical powers, battle deadly monsters to protect the human race from certain annihilation, a notoriously weak hunter named Sung Jinwoo finds himself in a struggle for survival in a double dungeon.",
+      "genres": [
+        "Action",
+        "Fantasy",
+        "Supernatural"
+      ],
+      "score": 8.7,
+      "episodes": 24,
+      "status": "Currently Airing",
+      "season": "Winter 2024 / Winter 2025",
+      "characters": [
+        {
+          "name": "Sung Jinwoo",
+          "role": "Main",
+          "portrait": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80"
+        },
+        {
+          "name": "Cha Hae-In",
+          "role": "Supporting",
+          "portrait": "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&auto=format&fit=crop&q=80"
+        }
+      ],
+      "whereToWatch": [
+        {
+          "platform": "Crunchyroll",
+          "url": "https://www.crunchyroll.com",
+          "iconName": "tv"
+        }
+      ],
+      "reviews": [
+        {
+          "id": "ar_2",
+          "userId": "usr_2",
+          "username": "voidknight",
+          "userAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+          "rating": 9,
+          "text": "Top tier combat direction and godly animation soundtrack by Hiroyuki Sawano.",
+          "createdAt": "2025-02-01T14:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "ani_3",
+      "title": "Jujutsu Kaisen",
+      "altTitles": "Sorcery Fight",
+      "poster": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80",
+      "synopsis": "A boy swallows a cursed talisman - the finger of a demon - and becomes cursed himself. He enters a shaman's school to be able to locate the demon's other body parts and thus exorcise himself.",
+      "genres": [
+        "Action",
+        "Dark Fantasy",
+        "Supernatural",
+        "School"
+      ],
+      "score": 8.9,
+      "episodes": 47,
+      "status": "Finished Airing",
+      "season": "Fall 2020 / Summer 2023",
+      "characters": [
+        {
+          "name": "Yuji Itadori",
+          "role": "Main",
+          "portrait": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80"
+        },
+        {
+          "name": "Satoru Gojo",
+          "role": "Main",
+          "portrait": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
+        }
+      ],
+      "whereToWatch": [
+        {
+          "platform": "Crunchyroll",
+          "url": "https://www.crunchyroll.com",
+          "iconName": "tv"
+        },
+        {
+          "platform": "Netflix",
+          "url": "https://www.netflix.com",
+          "iconName": "film"
+        }
+      ],
+      "reviews": []
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif_1",
+      "userId": "usr_3",
+      "type": "new_chapter",
+      "title": "New Chapter Released!",
+      "message": "Althea Vance published Chapter 4: \"The Void Breach at Dawn\" in Celestial Drifters: Awakening.",
+      "linkUrl": "/story/celestial-drifters-awakening/read/4",
+      "isRead": false,
+      "createdAt": "2026-09-03T07:14:35.498Z"
+    },
+    {
+      "id": "notif_2",
+      "userId": "usr_3",
+      "type": "comment_reply",
+      "title": "Author Replied to Your Comment",
+      "message": "Althea Vance replied: \"Thank you! Chapter 2 is where the real rivalry begins with Kaelen!\"",
+      "linkUrl": "/story/celestial-drifters-awakening",
+      "isRead": true,
+      "createdAt": "2026-09-02T09:14:35.498Z"
+    },
+    {
+      "id": "notif_3",
+      "userId": "usr_1",
+      "type": "new_follower",
+      "title": "New Follower",
+      "message": "Sakura Dreamer and 14 other readers started following your author profile.",
+      "linkUrl": "/profile/sakura_dreamer",
+      "isRead": false,
+      "createdAt": "2026-09-03T05:14:35.498Z"
+    }
+  ],
+  "badges": {
+    "usr_1": [
+      {
+        "id": "bdg_1",
+        "key": "streak_7",
+        "title": "7-Day Reading Streak",
+        "description": "Read chapters for 7 consecutive days on KAIRO.",
+        "icon": "flame",
+        "unlocked": true,
+        "unlockedAt": "2025-02-15T00:00:00Z",
+        "progress": {
+          "current": 7,
+          "max": 7
+        }
+      },
+      {
+        "id": "bdg_2",
+        "key": "stories_10",
+        "title": "Story Wanderer",
+        "description": "Explore and read at least 10 different original serials.",
+        "icon": "book-open",
+        "unlocked": true,
+        "unlockedAt": "2025-02-18T00:00:00Z",
+        "progress": {
+          "current": 10,
+          "max": 10
+        }
+      },
+      {
+        "id": "bdg_3",
+        "key": "lore_master",
+        "title": "Lore Master",
+        "description": "Inspect 5 complete world codexes and character relationship graphs.",
+        "icon": "sparkles",
+        "unlocked": false,
+        "progress": {
+          "current": 3,
+          "max": 5
+        }
+      },
+      {
+        "id": "bdg_4",
+        "key": "theory_crafter",
+        "title": "Prophet of Canon",
+        "description": "Have a community theory reach 50+ agreed votes.",
+        "icon": "lightbulb",
+        "unlocked": true,
+        "unlockedAt": "2025-02-24T00:00:00Z",
+        "progress": {
+          "current": 94,
+          "max": 50
+        }
+      }
+    ],
+    "usr_2": [
+      {
+        "id": "bdg_1",
+        "key": "streak_7",
+        "title": "7-Day Reading Streak",
+        "description": "Read chapters for 7 consecutive days on KAIRO.",
+        "icon": "flame",
+        "unlocked": true,
+        "unlockedAt": "2025-02-15T00:00:00Z",
+        "progress": {
+          "current": 7,
+          "max": 7
+        }
+      },
+      {
+        "id": "bdg_2",
+        "key": "stories_10",
+        "title": "Story Wanderer",
+        "description": "Explore and read at least 10 different original serials.",
+        "icon": "book-open",
+        "unlocked": true,
+        "unlockedAt": "2025-02-18T00:00:00Z",
+        "progress": {
+          "current": 10,
+          "max": 10
+        }
+      },
+      {
+        "id": "bdg_3",
+        "key": "lore_master",
+        "title": "Lore Master",
+        "description": "Inspect 5 complete world codexes and character relationship graphs.",
+        "icon": "sparkles",
+        "unlocked": false,
+        "progress": {
+          "current": 3,
+          "max": 5
+        }
+      },
+      {
+        "id": "bdg_4",
+        "key": "theory_crafter",
+        "title": "Prophet of Canon",
+        "description": "Have a community theory reach 50+ agreed votes.",
+        "icon": "lightbulb",
+        "unlocked": true,
+        "unlockedAt": "2025-02-24T00:00:00Z",
+        "progress": {
+          "current": 94,
+          "max": 50
+        }
+      }
+    ],
+    "usr_3": [
+      {
+        "id": "bdg_1",
+        "key": "streak_7",
+        "title": "7-Day Reading Streak",
+        "description": "Read chapters for 7 consecutive days on KAIRO.",
+        "icon": "flame",
+        "unlocked": true,
+        "unlockedAt": "2025-02-15T00:00:00Z",
+        "progress": {
+          "current": 7,
+          "max": 7
+        }
+      },
+      {
+        "id": "bdg_2",
+        "key": "stories_10",
+        "title": "Story Wanderer",
+        "description": "Explore and read at least 10 different original serials.",
+        "icon": "book-open",
+        "unlocked": true,
+        "unlockedAt": "2025-02-18T00:00:00Z",
+        "progress": {
+          "current": 10,
+          "max": 10
+        }
+      },
+      {
+        "id": "bdg_3",
+        "key": "lore_master",
+        "title": "Lore Master",
+        "description": "Inspect 5 complete world codexes and character relationship graphs.",
+        "icon": "sparkles",
+        "unlocked": false,
+        "progress": {
+          "current": 3,
+          "max": 5
+        }
+      },
+      {
+        "id": "bdg_4",
+        "key": "theory_crafter",
+        "title": "Prophet of Canon",
+        "description": "Have a community theory reach 50+ agreed votes.",
+        "icon": "lightbulb",
+        "unlocked": true,
+        "unlockedAt": "2025-02-24T00:00:00Z",
+        "progress": {
+          "current": 94,
+          "max": 50
+        }
+      }
+    ],
+    "usr_admin": [
+      {
+        "id": "bdg_1",
+        "key": "streak_7",
+        "title": "7-Day Reading Streak",
+        "description": "Read chapters for 7 consecutive days on KAIRO.",
+        "icon": "flame",
+        "unlocked": true,
+        "unlockedAt": "2025-02-15T00:00:00Z",
+        "progress": {
+          "current": 7,
+          "max": 7
+        }
+      },
+      {
+        "id": "bdg_2",
+        "key": "stories_10",
+        "title": "Story Wanderer",
+        "description": "Explore and read at least 10 different original serials.",
+        "icon": "book-open",
+        "unlocked": true,
+        "unlockedAt": "2025-02-18T00:00:00Z",
+        "progress": {
+          "current": 10,
+          "max": 10
+        }
+      },
+      {
+        "id": "bdg_3",
+        "key": "lore_master",
+        "title": "Lore Master",
+        "description": "Inspect 5 complete world codexes and character relationship graphs.",
+        "icon": "sparkles",
+        "unlocked": false,
+        "progress": {
+          "current": 3,
+          "max": 5
+        }
+      },
+      {
+        "id": "bdg_4",
+        "key": "theory_crafter",
+        "title": "Prophet of Canon",
+        "description": "Have a community theory reach 50+ agreed votes.",
+        "icon": "lightbulb",
+        "unlocked": true,
+        "unlockedAt": "2025-02-24T00:00:00Z",
+        "progress": {
+          "current": 94,
+          "max": 50
+        }
+      }
+    ],
+    "usr_1788428969349_qlh8": [],
+    "usr_1788429666059_gv3w": []
+  },
+  "likes": {
+    "story_1": [
+      "usr_2",
+      "usr_3",
+      "usr_admin"
+    ],
+    "story_2": [
+      "usr_1",
+      "usr_3"
+    ],
+    "story_3": [
+      "usr_3"
+    ],
+    "story_4": [
+      "usr_1",
+      "usr_2"
+    ],
+    "story_5": [
+      "usr_1",
+      "usr_3"
+    ]
+  },
+  "follows": {
+    "usr_1": [
+      "usr_2",
+      "usr_3"
+    ],
+    "usr_2": [
+      "usr_1",
+      "usr_3"
+    ],
+    "usr_3": [
+      "usr_1"
+    ]
+  },
+  "userAnimeTracking": {
+    "usr_3": {
+      "ani_1": {
+        "status": "Completed",
+        "episodesWatched": 28
+      },
+      "ani_2": {
+        "status": "Watching",
+        "episodesWatched": 18
+      }
+    }
+  },
+  "chatRooms": [
+    {
+      "id": "room_anime_lounge",
+      "name": "🌌 Anime Lounge",
+      "slug": "anime-lounge",
+      "description": "General seasonal anime chat, studio analyses, and OST music drops.",
+      "icon": "sparkles",
+      "category": "fandom",
+      "onlineCount": 1284,
+      "totalMembers": 18400,
+      "pinnedMessage": "Welcome to Anime Lounge! Please respect everyone's tastes and tag spoilers."
+    },
+    {
+      "id": "room_shonen",
+      "name": "⚔️ Shonen Room",
+      "slug": "shonen-room",
+      "description": "High-octane battles, power scaling discussions, and training arc hype.",
+      "icon": "swords",
+      "category": "genre",
+      "onlineCount": 2341,
+      "totalMembers": 31200,
+      "pinnedMessage": "Current debate: Best training tournament arc in fantasy fiction?"
+    },
+    {
+      "id": "room_slice_of_life",
+      "name": "🌸 Slice of Life",
+      "slug": "slice-of-life",
+      "description": "Cozy vibes, wholesome series, slow burn romances, and comforting reads.",
+      "icon": "heart",
+      "category": "genre",
+      "onlineCount": 892,
+      "totalMembers": 9400
+    },
+    {
+      "id": "room_reading_now",
+      "name": "📚 What Are You Reading?",
+      "slug": "what-are-you-reading",
+      "description": "Live reading progress drops, favorite quotes, and genuine reactions.",
+      "icon": "book-open",
+      "category": "general",
+      "onlineCount": 1420,
+      "totalMembers": 22000
+    },
+    {
+      "id": "room_writers",
+      "name": "✍️ Writers Lounge",
+      "slug": "writers-lounge",
+      "description": "Writing sprints, wordcount targets, dialogue sparring, and peer feedback.",
+      "icon": "pen-tool",
+      "category": "creator",
+      "onlineCount": 342,
+      "totalMembers": 5200,
+      "pinnedMessage": "Daily prompt: Describe an unexpected weapon forged from a memory."
+    },
+    {
+      "id": "room_artists",
+      "name": "🎨 Artists Corner",
+      "slug": "artists-corner",
+      "description": "Fan art work-in-progress, color palettes, sketch critiques, and commissions.",
+      "icon": "palette",
+      "category": "creator",
+      "onlineCount": 512,
+      "totalMembers": 8100
+    },
+    {
+      "id": "room_theory_lab",
+      "name": "💭 Theory Lab",
+      "slug": "theory-lab",
+      "description": "Deep cosmology analysis, timeline logic, and canon predictions.",
+      "icon": "brain",
+      "category": "theory",
+      "onlineCount": 891,
+      "totalMembers": 12500
+    },
+    {
+      "id": "room_astral_spoiler",
+      "name": "⚠️ Spoiler Room: Astral Universe Ch. 4+",
+      "slug": "astral-spoilers",
+      "description": "Unfiltered spoiler zone for Astral Universe chapters 4 and beyond.",
+      "icon": "alert-triangle",
+      "category": "spoiler",
+      "isSpoiler": true,
+      "spoilerWarning": "Warning: This room contains unredacted spoilers for Celestial Drifters through current chapters!",
+      "onlineCount": 412,
+      "totalMembers": 6200
+    },
+    {
+      "id": "room_event_launch",
+      "name": "⏳ Live Launch: Celestial Drifters Ch. 5",
+      "slug": "astral-launch-event",
+      "description": "Author live countdown, trivia drops, and real-time release party.",
+      "icon": "flame",
+      "category": "event",
+      "isEvent": true,
+      "eventTitle": "Chapter 5 Live Launch & Author AMA",
+      "eventHost": "Althea Vance",
+      "eventEndsAt": "2026-09-05T09:36:58.579Z",
+      "onlineCount": 1650,
+      "totalMembers": 8900
+    }
+  ],
+  "chatMessages": {
+    "room_anime_lounge": [
+      {
+        "id": "msg_1",
+        "roomId": "room_anime_lounge",
+        "userId": "usr_3",
+        "username": "sakura_dreamer",
+        "displayName": "Sakura Dreamer",
+        "userAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+        "content": "Has anyone finished the latest Frieren episode? The spell animation sequences are breathtaking!",
+        "reactions": {
+          "✨": [
+            "usr_1",
+            "usr_2"
+          ],
+          "❤️": [
+            "usr_admin"
+          ]
+        },
+        "createdAt": "2026-09-03T07:36:58.579Z"
+      },
+      {
+        "id": "msg_2",
+        "roomId": "room_anime_lounge",
+        "userId": "usr_1",
+        "username": "althea_v",
+        "displayName": "Althea Vance",
+        "userAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+        "userRole": "WRITER",
+        "isAuthor": true,
+        "content": "The pacing in the journey montage gave me so much inspiration for the Sky-Isle travels in Chapter 5!",
+        "reactions": {
+          "❤️": [
+            "usr_3"
+          ]
+        },
+        "createdAt": "2026-09-03T08:36:58.579Z"
+      },
+      {
+        "id": "msg_1788428376353_ihk8",
+        "roomId": "room_anime_lounge",
+        "userId": "usr_admin",
+        "username": "admin",
+        "displayName": "KAIRO Staff",
+        "userAvatar": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&auto=format&fit=crop&q=80",
+        "userRole": "ADMIN",
+        "isAuthor": false,
+        "isMod": true,
+        "content": "hiii\\",
+        "isSpoiler": false,
+        "reactions": {
+          "❤️": [
+            "usr_admin"
+          ]
+        },
+        "createdAt": "2026-09-03T09:39:36.353Z"
+      }
+    ],
+    "room_reading_now": [
+      {
+        "id": "msg_3",
+        "roomId": "room_reading_now",
+        "userId": "usr_2",
+        "username": "voidknight",
+        "displayName": "Void Knight",
+        "userAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+        "userRole": "WRITER",
+        "content": "Just re-read Chapter 2 of Celestial Drifters. The arena duel choreography is so sharp.",
+        "storyCard": {
+          "id": "story_1",
+          "title": "Celestial Drifters: Awakening",
+          "slug": "celestial-drifters-awakening",
+          "cover": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80",
+          "author": "Althea Vance",
+          "genre": "Fantasy"
+        },
+        "createdAt": "2026-09-03T09:06:58.579Z"
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "evt_1",
+      "title": "Celestial Drifters Chapter 5 Launch Party",
+      "description": "Join author Althea Vance for a live countdown, reading excerpts, and community Q&A.",
+      "hostName": "Althea Vance",
+      "hostAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "hostRole": "WRITER",
+      "type": "CHAPTER_LAUNCH",
+      "startTime": "2026-09-04T09:36:58.579Z",
+      "participantsCount": 642,
+      "communityId": "comm_astral",
+      "communityName": "The Astral Sanctuary",
+      "bannerUrl": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1200&auto=format&fit=crop&q=80"
+    },
+    {
+      "id": "evt_2",
+      "title": "Grimdark Worldbuilding & Anti-Hero AMA",
+      "description": "Void Knight answers your questions about structuring high-stakes magic and moral conflict.",
+      "hostName": "Void Knight",
+      "hostAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "hostRole": "WRITER",
+      "type": "QA",
+      "startTime": "2026-09-06T09:36:58.579Z",
+      "participantsCount": 418,
+      "communityId": "comm_shattered",
+      "communityName": "The Shattered Keep",
+      "bannerUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80"
+    }
+  ],
+  "contests": [
+    {
+      "id": "cnt_1",
+      "title": "Celestial Knights: Original Character Design",
+      "description": "Design a cadet or void-hunter for the Zenith Academy. Submissions can be artwork or 300-word character profiles.",
+      "category": "Character Design",
+      "deadline": "2026-09-13T09:36:58.579Z",
+      "entriesCount": 24,
+      "prizeXP": 5000,
+      "bannerUrl": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80",
+      "status": "OPEN",
+      "submissions": [
+        {
+          "id": "sub_1",
+          "contestId": "cnt_1",
+          "userId": "usr_3",
+          "username": "sakura_dreamer",
+          "userAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+          "title": "Seraphina: The Starlight Cartographer",
+          "description": "A quiet scholar wielding an inverted astrolabe blade that can map gravitational fractures in mid-air.",
+          "votes": 43,
+          "votedUserIds": [
+            "usr_1",
+            "usr_admin"
+          ],
+          "createdAt": "2025-02-20T12:00:00Z"
+        }
+      ]
+    }
+  ],
+  "quoteSnippets": [
+    {
+      "id": "q_1",
+      "text": "The stars do not forgive the weak; they only illuminate their fall.",
+      "storyId": "story_1",
+      "storySlug": "celestial-drifters-awakening",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "chapterNumber": 3,
+      "chapterTitle": "The Celestial Trial",
+      "authorName": "Althea Vance",
+      "authorUsername": "althea_v",
+      "createdByUserId": "usr_3",
+      "createdByUsername": "sakura_dreamer",
+      "createdByAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "theme": "cosmic",
+      "likes": 88,
+      "likedByUsers": [
+        "usr_1",
+        "usr_2"
+      ],
+      "createdAt": "2025-02-18T10:00:00Z"
+    },
+    {
+      "id": "q_2",
+      "text": "When an empire crumbles, even the shadows learn to sharpen their teeth.",
+      "storyId": "story_2",
+      "storySlug": "the-shattered-crown",
+      "storyTitle": "The Shattered Crown",
+      "chapterNumber": 1,
+      "chapterTitle": "The Blood on the Marble",
+      "authorName": "Void Knight",
+      "authorUsername": "voidknight",
+      "createdByUserId": "usr_1",
+      "createdByUsername": "althea_v",
+      "createdByAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "theme": "crimson",
+      "likes": 62,
+      "likedByUsers": [
+        "usr_3"
+      ],
+      "createdAt": "2025-02-19T14:00:00Z"
+    }
+  ],
+  "directMessages": {},
+  "conversations": [
+    {
+      "id": "conv_1",
+      "participantIds": [
+        "usr_1",
+        "usr_3"
+      ],
+      "lastMessage": "Let me know what you think of the new astral map!",
+      "lastMessageAt": "2025-02-27T10:00:00Z",
+      "unreadCount": 0,
+      "participants": [
+        {
+          "id": "usr_1",
+          "username": "althea_v",
+          "displayName": "Althea Vance",
+          "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+          "role": "WRITER"
+        },
+        {
+          "id": "usr_3",
+          "username": "sakura_dreamer",
+          "displayName": "Sakura Dreamer",
+          "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80"
+        }
+      ]
+    }
+  ],
+  "readingLists": [
+    {
+      "id": "list_1",
+      "userId": "usr_3",
+      "username": "sakura_dreamer",
+      "title": "Masterpiece Worldbuilding & High Stakes",
+      "description": "Serene prose, intricate magical physics, and emotional payoff.",
+      "isPublic": true,
+      "storyIds": [
+        "story_1",
+        "story_2"
+      ],
+      "likes": 124,
+      "createdAt": "2025-02-15T00:00:00Z"
+    }
+  ],
+  "reports": [],
+  "blockedUsers": {},
+  "mutedUsers": {},
+  "communityMembers": {
+    "comm_astral": [
+      "usr_1",
+      "usr_3",
+      "usr_admin"
+    ],
+    "comm_shattered": [
+      "usr_2",
+      "usr_3"
+    ],
+    "comm_dark_fantasy": [
+      "usr_1",
+      "usr_2",
+      "usr_3"
+    ],
+    "comm_anime_hype": [
+      "usr_3",
+      "usr_admin"
+    ],
+    "comm_writers_workshop": [
+      "usr_1",
+      "usr_2"
+    ]
+  },
+  "postSaves": {},
+  "postFollows": {}
+}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ReaderProvider } from './context/ReaderContext';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
@@ -24,6 +24,8 @@ import { WorldBuilderModal } from './components/WorldBuilderModal';
 import { CharacterBuilderModal } from './components/CharacterBuilderModal';
 
 export function KairoApp() {
+  const { isAuthModalOpen, openAuthModal, closeAuthModal } = useAuth();
+
   // Navigation State
   const [currentView, setCurrentView] = useState<string>('home');
   const [selectedStorySlug, setSelectedStorySlug] = useState<string>('celestial-drifters');
@@ -117,7 +119,7 @@ export function KairoApp() {
         onNavigate={(view) => navigateTo(view)}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenNotifs={() => setIsNotificationOpen(true)}
-        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenAuth={openAuthModal}
       />
 
       {/* Main Content Area */}
@@ -169,6 +171,7 @@ export function KairoApp() {
           <CommunityView
             initialCommunitySlug={selectedCommunitySlug}
             onOpenStory={(slug) => navigateTo('story', slug)}
+            onRequireAuth={openAuthModal}
           />
         )}
 
@@ -252,8 +255,11 @@ export function KairoApp() {
       />
 
       <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
+        isOpen={isAuthOpen || isAuthModalOpen}
+        onClose={() => {
+          setIsAuthOpen(false);
+          closeAuthModal();
+        }}
         onAdminLogin={() => navigateTo('admin')}
       />
 

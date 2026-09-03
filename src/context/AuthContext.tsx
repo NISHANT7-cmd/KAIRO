@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Notification } from '../types';
-import { api, getStoredToken } from '../services/api';
+import { api, getStoredToken, getActiveLocalUser, ApiError } from '../services/api';
 
 interface SignupData {
   username: string;
@@ -19,6 +19,9 @@ interface AuthContextType {
   loading: boolean;
   notifications: Notification[];
   unreadNotifsCount: number;
+  isAuthModalOpen: boolean;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
   login: (login: string, password: string) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
   logout: () => Promise<void>;
@@ -34,6 +37,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const openAuthModal = () => setIsAuthModalOpen(true);
+  const closeAuthModal = () => setIsAuthModalOpen(false);
 
   const fetchNotifs = async () => {
     try {
@@ -50,21 +57,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!token) {
         setUser(null);
         setNotifications([]);
+        return;
+      }
+
+      const res = await api.getMe();
+      if (res.user) {
+        setUser(res.user);
+        await fetchNotifs();
       } else {
-        const res = await api.getMe();
-        if (res.user) {
-          setUser(res.user);
-          await fetchNotifs();
-        } else {
-          api.logout();
-          setUser(null);
-          setNotifications([]);
+        // Explicitly empty response: clear session
+        await api.logout();
+        setUser(null);
+        setNotifications([]);
+      }
+    } catch (err: any) {
+      console.warn('[AuthContext] Session refresh encountered an error:', err);
+
+      // Check specific response status codes:
+      // 401 Unauthorized (invalid, missing, or expired token)
+      // 403 Forbidden (suspended account)
+      const isAuthRejection = 
+        (err instanceof ApiError && (err.status === 401 || err.status === 403)) ||
+        err?.status === 401 || 
+        err?.status === 403 ||
+        err?.code === 'EXPIRED_TOKEN' ||
+        err?.code === 'INVALID_TOKEN' ||
+        err?.code === 'MISSING_TOKEN' ||
+        err?.code === 'ACCOUNT_SUSPENDED';
+
+      if (isAuthRejection) {
+        console.info('[AuthContext] Session credentials confirmed invalid by server. Logging out.');
+        await api.logout();
+        setUser(null);
+        setNotifications([]);
+      } else {
+        // Transient serverless cold-start latency, 500/502/503/504, or network interruption
+        console.warn('[AuthContext] Non-auth server/network error during refresh. Retaining local session cache.');
+        const cachedUser = getActiveLocalUser();
+        if (cachedUser) {
+          setUser(cachedUser);
         }
       }
-    } catch (err) {
-      api.logout();
-      setUser(null);
-      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -115,6 +148,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading,
       notifications,
       unreadNotifsCount,
+      isAuthModalOpen,
+      openAuthModal,
+      closeAuthModal,
       login,
       signup,
       logout,

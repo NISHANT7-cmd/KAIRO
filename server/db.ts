@@ -9,9 +9,28 @@ import {
   DirectMessage, DirectMessageConversation, CustomReadingList, QuoteSnippet, ReportItem,
   CommunityComment, CommunityType, PostType
 } from '../src/types.js';
+import {
+  initialCommunities, initialPosts, initialChatRooms, initialChatMessages,
+  initialEvents, initialContests, initialQuoteSnippets
+} from './community-seeds.js';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const DB_FILE = path.join(DATA_DIR, 'kairo_db.json');
+function resolveDataPaths() {
+  const isServerless = process.env.VERCEL === '1' || 
+                       Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) || 
+                       Boolean(process.env.VERCEL_ENV) ||
+                       Boolean(process.env.LAMBDA_TASK_ROOT);
+
+  const bundledDir = path.join(process.cwd(), 'data');
+  const bundledFile = path.join(bundledDir, 'kairo_db.json');
+
+  if (isServerless) {
+    const tmpDir = path.join('/tmp', 'kairo_data');
+    const tmpFile = path.join(tmpDir, 'kairo_db.json');
+    return { dataDir: tmpDir, dbFile: tmpFile, seedFile: bundledFile };
+  }
+
+  return { dataDir: bundledDir, dbFile: bundledFile, seedFile: bundledFile };
+}
 
 export interface SessionData {
   userId: string;
@@ -869,6 +888,7 @@ By nightfall, the black banner of the Crimson Raven fluttered over the highest k
       authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80',
       title: 'Who will master the Twin Eclipse resonance first?',
       content: 'In chapter 4 we saw the void rift expand over Port Lunaris. Do you think Aria will unlock her second affinity or will Kaelen have to sacrifice his ancestral blade?',
+      type: 'POLL',
       tag: 'Theory',
       likes: 42,
       likedByUsers: ['usr_1'],
@@ -898,6 +918,7 @@ By nightfall, the black banner of the Crimson Raven fluttered over the highest k
       authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
       title: 'Chapter 5 Teaser: The Archon Chamber',
       content: 'Here is an official snippet from next week’s chapter: "The stained glass of the High Spire began to sing in three distinct keys. None of them belonged to the living world."',
+      type: 'ANNOUNCEMENT',
       mediaUrl: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1000&auto=format&fit=crop&q=80',
       mediaType: 'image',
       tag: 'Official Update',
@@ -1155,46 +1176,190 @@ By nightfall, the black banner of the Crimson Raven fluttered over the highest k
     likes,
     follows,
     userAnimeTracking,
+    chatRooms: initialChatRooms,
+    chatMessages: initialChatMessages,
+    events: initialEvents,
+    contests: initialContests,
+    directMessages: {},
+    conversations: [
+      {
+        id: 'conv_1',
+        participantIds: ['usr_1', 'usr_3'],
+        lastMessage: 'Let me know what you think of the new astral map!',
+        lastMessageAt: '2025-02-27T10:00:00Z',
+        unreadCount: 0,
+        participants: [
+          { id: 'usr_1', username: 'althea_v', displayName: 'Althea Vance', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80', role: 'WRITER' },
+          { id: 'usr_3', username: 'sakura_dreamer', displayName: 'Sakura Dreamer', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80' }
+        ]
+      }
+    ],
+    readingLists: [
+      {
+        id: 'list_1',
+        userId: 'usr_3',
+        username: 'sakura_dreamer',
+        title: 'Masterpiece Worldbuilding & High Stakes',
+        description: 'Serene prose, intricate magical physics, and emotional payoff.',
+        isPublic: true,
+        storyIds: ['story_1', 'story_2'],
+        likes: 124,
+        createdAt: '2025-02-15T00:00:00Z'
+      }
+    ],
+    quoteSnippets: initialQuoteSnippets,
+    reports: [],
+    blockedUsers: {},
+    mutedUsers: {},
+    communityMembers: {
+      'comm_astral': ['usr_1', 'usr_3', 'usr_admin'],
+      'comm_shattered': ['usr_2', 'usr_3'],
+      'comm_dark_fantasy': ['usr_1', 'usr_2', 'usr_3'],
+      'comm_anime_hype': ['usr_3', 'usr_admin'],
+      'comm_writers_workshop': ['usr_1', 'usr_2']
+    },
+    postSaves: {},
+    postFollows: {}
   };
 }
 
 class DatabaseService {
   private db: DatabaseSchema;
+  private dataDir: string;
+  private dbFile: string;
+  private seedFile: string;
 
   constructor() {
+    const paths = resolveDataPaths();
+    this.dataDir = paths.dataDir;
+    this.dbFile = paths.dbFile;
+    this.seedFile = paths.seedFile;
+
     this.ensureDataDir();
     this.db = this.loadDatabase();
   }
 
   private ensureDataDir() {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    try {
+      if (!fs.existsSync(this.dataDir)) {
+        fs.mkdirSync(this.dataDir, { recursive: true });
+      }
+    } catch (err: any) {
+      console.warn('Unable to create data directory (proceeding in-memory):', err?.message);
     }
+  }
+
+  private enrichDatabase(parsed: DatabaseSchema): DatabaseSchema {
+    if (!parsed.sessions) {
+      parsed.sessions = {};
+    }
+    // Auto migrate any legacy plain passwords to salted hashes
+    if (parsed.passwords) {
+      for (const uid of Object.keys(parsed.passwords)) {
+        const val = parsed.passwords[uid];
+        if (typeof val === 'string') {
+          const salt = crypto.randomBytes(16).toString('hex');
+          const hash = hashPassword(val, salt);
+          parsed.passwords[uid] = { salt, hash };
+        }
+      }
+    }
+    // Ensure community ecosystem data exists
+    if (!parsed.chatRooms || parsed.chatRooms.length === 0) {
+      parsed.chatRooms = initialChatRooms;
+    }
+    if (!parsed.chatMessages || Object.keys(parsed.chatMessages).length === 0) {
+      parsed.chatMessages = initialChatMessages;
+    }
+    if (!parsed.events || parsed.events.length === 0) {
+      parsed.events = initialEvents;
+    }
+    if (!parsed.contests || parsed.contests.length === 0) {
+      parsed.contests = initialContests;
+    }
+    if (!parsed.quoteSnippets || parsed.quoteSnippets.length === 0) {
+      parsed.quoteSnippets = initialQuoteSnippets;
+    }
+    if (!parsed.directMessages) parsed.directMessages = {};
+    if (!parsed.conversations) parsed.conversations = [
+      {
+        id: 'conv_1',
+        participantIds: ['usr_1', 'usr_3'],
+        lastMessage: 'Let me know what you think of the new astral map!',
+        lastMessageAt: '2025-02-27T10:00:00Z',
+        unreadCount: 0,
+        participants: [
+          { id: 'usr_1', username: 'althea_v', displayName: 'Althea Vance', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80', role: 'WRITER' },
+          { id: 'usr_3', username: 'sakura_dreamer', displayName: 'Sakura Dreamer', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80' }
+        ]
+      }
+    ];
+    if (!parsed.readingLists) parsed.readingLists = [
+      {
+        id: 'list_1',
+        userId: 'usr_3',
+        username: 'sakura_dreamer',
+        title: 'Masterpiece Worldbuilding & High Stakes',
+        description: 'Serene prose, intricate magical physics, and emotional payoff.',
+        isPublic: true,
+        storyIds: ['story_1', 'story_2'],
+        likes: 124,
+        createdAt: '2025-02-15T00:00:00Z'
+      }
+    ];
+    if (!parsed.reports) parsed.reports = [];
+    if (!parsed.blockedUsers) parsed.blockedUsers = {};
+    if (!parsed.mutedUsers) parsed.mutedUsers = {};
+    if (!parsed.communityMembers) parsed.communityMembers = {
+      'comm_astral': ['usr_1', 'usr_3', 'usr_admin'],
+      'comm_shattered': ['usr_2', 'usr_3'],
+      'comm_dark_fantasy': ['usr_1', 'usr_2', 'usr_3'],
+      'comm_anime_hype': ['usr_3', 'usr_admin'],
+      'comm_writers_workshop': ['usr_1', 'usr_2']
+    };
+    if (!parsed.postSaves) parsed.postSaves = {};
+    if (!parsed.postFollows) parsed.postFollows = {};
+
+    // Merge initial communities if missing
+    initialCommunities.forEach(c => {
+      const exists = parsed.communities.some(ex => ex.id === c.id || ex.slug === c.slug);
+      if (!exists) {
+        parsed.communities.push(c);
+      }
+    });
+
+    // Merge initial posts if missing
+    initialPosts.forEach(p => {
+      const exists = parsed.communityPosts.some(ex => ex.id === p.id);
+      if (!exists) {
+        parsed.communityPosts.push(p);
+      }
+    });
+
+    return parsed;
   }
 
   private loadDatabase(): DatabaseSchema {
     try {
-      if (fs.existsSync(DB_FILE)) {
-        const raw = fs.readFileSync(DB_FILE, 'utf-8');
+      if (fs.existsSync(this.dbFile)) {
+        const raw = fs.readFileSync(this.dbFile, 'utf-8');
         const parsed: DatabaseSchema = JSON.parse(raw);
-        if (!parsed.sessions) {
-          parsed.sessions = {};
-        }
-        // Auto migrate any legacy plain passwords to salted hashes
-        if (parsed.passwords) {
-          for (const uid of Object.keys(parsed.passwords)) {
-            const val = parsed.passwords[uid];
-            if (typeof val === 'string') {
-              const salt = crypto.randomBytes(16).toString('hex');
-              const hash = hashPassword(val, salt);
-              parsed.passwords[uid] = { salt, hash };
-            }
-          }
-        }
-        return parsed;
+        return this.enrichDatabase(parsed);
       }
-    } catch (err) {
-      console.error('Error reading kairo_db.json, re-initializing with seed data:', err);
+    } catch (err: any) {
+      console.warn('Unable to load database from dbFile, falling back to seed:', err?.message);
+    }
+
+    try {
+      if (this.seedFile && fs.existsSync(this.seedFile)) {
+        const raw = fs.readFileSync(this.seedFile, 'utf-8');
+        const parsed: DatabaseSchema = JSON.parse(raw);
+        const enriched = this.enrichDatabase(parsed);
+        this.saveDatabase(enriched);
+        return enriched;
+      }
+    } catch (err: any) {
+      console.warn('Unable to load seedFile:', err?.message);
     }
 
     const seed = getInitialSeed();
@@ -1214,9 +1379,10 @@ class DatabaseService {
   private saveDatabase(data?: DatabaseSchema) {
     try {
       const dataToSave = data || this.db;
-      fs.writeFileSync(DB_FILE, JSON.stringify(dataToSave, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('Error saving database to file:', err);
+      this.ensureDataDir();
+      fs.writeFileSync(this.dbFile, JSON.stringify(dataToSave, null, 2), 'utf-8');
+    } catch (err: any) {
+      console.warn('Notice: Active database is saved in-memory (disk persistence skipped in restricted environment):', err?.message);
     }
   }
 
@@ -1229,12 +1395,23 @@ class DatabaseService {
   }
 
   // ----------------------------------------------------
-  // SESSIONS & AUTHENTICATION
+  // SESSIONS & AUTHENTICATION (STATESELESS & PERSISTENT)
   // ----------------------------------------------------
+  private getSessionSecret(): string {
+    return process.env.SESSION_SECRET || process.env.JWT_SECRET || 'kairo_jwt_sec_2025_prod_v1_secure_sign_key_93a1f8';
+  }
+
   public createSession(userId: string): { token: string; expiresAt: string } {
-    const token = 'kairo_sec_' + crypto.randomBytes(32).toString('hex');
     const now = new Date();
     const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const expiresAtMs = expires.getTime();
+
+    // Create HMAC signed token for serverless cold start resilience
+    const secret = this.getSessionSecret();
+    const payload = `${userId}:${expiresAtMs}`;
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    const token = `kairo_sig.${userId}.${expiresAtMs}.${signature}`;
+
     if (!this.db.sessions) {
       this.db.sessions = {};
     }
@@ -1247,31 +1424,106 @@ class DatabaseService {
     return { token, expiresAt: expires.toISOString() };
   }
 
-  public validateSession(token: string): User | null {
-    if (!token || !this.db.sessions) return null;
-    const session = this.db.sessions[token];
-    if (!session) return null;
-    
-    // Check expiration
-    if (new Date(session.expiresAt).getTime() < Date.now()) {
-      delete this.db.sessions[token];
-      this.commit();
-      return null;
+  public validateSessionDetails(token: string): { user: User | null; status: 'OK' | 'EXPIRED' | 'INVALID' | 'NOT_FOUND' | 'SUSPENDED' } {
+    if (!token || typeof token !== 'string') {
+      return { user: null, status: 'INVALID' };
     }
 
-    const user = this.findUserById(session.userId);
-    if (!user) return null;
+    const cleanToken = token.trim();
 
-    return user;
+    // Check revocation
+    if ((this.db as any).revokedTokens && (this.db as any).revokedTokens[cleanToken]) {
+      return { user: null, status: 'INVALID' };
+    }
+
+    // 1. Direct session table lookup
+    if (this.db.sessions && this.db.sessions[cleanToken]) {
+      const session = this.db.sessions[cleanToken];
+      if (new Date(session.expiresAt).getTime() < Date.now()) {
+        delete this.db.sessions[cleanToken];
+        this.commit();
+        return { user: null, status: 'EXPIRED' };
+      }
+      const user = this.findUserById(session.userId);
+      if (!user) return { user: null, status: 'NOT_FOUND' };
+      if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
+      return { user, status: 'OK' };
+    }
+
+    // 2. Stateless HMAC token validation for serverless cold-starts
+    if (cleanToken.startsWith('kairo_sig.')) {
+      const parts = cleanToken.split('.');
+      if (parts.length === 4) {
+        const [, userId, expiresAtStr, signature] = parts;
+        const expiresAtMs = parseInt(expiresAtStr, 10);
+
+        if (isNaN(expiresAtMs) || Date.now() > expiresAtMs) {
+          return { user: null, status: 'EXPIRED' };
+        }
+
+        const secret = this.getSessionSecret();
+        const payload = `${userId}:${expiresAtStr}`;
+        const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+
+        // Timing safe signature comparison
+        const sigBuf = Buffer.from(signature, 'hex');
+        const expBuf = Buffer.from(expectedSig, 'hex');
+        if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) {
+          const user = this.findUserById(userId);
+          if (!user) return { user: null, status: 'NOT_FOUND' };
+          if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
+
+          // Cache verified session in memory for quick subsequent queries
+          if (!this.db.sessions) this.db.sessions = {};
+          this.db.sessions[cleanToken] = {
+            userId,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(expiresAtMs).toISOString()
+          };
+          this.commit();
+
+          return { user, status: 'OK' };
+        } else {
+          return { user: null, status: 'INVALID' };
+        }
+      }
+    }
+
+    // 3. Fallback client token format: kairo_tok_<userId>_<timestamp>
+    if (cleanToken.startsWith('kairo_tok_')) {
+      const parts = cleanToken.split('_');
+      if (parts.length >= 3) {
+        const userId = parts[2];
+        const user = this.findUserById(userId);
+        if (user) {
+          if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
+          return { user, status: 'OK' };
+        }
+      }
+    }
+
+    return { user: null, status: 'INVALID' };
+  }
+
+  public validateSession(token: string): User | null {
+    const res = this.validateSessionDetails(token);
+    return res.status === 'OK' ? res.user : null;
   }
 
   public destroySession(token: string): boolean {
-    if (this.db.sessions && this.db.sessions[token]) {
-      delete this.db.sessions[token];
+    if (!token) return false;
+    const cleanToken = token.trim();
+    if (!this.db.sessions) this.db.sessions = {};
+    if (!(this.db as any).revokedTokens) (this.db as any).revokedTokens = {};
+
+    (this.db as any).revokedTokens[cleanToken] = true;
+    if (this.db.sessions[cleanToken]) {
+      delete this.db.sessions[cleanToken];
       this.commit();
       return true;
     }
-    return false;
+    this.commit();
+    return true;
   }
 
   // Users
@@ -1754,52 +2006,211 @@ class DatabaseService {
   }
 
   // Communities & Posts & Polls
-  public getCommunities(): Community[] {
-    return this.db.communities;
+  public getCommunities(userId?: string): Community[] {
+    return this.db.communities.map(c => {
+      const isMember = userId && this.db.communityMembers[c.id]?.includes(userId);
+      const membersCount = this.db.communityMembers[c.id]?.length || c.membersCount || c.memberCount || 0;
+      const postsCount = this.db.communityPosts.filter(p => p.communityId === c.id).length;
+      return {
+        ...c,
+        isMember: Boolean(isMember),
+        membersCount,
+        memberCount: membersCount,
+        postsCount
+      };
+    });
   }
 
-  public getCommunityBySlug(slug: string): Community | undefined {
-    return this.db.communities.find(c => c.slug === slug || c.id === slug);
+  public getCommunityBySlug(slug: string, userId?: string): Community | undefined {
+    const c = this.db.communities.find(comm => comm.slug === slug || comm.id === slug);
+    if (!c) return undefined;
+    const isMember = userId && this.db.communityMembers[c.id]?.includes(userId);
+    const membersCount = this.db.communityMembers[c.id]?.length || c.membersCount || c.memberCount || 0;
+    const postsCount = this.db.communityPosts.filter(p => p.communityId === c.id).length;
+    return {
+      ...c,
+      isMember: Boolean(isMember),
+      membersCount,
+      memberCount: membersCount,
+      postsCount
+    };
   }
 
-  public getCommunityPosts(communityId: string): CommunityPost[] {
+  public createCommunity(userId: string, data: Partial<Community>): Community {
+    const user = this.findUserById(userId);
+    const id = 'comm_' + Date.now();
+    const slug = (data.name || 'new-community').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + id.slice(-4);
+    const newComm: Community = {
+      id,
+      name: data.name || 'New Community',
+      slug,
+      description: data.description || '',
+      bannerImage: data.bannerImage || 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80',
+      iconImage: data.iconImage || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&auto=format&fit=crop&q=80',
+      type: data.type || 'public',
+      ownerId: userId,
+      ownerName: user?.displayName || user?.username || 'Founder',
+      ownerRole: user?.role || 'READER',
+      linkedStoryId: data.linkedStoryId,
+      linkedStoryTitle: data.linkedStoryTitle,
+      linkedAuthorId: data.linkedAuthorId,
+      isPrivate: Boolean(data.isPrivate),
+      accessCode: data.accessCode,
+      rules: data.rules && data.rules.length > 0 ? data.rules : [
+        'Be respectful to fellow creators and readers',
+        'Use spoiler tags for recent chapters',
+        'No hate speech, harassment, or spam'
+      ],
+      moderators: [userId],
+      categories: data.categories || ['Discussion', 'Theories', 'General'],
+      membersCount: 1,
+      memberCount: 1,
+      activeMembersCount: 1,
+      postsCount: 0,
+      isMember: true,
+      createdAt: new Date().toISOString()
+    };
+
+    this.db.communities.push(newComm);
+    if (!this.db.communityMembers[id]) {
+      this.db.communityMembers[id] = [];
+    }
+    this.db.communityMembers[id].push(userId);
+    this.commit();
+    return newComm;
+  }
+
+  public joinCommunity(communityId: string, userId: string, accessCode?: string): { success: boolean; message?: string } {
+    const comm = this.db.communities.find(c => c.id === communityId || c.slug === communityId);
+    if (!comm) return { success: false, message: 'Community not found' };
+    
+    if (comm.isPrivate && comm.accessCode) {
+      if (!accessCode || accessCode.trim().toUpperCase() !== comm.accessCode.trim().toUpperCase()) {
+        return { success: false, message: 'Invalid access code for private community' };
+      }
+    }
+
+    if (!this.db.communityMembers[comm.id]) {
+      this.db.communityMembers[comm.id] = [];
+    }
+    if (!this.db.communityMembers[comm.id].includes(userId)) {
+      this.db.communityMembers[comm.id].push(userId);
+    }
+    comm.membersCount = this.db.communityMembers[comm.id].length;
+    comm.memberCount = comm.membersCount;
+    this.commit();
+    return { success: true };
+  }
+
+  public leaveCommunity(communityId: string, userId: string): boolean {
+    const comm = this.db.communities.find(c => c.id === communityId || c.slug === communityId);
+    if (!comm) return false;
+    if (this.db.communityMembers[comm.id]) {
+      const idx = this.db.communityMembers[comm.id].indexOf(userId);
+      if (idx !== -1) {
+        this.db.communityMembers[comm.id].splice(idx, 1);
+      }
+    }
+    comm.membersCount = this.db.communityMembers[comm.id]?.length || 0;
+    comm.memberCount = comm.membersCount;
+    this.commit();
+    return true;
+  }
+
+  public getCommunityPosts(communityId: string, userId?: string): CommunityPost[] {
+    const comm = this.db.communities.find(c => c.id === communityId || c.slug === communityId);
+    const targetId = comm?.id || communityId;
     return this.db.communityPosts
-      .filter(p => p.communityId === communityId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .filter(p => p.communityId === targetId)
+      .map(p => this.enrichPost(p, userId))
+      .sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
   }
 
-  public getAllCommunityPosts(): CommunityPost[] {
+  public getAllCommunityPosts(userId?: string): CommunityPost[] {
     return this.db.communityPosts
-      .slice()
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .map(p => this.enrichPost(p, userId))
+      .sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }
+
+  public getCommunityPostById(postId: string, userId?: string): CommunityPost | undefined {
+    const post = this.db.communityPosts.find(p => p.id === postId);
+    if (!post) return undefined;
+    return this.enrichPost(post, userId);
+  }
+
+  private enrichPost(p: CommunityPost, userId?: string): CommunityPost {
+    const comm = this.db.communities.find(c => c.id === p.communityId);
+    const isSaved = Boolean(userId && this.db.postSaves[userId]?.includes(p.id));
+    const isFollowing = Boolean(userId && this.db.postFollows[userId]?.includes(p.id));
+    const userVoteOption = userId && p.poll?.options.find(opt => opt.votes.includes(userId))?.id;
+    return {
+      ...p,
+      communitySlug: comm?.slug,
+      communityType: comm?.type,
+      isSaved,
+      isFollowing,
+      userVotedOptionId: userVoteOption,
+      commentsCount: p.comments?.length || p.commentsCount || 0
+    };
   }
 
   public createCommunityPost(userId: string, communityId: string, postData: Partial<CommunityPost>): CommunityPost {
     const user = this.findUserById(userId);
-    const comm = this.db.communities.find(c => c.id === communityId);
+    const comm = this.db.communities.find(c => c.id === communityId || c.slug === communityId);
     const now = new Date().toISOString();
+    const targetCommId = comm?.id || communityId;
+    const isAuthorOfStory = Boolean(comm?.linkedStoryId && (user?.role === 'WRITER' || user?.role === 'ADMIN'));
 
     const newPost: CommunityPost = {
       id: 'post_' + Date.now(),
-      communityId,
+      communityId: targetCommId,
       communityName: comm?.name || 'Community',
+      communitySlug: comm?.slug,
+      communityType: comm?.type || 'public',
       authorId: userId,
       authorUsername: user?.username || 'Wanderer',
-      authorDisplayName: user?.displayName || 'Wanderer',
-      authorAvatar: user?.avatar || '',
+      authorDisplayName: user?.displayName || user?.username || 'Wanderer',
+      authorAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+      authorRole: user?.role,
+      isAuthorOfStory,
+      isModerator: comm?.moderators?.includes(userId) || user?.role === 'ADMIN',
       title: postData.title,
       content: postData.content || '',
       mediaUrl: postData.mediaUrl,
-      mediaType: postData.mediaType,
+      mediaType: postData.mediaType || (postData.poll ? 'poll' : postData.mediaUrl ? 'image' : undefined),
+      type: postData.type || (postData.poll ? 'POLL' : 'DISCUSSION'),
       poll: postData.poll,
+      tag: postData.tag || 'General',
+      tags: postData.tags || (postData.tag ? [postData.tag] : ['General']),
+      isSpoiler: Boolean(postData.isSpoiler),
+      spoilerChapter: postData.spoilerChapter,
+      linkedStoryId: postData.linkedStoryId || comm?.linkedStoryId,
+      linkedStoryTitle: postData.linkedStoryTitle || comm?.linkedStoryTitle,
+      linkedChapterNumber: postData.linkedChapterNumber,
+      linkedCharacterName: postData.linkedCharacterName,
+      recommendation: postData.recommendation,
+      quoteCard: postData.quoteCard,
       likes: 0,
       likedByUsers: [],
+      agreeCount: postData.type === 'THEORY' ? 1 : 0,
+      disagreeCount: 0,
       commentsCount: 0,
-      tag: postData.tag || 'General',
+      comments: [],
       createdAt: now,
     };
 
     this.db.communityPosts.unshift(newPost);
+    if (comm) {
+      comm.postsCount = (comm.postsCount || 0) + 1;
+    }
     this.commit();
     return newPost;
   }
@@ -1822,7 +2233,52 @@ class DatabaseService {
 
     post.poll.totalVotes = post.poll.options.reduce((acc, o) => acc + o.votes.length, 0);
     this.commit();
-    return post;
+    return this.enrichPost(post, userId);
+  }
+
+  public voteTheoryOrPost(postId: string, vote: 'agree' | 'disagree', userId: string): CommunityPost | undefined {
+    const post = this.db.communityPosts.find(p => p.id === postId);
+    if (!post) return undefined;
+    if (vote === 'agree') {
+      post.agreeCount = (post.agreeCount || 0) + 1;
+    } else {
+      post.disagreeCount = (post.disagreeCount || 0) + 1;
+    }
+    post.userVote = vote;
+    this.commit();
+    return this.enrichPost(post, userId);
+  }
+
+  public toggleSavePost(postId: string, userId: string): boolean {
+    if (!this.db.postSaves[userId]) {
+      this.db.postSaves[userId] = [];
+    }
+    const idx = this.db.postSaves[userId].indexOf(postId);
+    if (idx !== -1) {
+      this.db.postSaves[userId].splice(idx, 1);
+      this.commit();
+      return false;
+    } else {
+      this.db.postSaves[userId].push(postId);
+      this.commit();
+      return true;
+    }
+  }
+
+  public toggleFollowPost(postId: string, userId: string): boolean {
+    if (!this.db.postFollows[userId]) {
+      this.db.postFollows[userId] = [];
+    }
+    const idx = this.db.postFollows[userId].indexOf(postId);
+    if (idx !== -1) {
+      this.db.postFollows[userId].splice(idx, 1);
+      this.commit();
+      return false;
+    } else {
+      this.db.postFollows[userId].push(postId);
+      this.commit();
+      return true;
+    }
   }
 
   public likeCommunityPost(postId: string, userId: string): number {
@@ -1841,27 +2297,560 @@ class DatabaseService {
     return post.likes;
   }
 
-  public addCommunityPostComment(postId: string, userId: string, content: string): any {
+  public pinPost(postId: string, isPinned: boolean): boolean {
+    const post = this.db.communityPosts.find(p => p.id === postId);
+    if (!post) return false;
+    post.isPinned = isPinned;
+    this.commit();
+    return true;
+  }
+
+  public lockPost(postId: string, isLocked: boolean): boolean {
+    const post = this.db.communityPosts.find(p => p.id === postId);
+    if (!post) return false;
+    post.isLocked = isLocked;
+    this.commit();
+    return true;
+  }
+
+  public addCommunityPostComment(postId: string, userId: string, data: { content: string; parentId?: string; quotes?: string; isSpoiler?: boolean }): CommunityComment | undefined {
     const post = this.db.communityPosts.find(p => p.id === postId);
     if (!post) return undefined;
+    if (post.isLocked) return undefined;
+    
     const user = this.findUserById(userId);
-    const comment = {
+    const comm = this.db.communities.find(c => c.id === post.communityId);
+    const isAuthor = Boolean(comm?.linkedStoryId && (user?.role === 'WRITER' || user?.role === 'ADMIN') || post.authorId === userId);
+    const isMod = Boolean(comm?.moderators?.includes(userId) || user?.role === 'ADMIN');
+
+    const newComment: CommunityComment = {
       id: 'pcomm_' + Date.now(),
       postId,
       userId,
       username: user?.username || 'User',
-      displayName: user?.displayName || 'User',
-      avatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      content,
+      userDisplayName: user?.displayName || user?.username || 'User',
+      userAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      userRole: user?.role,
+      isAuthor,
+      isMod,
+      content: data.content,
+      likes: 0,
+      likedByUsers: [],
+      parentId: data.parentId,
+      quotes: data.quotes,
+      isSpoiler: Boolean(data.isSpoiler),
       createdAt: new Date().toISOString(),
+      replies: []
     };
-    if (!(post as any).comments) {
-      (post as any).comments = [];
+
+    if (!post.comments) {
+      post.comments = [];
     }
-    (post as any).comments.push(comment);
-    post.commentsCount = ((post as any).comments || []).length;
+
+    if (data.parentId) {
+      const parent = post.comments.find(c => c.id === data.parentId);
+      if (parent) {
+        if (!parent.replies) parent.replies = [];
+        parent.replies.push(newComment);
+      } else {
+        post.comments.push(newComment);
+      }
+    } else {
+      post.comments.push(newComment);
+    }
+
+    post.commentsCount = post.comments.reduce((acc, c) => acc + 1 + (c.replies?.length || 0), 0);
     this.commit();
-    return comment;
+    return newComment;
+  }
+
+  public likeCommunityComment(postId: string, commentId: string, userId: string): number {
+    const post = this.db.communityPosts.find(p => p.id === postId);
+    if (!post || !post.comments) return 0;
+    
+    let targetComment: CommunityComment | undefined = post.comments.find(c => c.id === commentId);
+    if (!targetComment) {
+      for (const top of post.comments) {
+        if (top.replies) {
+          const found = top.replies.find(r => r.id === commentId);
+          if (found) {
+            targetComment = found;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!targetComment) return 0;
+    if (!targetComment.likedByUsers) targetComment.likedByUsers = [];
+    const idx = targetComment.likedByUsers.indexOf(userId);
+    if (idx !== -1) {
+      targetComment.likedByUsers.splice(idx, 1);
+      targetComment.likes = Math.max(0, (targetComment.likes || 1) - 1);
+    } else {
+      targetComment.likedByUsers.push(userId);
+      targetComment.likes = (targetComment.likes || 0) + 1;
+    }
+    this.commit();
+    return targetComment.likes;
+  }
+
+  public reactCommunityComment(postId: string, commentId: string, userId: string, emoji: string) {
+    const post = this.db.communityPosts.find(p => p.id === postId);
+    if (!post || !post.comments) return null;
+    
+    let targetComment: CommunityComment | undefined = post.comments.find(c => c.id === commentId);
+    if (!targetComment) {
+      for (const top of post.comments) {
+        if (top.replies) {
+          const found = top.replies.find(r => r.id === commentId);
+          if (found) {
+            targetComment = found;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!targetComment) return null;
+    if (!targetComment.reactions) targetComment.reactions = {};
+    if (!targetComment.reactions[emoji]) targetComment.reactions[emoji] = [];
+    
+    const list = targetComment.reactions[emoji];
+    const idx = list.indexOf(userId);
+    if (idx !== -1) {
+      list.splice(idx, 1);
+      if (list.length === 0) delete targetComment.reactions[emoji];
+    } else {
+      list.push(userId);
+    }
+    this.commit();
+    return targetComment.reactions;
+  }
+
+  // ----------------------------------------------------
+  // CHAT ROOMS & REAL-TIME COMMUNITY SPACES
+  // ----------------------------------------------------
+  public getChatRooms(): ChatRoom[] {
+    return this.db.chatRooms || [];
+  }
+
+  public getChatRoomBySlug(slug: string): ChatRoom | undefined {
+    return this.db.chatRooms.find(r => r.slug === slug || r.id === slug);
+  }
+
+  public getChatMessages(roomId: string, limit = 50): ChatMessage[] {
+    const msgs = this.db.chatMessages[roomId] || [];
+    return msgs.slice(-limit);
+  }
+
+  public sendChatMessage(roomId: string, userId: string, data: Partial<ChatMessage>): ChatMessage {
+    const user = this.findUserById(userId);
+    const room = this.db.chatRooms.find(r => r.id === roomId || r.slug === roomId);
+    const targetRoomId = room?.id || roomId;
+    
+    if (!this.db.chatMessages[targetRoomId]) {
+      this.db.chatMessages[targetRoomId] = [];
+    }
+
+    const newMsg: ChatMessage = {
+      id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      roomId: targetRoomId,
+      userId,
+      username: user?.username || 'User',
+      displayName: user?.displayName || user?.username || 'User',
+      userAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      userRole: user?.role,
+      isAuthor: user?.role === 'WRITER',
+      isMod: user?.role === 'ADMIN',
+      content: data.content || '',
+      mediaUrl: data.mediaUrl,
+      isSpoiler: Boolean(data.isSpoiler),
+      storyCard: data.storyCard,
+      postCard: data.postCard,
+      quoteCard: data.quoteCard,
+      reactions: {},
+      replyTo: data.replyTo,
+      createdAt: new Date().toISOString()
+    };
+
+    this.db.chatMessages[targetRoomId].push(newMsg);
+    // Keep max 200 messages per room
+    if (this.db.chatMessages[targetRoomId].length > 200) {
+      this.db.chatMessages[targetRoomId] = this.db.chatMessages[targetRoomId].slice(-200);
+    }
+    this.commit();
+    return newMsg;
+  }
+
+  public reactChatMessage(roomId: string, messageId: string, userId: string, emoji: string) {
+    const msgs = this.db.chatMessages[roomId] || [];
+    const msg = msgs.find(m => m.id === messageId);
+    if (!msg) return null;
+    if (!msg.reactions) msg.reactions = {};
+    if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+    
+    const list = msg.reactions[emoji];
+    const idx = list.indexOf(userId);
+    if (idx !== -1) {
+      list.splice(idx, 1);
+      if (list.length === 0) delete msg.reactions[emoji];
+    } else {
+      list.push(userId);
+    }
+    this.commit();
+    return msg.reactions;
+  }
+
+  public pinChatMessage(roomId: string, message: string) {
+    const room = this.db.chatRooms.find(r => r.id === roomId || r.slug === roomId);
+    if (!room) return false;
+    room.pinnedMessage = message;
+    this.commit();
+    return true;
+  }
+
+  public lockChatRoom(roomId: string, isLocked: boolean) {
+    const room = this.db.chatRooms.find(r => r.id === roomId || r.slug === roomId);
+    if (!room) return false;
+    room.isLocked = isLocked;
+    this.commit();
+    return true;
+  }
+
+  public setChatSlowMode(roomId: string, seconds: number) {
+    const room = this.db.chatRooms.find(r => r.id === roomId || r.slug === roomId);
+    if (!room) return false;
+    room.slowModeSeconds = seconds;
+    this.commit();
+    return true;
+  }
+
+  // ----------------------------------------------------
+  // EVENTS & CONTESTS
+  // ----------------------------------------------------
+  public getCommunityEvents(): CommunityEvent[] {
+    return this.db.events || [];
+  }
+
+  public createCommunityEvent(userId: string, data: Partial<CommunityEvent>): CommunityEvent {
+    const user = this.findUserById(userId);
+    const newEvent: CommunityEvent = {
+      id: 'evt_' + Date.now(),
+      title: data.title || 'Community Event',
+      description: data.description || '',
+      hostName: user?.displayName || user?.username || 'Host',
+      hostAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      hostRole: user?.role || 'WRITER',
+      type: data.type || 'CHAPTER_LAUNCH',
+      startTime: data.startTime || new Date(Date.now() + 86400000).toISOString(),
+      endTime: data.endTime,
+      participantsCount: 1,
+      isParticipating: true,
+      communityId: data.communityId,
+      communityName: data.communityName,
+      bannerUrl: data.bannerUrl || 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1200&auto=format&fit=crop&q=80',
+      isLive: Boolean(data.isLive)
+    };
+    this.db.events.unshift(newEvent);
+    this.commit();
+    return newEvent;
+  }
+
+  public joinCommunityEvent(eventId: string, userId: string): boolean {
+    const evt = this.db.events.find(e => e.id === eventId);
+    if (!evt) return false;
+    evt.participantsCount = (evt.participantsCount || 0) + 1;
+    evt.isParticipating = true;
+    this.commit();
+    return true;
+  }
+
+  public getCommunityContests(): CommunityContest[] {
+    return this.db.contests || [];
+  }
+
+  public submitContestEntry(contestId: string, userId: string, data: Partial<CommunityContestSubmission>): CommunityContestSubmission | undefined {
+    const contest = this.db.contests.find(c => c.id === contestId);
+    if (!contest) return undefined;
+    const user = this.findUserById(userId);
+    const sub: CommunityContestSubmission = {
+      id: 'sub_' + Date.now(),
+      contestId,
+      userId,
+      username: user?.displayName || user?.username || 'Contestant',
+      userAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      title: data.title || 'Untitled Submission',
+      description: data.description || '',
+      mediaUrl: data.mediaUrl,
+      votes: 0,
+      votedUserIds: [],
+      createdAt: new Date().toISOString()
+    };
+    if (!contest.submissions) contest.submissions = [];
+    contest.submissions.push(sub);
+    contest.entriesCount = contest.submissions.length;
+    this.commit();
+    return sub;
+  }
+
+  public voteContestEntry(contestId: string, submissionId: string, userId: string): boolean {
+    const contest = this.db.contests.find(c => c.id === contestId);
+    if (!contest || !contest.submissions) return false;
+    const sub = contest.submissions.find(s => s.id === submissionId);
+    if (!sub) return false;
+    if (!sub.votedUserIds) sub.votedUserIds = [];
+    const idx = sub.votedUserIds.indexOf(userId);
+    if (idx !== -1) {
+      sub.votedUserIds.splice(idx, 1);
+      sub.votes = Math.max(0, sub.votes - 1);
+    } else {
+      sub.votedUserIds.push(userId);
+      sub.votes += 1;
+    }
+    this.commit();
+    return true;
+  }
+
+  // ----------------------------------------------------
+  // DIRECT MESSAGES & GROUP CHATS
+  // ----------------------------------------------------
+  public getDirectMessageConversations(userId: string): DirectMessageConversation[] {
+    return (this.db.conversations || []).filter(c => c.participantIds.includes(userId));
+  }
+
+  public getDirectMessages(conversationId: string, userId: string): DirectMessage[] {
+    const conv = this.db.conversations?.find(c => c.id === conversationId);
+    if (!conv || !conv.participantIds.includes(userId)) return [];
+    return this.db.directMessages[conversationId] || [];
+  }
+
+  public sendDirectMessage(senderId: string, conversationId: string, data: { content: string; mediaUrl?: string; storyCard?: any }): DirectMessage | undefined {
+    const conv = this.db.conversations?.find(c => c.id === conversationId);
+    if (!conv || !conv.participantIds.includes(senderId)) return undefined;
+    const sender = this.findUserById(senderId);
+
+    if (!this.db.directMessages[conversationId]) {
+      this.db.directMessages[conversationId] = [];
+    }
+
+    const msg: DirectMessage = {
+      id: 'dm_' + Date.now(),
+      conversationId,
+      senderId,
+      senderUsername: sender?.username || 'User',
+      senderDisplayName: sender?.displayName || sender?.username || 'User',
+      senderAvatar: sender?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      content: data.content,
+      mediaUrl: data.mediaUrl,
+      storyCard: data.storyCard,
+      reactions: {},
+      createdAt: new Date().toISOString()
+    };
+
+    this.db.directMessages[conversationId].push(msg);
+    conv.lastMessage = data.content;
+    conv.lastMessageAt = msg.createdAt;
+    this.commit();
+    return msg;
+  }
+
+  public startDirectConversation(userId: string, targetUserId: string, initialMessage?: string): DirectMessageConversation {
+    let existing = this.db.conversations?.find(c => 
+      !c.isGroup && c.participantIds.includes(userId) && c.participantIds.includes(targetUserId)
+    );
+
+    const user1 = this.findUserById(userId);
+    const user2 = this.findUserById(targetUserId);
+
+    if (!existing) {
+      const convId = 'conv_' + Date.now();
+      existing = {
+        id: convId,
+        participantIds: [userId, targetUserId],
+        lastMessage: initialMessage || 'Started a conversation',
+        lastMessageAt: new Date().toISOString(),
+        unreadCount: 0,
+        participants: [
+          { id: userId, username: user1?.username || '', displayName: user1?.displayName || '', avatar: user1?.avatar || '', role: user1?.role },
+          { id: targetUserId, username: user2?.username || '', displayName: user2?.displayName || '', avatar: user2?.avatar || '', role: user2?.role }
+        ]
+      };
+      if (!this.db.conversations) this.db.conversations = [];
+      this.db.conversations.unshift(existing);
+      this.db.directMessages[convId] = [];
+    }
+
+    if (initialMessage) {
+      this.sendDirectMessage(userId, existing.id, { content: initialMessage });
+    }
+
+    this.commit();
+    return existing;
+  }
+
+  // ----------------------------------------------------
+  // READING LISTS & QUOTE SNIPPETS
+  // ----------------------------------------------------
+  public getReadingLists(userId?: string): CustomReadingList[] {
+    const lists = this.db.readingLists || [];
+    return lists.map(l => {
+      const stories = (l.storyIds || []).map(id => this.findStoryByIdOrSlug(id)).filter(Boolean) as Story[];
+      return { ...l, stories };
+    });
+  }
+
+  public createReadingList(userId: string, data: Partial<CustomReadingList>): CustomReadingList {
+    const user = this.findUserById(userId);
+    const newList: CustomReadingList = {
+      id: 'list_' + Date.now(),
+      userId,
+      username: user?.displayName || user?.username || 'Curator',
+      title: data.title || 'My Curated Collection',
+      description: data.description || '',
+      isPublic: data.isPublic !== false,
+      storyIds: data.storyIds || [],
+      likes: 0,
+      createdAt: new Date().toISOString()
+    };
+    if (!this.db.readingLists) this.db.readingLists = [];
+    this.db.readingLists.unshift(newList);
+    this.commit();
+    return newList;
+  }
+
+  public toggleStoryInReadingList(listId: string, storyId: string, userId: string): boolean {
+    const list = this.db.readingLists?.find(l => l.id === listId && l.userId === userId);
+    if (!list) return false;
+    if (!list.storyIds) list.storyIds = [];
+    const idx = list.storyIds.indexOf(storyId);
+    if (idx !== -1) {
+      list.storyIds.splice(idx, 1);
+    } else {
+      list.storyIds.push(storyId);
+    }
+    this.commit();
+    return true;
+  }
+
+  public getQuoteSnippets(): QuoteSnippet[] {
+    return this.db.quoteSnippets || [];
+  }
+
+  public createQuoteSnippet(userId: string, data: Partial<QuoteSnippet>): QuoteSnippet {
+    const user = this.findUserById(userId);
+    const story = this.findStoryByIdOrSlug(data.storyId || '');
+    const newQuote: QuoteSnippet = {
+      id: 'q_' + Date.now(),
+      text: data.text || '',
+      storyId: data.storyId || story?.id || '',
+      storySlug: story?.slug || '',
+      storyTitle: data.storyTitle || story?.title || '',
+      chapterNumber: data.chapterNumber || 1,
+      chapterTitle: data.chapterTitle,
+      authorName: story?.authorDisplayName || 'Author',
+      authorUsername: story?.authorUsername || 'author',
+      createdByUserId: userId,
+      createdByUsername: user?.displayName || user?.username || 'Reader',
+      createdByAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      theme: data.theme || 'cosmic',
+      likes: 0,
+      likedByUsers: [],
+      createdAt: new Date().toISOString()
+    };
+    if (!this.db.quoteSnippets) this.db.quoteSnippets = [];
+    this.db.quoteSnippets.unshift(newQuote);
+    this.commit();
+    return newQuote;
+  }
+
+  public likeQuoteSnippet(quoteId: string, userId: string): number {
+    const quote = this.db.quoteSnippets?.find(q => q.id === quoteId);
+    if (!quote) return 0;
+    if (!quote.likedByUsers) quote.likedByUsers = [];
+    const idx = quote.likedByUsers.indexOf(userId);
+    if (idx !== -1) {
+      quote.likedByUsers.splice(idx, 1);
+      quote.likes = Math.max(0, quote.likes - 1);
+    } else {
+      quote.likedByUsers.push(userId);
+      quote.likes += 1;
+    }
+    this.commit();
+    return quote.likes;
+  }
+
+  // ----------------------------------------------------
+  // REPORTING, BLOCKING & USER SAFETY
+  // ----------------------------------------------------
+  public reportContent(userId: string, data: Partial<ReportItem>): ReportItem {
+    const user = this.findUserById(userId);
+    const report: ReportItem = {
+      id: 'rep_' + Date.now(),
+      targetType: data.targetType || 'post',
+      targetId: data.targetId || '',
+      reportedByUserId: userId,
+      reportedByUsername: user?.username || 'User',
+      reason: data.reason || 'Community guideline violation',
+      category: data.category || 'Other',
+      notes: data.notes,
+      status: 'PENDING',
+      createdAt: new Date().toISOString()
+    };
+    if (!this.db.reports) this.db.reports = [];
+    this.db.reports.unshift(report);
+    this.commit();
+    return report;
+  }
+
+  public getReports(): ReportItem[] {
+    return this.db.reports || [];
+  }
+
+  public resolveReport(reportId: string, status: 'RESOLVED' | 'DISMISSED'): boolean {
+    const r = this.db.reports?.find(rep => rep.id === reportId);
+    if (!r) return false;
+    r.status = status;
+    this.commit();
+    return true;
+  }
+
+  public toggleBlockUser(userId: string, targetUserId: string): boolean {
+    if (!this.db.blockedUsers[userId]) this.db.blockedUsers[userId] = [];
+    const list = this.db.blockedUsers[userId];
+    const idx = list.indexOf(targetUserId);
+    if (idx !== -1) {
+      list.splice(idx, 1);
+      this.commit();
+      return false;
+    } else {
+      list.push(targetUserId);
+      this.commit();
+      return true;
+    }
+  }
+
+  public toggleMuteUser(userId: string, targetUserId: string): boolean {
+    if (!this.db.mutedUsers[userId]) this.db.mutedUsers[userId] = [];
+    const list = this.db.mutedUsers[userId];
+    const idx = list.indexOf(targetUserId);
+    if (idx !== -1) {
+      list.splice(idx, 1);
+      this.commit();
+      return false;
+    } else {
+      list.push(targetUserId);
+      this.commit();
+      return true;
+    }
+  }
+
+  public getBlockedUsers(userId: string): string[] {
+    return this.db.blockedUsers[userId] || [];
+  }
+
+  public getMutedUsers(userId: string): string[] {
+    return this.db.mutedUsers[userId] || [];
   }
 
   // Theories

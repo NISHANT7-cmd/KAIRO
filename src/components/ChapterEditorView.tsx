@@ -93,11 +93,27 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
     }
   };
 
-  if (loading || !story) {
+  if (loading) {
     return (
       <div className="text-center py-28 text-[#877276]">
         <Sparkles className="w-8 h-8 mx-auto mb-2 text-[#9e3b5f] animate-spin" />
         <p className="font-semibold text-sm">Preparing manuscript canvas...</p>
+      </div>
+    );
+  }
+
+  if (!story) {
+    return (
+      <div className="text-center py-28 max-w-md mx-auto px-4 space-y-4">
+        <h2 className="text-2xl font-bold font-display text-[#26152b]">Story Not Found</h2>
+        <p className="text-sm text-[#877276]">The story you are trying to draft chapters for could not be found or has been removed.</p>
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#9e3b5f] text-white text-xs font-bold shadow-md hover:bg-[#852e4e] transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Creator Studio</span>
+        </button>
       </div>
     );
   }
