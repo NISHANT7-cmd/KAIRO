@@ -3,11 +3,12 @@ import {
   Shield, Users, BookOpen, Feather, Search, 
   Trash2, AlertTriangle, RefreshCw, Star, 
   Globe, MessageSquare, Flame, CheckCircle, Ban, 
-  Sparkles, ExternalLink
+  Sparkles, ExternalLink, Trophy
 } from 'lucide-react';
 import { User, Story, AdminPlatformStats, CommunityPost, Theory } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { AdminProgramsView } from './admin/AdminProgramsView';
 
 interface AdminPortalViewProps {
   onOpenStory: (slug: string) => void;
@@ -27,7 +28,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [theories, setTheories] = useState<Theory[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'users' | 'stories' | 'moderation' | 'overview'>('users');
+  const [activeTab, setActiveTab] = useState<'programs' | 'users' | 'stories' | 'moderation' | 'overview'>('programs');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -241,74 +242,153 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-150">
       
       {/* Top Banner / Header */}
-      <div className="glass-card rounded-3xl p-6 sm:p-8 mb-8 border border-purple-200/90 shadow-xl bg-gradient-to-r from-purple-900/95 via-[#26152b] to-[#4a1c38] text-white relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-96 bg-gradient-to-l from-pink-500/20 to-transparent pointer-events-none" />
+      <div className="bg-white/95 rounded-3xl p-6 sm:p-8 mb-8 border border-pink-200/90 shadow-sm relative overflow-hidden backdrop-blur-md">
+        {/* Subtle decorative theme glows */}
+        <div className="absolute -right-16 -top-16 w-80 h-80 bg-gradient-to-br from-pink-100/70 via-purple-100/40 to-transparent rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -left-16 -bottom-16 w-80 h-80 bg-gradient-to-tr from-rose-100/50 via-pink-50/60 to-transparent rounded-full blur-2xl pointer-events-none" />
         
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-pink-100/80">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold uppercase tracking-wider mb-3">
-              <Shield className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-pink-100 text-[#9e3b5f] border border-pink-200 text-xs font-bold uppercase tracking-wider mb-2.5 shadow-2xs">
+              <Shield className="w-3.5 h-3.5 text-[#9e3b5f]" />
               <span>Master Admin Portal</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black font-display tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl font-black font-display tracking-tight text-[#26152b]">
               Platform Administration & Content Operations
             </h1>
-            <p className="text-xs sm:text-sm text-pink-200/80 mt-1 max-w-xl">
+            <p className="text-xs sm:text-sm text-[#544246] mt-1.5 max-w-2xl font-medium leading-relaxed">
               Manage user accounts, verified writers, story publications, lore universes, and community discussions across KAIRO.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={loadData}
               disabled={loading}
-              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-semibold text-white flex items-center gap-2 transition-all cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-white hover:bg-pink-50/80 border border-pink-200 text-xs font-bold text-[#544246] hover:text-[#26152b] flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
               title="Refresh platform statistics and tables"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh Data</span>
+              <RefreshCw className={`w-3.5 h-3.5 text-[#9e3b5f] ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh Telemetry</span>
             </button>
             <button
               onClick={onExitAdmin}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-xs font-bold text-white shadow-md transition-all cursor-pointer"
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#9e3b5f] via-[#b3426e] to-[#d94b76] hover:from-[#882e50] hover:to-[#be3c63] text-xs font-bold text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
             >
               Return to Reader App
             </button>
           </div>
         </div>
 
-        {/* Global KPIs */}
+        {/* Global Platform KPIs with High-Contrast Visible Colors Matching KAIRO Theme */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mt-6 pt-6 border-t border-white/10">
-            <div className="bg-white/5 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-              <div className="text-[11px] font-semibold text-pink-200/70 uppercase">Total Users</div>
-              <div className="text-xl font-black text-white mt-0.5">{stats.totalUsers}</div>
-              <div className="text-[10px] text-emerald-400 mt-0.5">Active Network</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 mt-6 relative z-10">
+            {/* Total Users */}
+            <div className="bg-gradient-to-br from-white to-pink-50/70 p-4 rounded-2xl border border-pink-200/90 shadow-2xs hover:border-pink-300 hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="text-[11px] font-bold text-[#877276] uppercase tracking-wider">Total Users</span>
+                <div className="w-7 h-7 rounded-lg bg-pink-100 text-[#9e3b5f] flex items-center justify-center shrink-0">
+                  <Users className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black font-display text-[#26152b] tracking-tight">{stats.totalUsers}</div>
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#9e3b5f] bg-pink-100/90 px-2 py-0.5 rounded-full border border-pink-200">
+                    Active Network
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="bg-white/5 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-              <div className="text-[11px] font-semibold text-pink-200/70 uppercase">Writers / Authors</div>
-              <div className="text-xl font-black text-white mt-0.5">{stats.totalWriters}</div>
-              <div className="text-[10px] text-purple-300 mt-0.5">Verified Creators</div>
+
+            {/* Writers / Authors */}
+            <div className="bg-gradient-to-br from-white to-purple-50/70 p-4 rounded-2xl border border-purple-200/90 shadow-2xs hover:border-purple-300 hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="text-[11px] font-bold text-[#877276] uppercase tracking-wider">Writers</span>
+                <div className="w-7 h-7 rounded-lg bg-purple-100 text-[#635882] flex items-center justify-center shrink-0">
+                  <Feather className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black font-display text-[#26152b] tracking-tight">{stats.totalWriters}</div>
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#635882] bg-purple-100/90 px-2 py-0.5 rounded-full border border-purple-200">
+                    Verified Creators
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="bg-white/5 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-              <div className="text-[11px] font-semibold text-pink-200/70 uppercase">Stories Published</div>
-              <div className="text-xl font-black text-white mt-0.5">{stats.totalStories}</div>
-              <div className="text-[10px] text-pink-300 mt-0.5">{stats.totalChapters} Chapters</div>
+
+            {/* Stories Published */}
+            <div className="bg-gradient-to-br from-white to-rose-50/70 p-4 rounded-2xl border border-rose-200/90 shadow-2xs hover:border-rose-300 hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="text-[11px] font-bold text-[#877276] uppercase tracking-wider">Stories</span>
+                <div className="w-7 h-7 rounded-lg bg-rose-100 text-[#b8336a] flex items-center justify-center shrink-0">
+                  <BookOpen className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black font-display text-[#26152b] tracking-tight">{stats.totalStories}</div>
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#b8336a] bg-rose-100/90 px-2 py-0.5 rounded-full border border-rose-200">
+                    {stats.totalChapters} Chapters
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="bg-white/5 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-              <div className="text-[11px] font-semibold text-pink-200/70 uppercase">Total Reads</div>
-              <div className="text-xl font-black text-white mt-0.5">{stats.totalReads.toLocaleString()}</div>
-              <div className="text-[10px] text-amber-300 mt-0.5">Engagement Views</div>
+
+            {/* Total Reads */}
+            <div className="bg-gradient-to-br from-white to-amber-50/70 p-4 rounded-2xl border border-amber-200/90 shadow-2xs hover:border-amber-300 hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="text-[11px] font-bold text-[#877276] uppercase tracking-wider">Total Reads</span>
+                <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <Flame className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black font-display text-[#26152b] tracking-tight">{stats.totalReads.toLocaleString()}</div>
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-200">
+                    Engagement Views
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="bg-white/5 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-              <div className="text-[11px] font-semibold text-pink-200/70 uppercase">Lore Universes</div>
-              <div className="text-xl font-black text-white mt-0.5">{stats.totalUniverses}</div>
-              <div className="text-[10px] text-cyan-300 mt-0.5">Canon Worldspaces</div>
+
+            {/* Lore Universes */}
+            <div className="bg-gradient-to-br from-white to-sky-50/70 p-4 rounded-2xl border border-sky-200/90 shadow-2xs hover:border-sky-300 hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="text-[11px] font-bold text-[#877276] uppercase tracking-wider">Lore Universes</span>
+                <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                  <Globe className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black font-display text-[#26152b] tracking-tight">{stats.totalUniverses}</div>
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-800 bg-sky-100/90 px-2 py-0.5 rounded-full border border-sky-200">
+                    Canon Worlds
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="bg-white/5 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-              <div className="text-[11px] font-semibold text-pink-200/70 uppercase">Theories & Posts</div>
-              <div className="text-xl font-black text-white mt-0.5">{stats.totalTheories + stats.totalPosts}</div>
-              <div className="text-[10px] text-orange-300 mt-0.5">Community Threads</div>
+
+            {/* Theories & Posts */}
+            <div className="bg-gradient-to-br from-white to-fuchsia-50/70 p-4 rounded-2xl border border-fuchsia-200/90 shadow-2xs hover:border-fuchsia-300 hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="text-[11px] font-bold text-[#877276] uppercase tracking-wider">Theories & Posts</span>
+                <div className="w-7 h-7 rounded-lg bg-fuchsia-100 text-fuchsia-700 flex items-center justify-center shrink-0">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black font-display text-[#26152b] tracking-tight">{stats.totalTheories + stats.totalPosts}</div>
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-fuchsia-800 bg-fuchsia-100/90 px-2 py-0.5 rounded-full border border-fuchsia-200">
+                    Community Threads
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -328,6 +408,18 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
 
       {/* Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-pink-100/80 mb-6 overflow-x-auto pb-1">
+        <button
+          onClick={() => setActiveTab('programs')}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
+            activeTab === 'programs'
+              ? 'bg-[#9e3b5f] text-white shadow-md'
+              : 'text-[#544246] hover:bg-pink-50'
+          }`}
+        >
+          <Trophy className="w-4 h-4 text-amber-300" />
+          <span>Programs & Competitions</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('users')}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
@@ -364,6 +456,11 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
           <span>Community & Theories ({posts.length + theories.length})</span>
         </button>
       </div>
+
+      {/* TAB: PROGRAMS & COMPETITIONS */}
+      {activeTab === 'programs' && (
+        <AdminProgramsView onOpenStory={onOpenStory} />
+      )}
 
       {/* TAB 1: USERS & WRITERS MANAGEMENT */}
       {activeTab === 'users' && (

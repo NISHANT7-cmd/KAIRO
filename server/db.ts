@@ -7,12 +7,19 @@ import {
   CharacterRelationship, World, Universe, AnimeEntry, Notification, Badge,
   ChatRoom, ChatMessage, CommunityEvent, CommunityContest, CommunityContestSubmission,
   DirectMessage, DirectMessageConversation, CustomReadingList, QuoteSnippet, ReportItem,
-  CommunityComment, CommunityType, PostType
+  CommunityComment, CommunityType, PostType,
+  Program, ProgramParticipant, ProgramSubmission, ProgramVote,
+  ProgramAnnouncement, ProgramAuditLog, ProgramCertificate,
+  AdminProgramsSummary, ProgramStatus
 } from '../src/types.js';
 import {
   initialCommunities, initialPosts, initialChatRooms, initialChatMessages,
   initialEvents, initialContests, initialQuoteSnippets
 } from './community-seeds.js';
+import {
+  initialPrograms, initialParticipants, initialSubmissions, initialVotes,
+  initialAnnouncements, initialAuditLogs, initialCertificates
+} from './programs-seed.js';
 
 function resolveDataPaths() {
   const isServerless = process.env.VERCEL === '1' || 
@@ -80,6 +87,13 @@ export interface DatabaseSchema {
   communityMembers: Record<string, string[]>; // communityId -> userIds
   postSaves: Record<string, string[]>; // userId -> postIds
   postFollows: Record<string, string[]>; // userId -> postIds
+  programs: Program[];
+  programParticipants: ProgramParticipant[];
+  programSubmissions: ProgramSubmission[];
+  programVotes: ProgramVote[];
+  programAnnouncements: ProgramAnnouncement[];
+  programAuditLogs: ProgramAuditLog[];
+  programCertificates: ProgramCertificate[];
 }
 
 function hashPassword(password: string, salt: string): string {
@@ -1219,7 +1233,14 @@ By nightfall, the black banner of the Crimson Raven fluttered over the highest k
       'comm_writers_workshop': ['usr_1', 'usr_2']
     },
     postSaves: {},
-    postFollows: {}
+    postFollows: {},
+    programs: initialPrograms,
+    programParticipants: initialParticipants,
+    programSubmissions: initialSubmissions,
+    programVotes: initialVotes,
+    programAnnouncements: initialAnnouncements,
+    programAuditLogs: initialAuditLogs,
+    programCertificates: initialCertificates
   };
 }
 
@@ -1319,6 +1340,28 @@ class DatabaseService {
     };
     if (!parsed.postSaves) parsed.postSaves = {};
     if (!parsed.postFollows) parsed.postFollows = {};
+
+    if (!parsed.programs || parsed.programs.length === 0) {
+      parsed.programs = initialPrograms;
+    }
+    if (!parsed.programParticipants || parsed.programParticipants.length === 0) {
+      parsed.programParticipants = initialParticipants;
+    }
+    if (!parsed.programSubmissions || parsed.programSubmissions.length === 0) {
+      parsed.programSubmissions = initialSubmissions;
+    }
+    if (!parsed.programVotes || parsed.programVotes.length === 0) {
+      parsed.programVotes = initialVotes;
+    }
+    if (!parsed.programAnnouncements || parsed.programAnnouncements.length === 0) {
+      parsed.programAnnouncements = initialAnnouncements;
+    }
+    if (!parsed.programAuditLogs || parsed.programAuditLogs.length === 0) {
+      parsed.programAuditLogs = initialAuditLogs;
+    }
+    if (!parsed.programCertificates || parsed.programCertificates.length === 0) {
+      parsed.programCertificates = initialCertificates;
+    }
 
     // Merge initial communities if missing
     initialCommunities.forEach(c => {
@@ -1637,6 +1680,126 @@ class DatabaseService {
     return this.db.users[idx];
   }
 
+  public getPublicUserProfile(idOrUsername: string, viewerId?: string): {
+    user: User;
+    isFollowing: boolean;
+    isSelf: boolean;
+    stories: Story[];
+    posts: CommunityPost[];
+    universes: Universe[];
+    theories: CommunityPost[];
+    readingList: {
+      story: Story;
+      listType: string;
+      addedAt: string;
+    }[];
+    certificates: ProgramCertificate[];
+    badges: string[];
+    stats: {
+      totalStories: number;
+      totalReads: number;
+      totalLikes: number;
+      totalPosts: number;
+      totalTheories: number;
+      totalUniverses: number;
+      followersCount: number;
+      followingCount: number;
+      chaptersCount: number;
+    };
+  } | undefined {
+    const clean = idOrUsername.trim().toLowerCase().replace(/^@/, '');
+    const user = this.db.users.find(u => 
+      u.id.toLowerCase() === clean || 
+      u.username.toLowerCase() === clean ||
+      (u.email && u.email.toLowerCase() === clean)
+    );
+    if (!user) return undefined;
+
+    const enrichedUser = this.getUserEnriched(user);
+    const userId = user.id;
+
+    // Follow status
+    const followers = this.db.follows?.[userId] || [];
+    const isFollowing = Boolean(viewerId && followers.includes(viewerId));
+    const isSelf = Boolean(viewerId && viewerId === userId);
+
+    // Calculate following count: how many users does this user follow?
+    let followingCount = 0;
+    for (const authorId of Object.keys(this.db.follows || {})) {
+      if (this.db.follows[authorId]?.includes(userId)) {
+        followingCount++;
+      }
+    }
+    enrichedUser.followersCount = followers.length;
+    enrichedUser.followingCount = Math.max(user.followingCount || 0, followingCount);
+
+    // Stories authored by user
+    const stories = (this.db.stories || []).filter(s => s.authorId === userId);
+    
+    // Community posts authored by user
+    const posts = (this.db.communityPosts || []).filter(p => p.authorId === userId);
+    const theories = posts.filter(p => p.type === 'THEORY');
+
+    // Universes authored by user
+    const universes = (this.db.universes || []).filter(u => u.authorId === userId);
+
+    // Reading list (library items with populated story)
+    const userLibrary = (this.db.library || []).filter(l => l.userId === userId);
+    const readingList: { story: Story; listType: string; addedAt: string }[] = [];
+    for (const item of userLibrary) {
+      const story = this.findStoryByIdOrSlug(item.storyId);
+      if (story) {
+        readingList.push({
+          story,
+          listType: item.listType || 'saved',
+          addedAt: item.addedAt || new Date().toISOString()
+        });
+      }
+    }
+
+    // Program certificates won by this user
+    const certificates = (this.db.programCertificates || []).filter(c => c.recipientUserId === userId);
+
+    // Badges
+    const userBadges = (this.db.badges?.[userId] || []).map(b => b.title || b.key);
+    const allBadges = [...userBadges];
+    if (enrichedUser.role === 'ADMIN') allBadges.push('Master Admin', 'Canon Architect');
+    if (enrichedUser.role === 'WRITER' || enrichedUser.isVerifiedWriter) allBadges.push('Verified Author', 'Story Weaver');
+    if (stories.length >= 3) allBadges.push('Prolific Author');
+    if (certificates.length > 0) allBadges.push('Competition Laureate');
+    if (enrichedUser.level >= 10) allBadges.push('Astral Pioneer');
+    const uniqueBadges = Array.from(new Set(allBadges));
+
+    // Aggregate stats
+    const totalReads = stories.reduce((sum, s) => sum + (s.views || 0), 0);
+    const totalLikes = stories.reduce((sum, s) => sum + (s.likes || 0), 0);
+    const chaptersCount = stories.reduce((sum, s) => sum + (s.chaptersCount || 0), 0);
+
+    return {
+      user: enrichedUser,
+      isFollowing,
+      isSelf,
+      stories,
+      posts,
+      universes,
+      theories,
+      readingList,
+      certificates,
+      badges: uniqueBadges,
+      stats: {
+        totalStories: stories.length,
+        totalReads,
+        totalLikes,
+        totalPosts: posts.length,
+        totalTheories: theories.length,
+        totalUniverses: universes.length,
+        followersCount: followers.length,
+        followingCount: enrichedUser.followingCount,
+        chaptersCount,
+      }
+    };
+  }
+
   // Stories
   public getStories(): Story[] {
     return this.db.stories;
@@ -1772,6 +1935,22 @@ class DatabaseService {
     };
     this.commit();
     return this.db.chapters[idx];
+  }
+
+  public deleteChapter(chapterId: string): boolean {
+    const idx = this.db.chapters.findIndex(c => c.id === chapterId);
+    if (idx === -1) return false;
+    const storyId = this.db.chapters[idx].storyId;
+    this.db.chapters.splice(idx, 1);
+    
+    // update story chapter count
+    const story = this.findStoryByIdOrSlug(storyId);
+    if (story) {
+      story.chaptersCount = this.getStoryChapters(storyId).length;
+      story.updatedAt = new Date().toISOString();
+    }
+    this.commit();
+    return true;
   }
 
   // Reading Progress & Library
@@ -3222,6 +3401,999 @@ class DatabaseService {
     this.commit();
     return true;
   }
+
+  // ==========================================
+  // MASTER ADMIN PROGRAMS & COMPETITIONS METHODS
+  // ==========================================
+
+  public logProgramAudit(logData: {
+    programId: string;
+    action: string;
+    actorId: string;
+    actorUsername: string;
+    targetType?: 'PROGRAM' | 'PARTICIPANT' | 'SUBMISSION' | 'VOTE' | 'RESULTS' | 'SETTINGS';
+    targetId?: string;
+    targetName?: string;
+    previousValue?: any;
+    newValue?: any;
+    ipAddress?: string;
+  }): ProgramAuditLog {
+    if (!this.db.programAuditLogs) this.db.programAuditLogs = [];
+    const log: ProgramAuditLog = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toISOString(),
+      ...logData
+    };
+    this.db.programAuditLogs.unshift(log);
+    this.commit();
+    return log;
+  }
+
+  public getProgramAuditLogs(programId?: string): ProgramAuditLog[] {
+    const logs = this.db.programAuditLogs || [];
+    if (!programId || programId === 'all') return logs;
+    return logs.filter(l => l.programId === programId);
+  }
+
+  public getPrograms(filter?: { status?: string; type?: string; search?: string; visibility?: string }): Program[] {
+    let progs = this.db.programs || [];
+    if (!filter) return progs;
+
+    if (filter.status && filter.status !== 'ALL') {
+      progs = progs.filter(p => p.status === filter.status);
+    }
+    if (filter.type && filter.type !== 'ALL') {
+      progs = progs.filter(p => p.type.toLowerCase() === filter.type!.toLowerCase());
+    }
+    if (filter.visibility && filter.visibility !== 'ALL') {
+      progs = progs.filter(p => p.visibility === filter.visibility);
+    }
+    if (filter.search && filter.search.trim()) {
+      const q = filter.search.toLowerCase().trim();
+      progs = progs.filter(p => 
+        p.name.toLowerCase().includes(q) || 
+        p.tagline.toLowerCase().includes(q) ||
+        p.type.toLowerCase().includes(q) ||
+        p.theme.toLowerCase().includes(q)
+      );
+    }
+    return progs;
+  }
+
+  public getProgramById(id: string): Program | undefined {
+    return (this.db.programs || []).find(p => p.id === id || p.slug === id);
+  }
+
+  public getProgramBySlug(slug: string): Program | undefined {
+    return (this.db.programs || []).find(p => p.slug === slug || p.id === slug);
+  }
+
+  public createProgram(data: Partial<Program>, adminUser: User): Program {
+    if (!this.db.programs) this.db.programs = [];
+    const id = `prog_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const slug = (data.name || 'new-program')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') + '-' + Date.now().toString().slice(-4);
+
+    const now = new Date().toISOString();
+    const newProgram: Program = {
+      id,
+      name: data.name || 'Untitled Program',
+      slug: data.slug || slug,
+      tagline: data.tagline || '',
+      description: data.description || '',
+      type: data.type || 'Writing Competition',
+      customType: data.customType,
+      coverImage: data.coverImage || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
+      bannerImage: data.bannerImage || 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1600&auto=format&fit=crop&q=80',
+      thumbnail: data.thumbnail || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80',
+      organizerName: data.organizerName || 'KAIRO Editorial Guild',
+      theme: data.theme || 'Original Storytelling',
+      category: data.category || 'General Fiction',
+      eligibility: data.eligibility || 'Open to all registered creators',
+      ageRestriction: data.ageRestriction,
+      countryEligibility: data.countryEligibility,
+      language: data.language || 'English',
+      maxParticipants: data.maxParticipants || 500,
+      minParticipants: data.minParticipants || 1,
+      targetAudience: data.targetAudience || 'both',
+      visibility: data.visibility || 'public',
+      status: (data.status as ProgramStatus) || 'DRAFT',
+      timeline: data.timeline || {
+        registrationOpens: now,
+        registrationCloses: new Date(Date.now() + 14 * 86400000).toISOString(),
+        submissionOpens: now,
+        submissionDeadline: new Date(Date.now() + 30 * 86400000).toISOString(),
+        votingStarts: new Date(Date.now() + 31 * 86400000).toISOString(),
+        votingEnds: new Date(Date.now() + 45 * 86400000).toISOString(),
+        judgingStarts: new Date(Date.now() + 35 * 86400000).toISOString(),
+        judgingEnds: new Date(Date.now() + 48 * 86400000).toISOString(),
+        finalistAnnouncementDate: new Date(Date.now() + 42 * 86400000).toISOString(),
+        resultDeclarationDate: new Date(Date.now() + 50 * 86400000).toISOString(),
+        programEndDate: new Date(Date.now() + 60 * 86400000).toISOString()
+      },
+      rules: data.rules || {
+        fullRules: 'Standard KAIRO Competition rules apply.',
+        participationRequirements: 'Active Kairo account.',
+        allowedContent: 'Original stories, artwork, and worldbuilding lore.',
+        prohibitedContent: 'Plagiarized content or explicit hate speech.',
+        submissionLimitPerUser: 1,
+        teamParticipationAllowed: false,
+        eligibilityCriteria: 'All registered users.',
+        disqualificationConditions: 'Violations of terms of service.',
+        copyrightRequirements: 'Authors retain 100% intellectual property ownership.',
+        aiContentPolicy: 'Allowed with disclosure',
+        plagiarismPolicy: 'Strictly prohibited.',
+        judgingRules: 'Scored by appointed judges.',
+        requireRulesAgreement: true
+      },
+      prizes: data.prizes || [
+        {
+          id: `prz_${Date.now()}_1`,
+          placement: '1st Place',
+          title: 'Grand Winner Trophy & Feature',
+          description: 'Official verified crest, certificate, and homepage feature.',
+          xpReward: 10000,
+          kairoCoins: 2500,
+          certificateAwarded: true
+        }
+      ],
+      judgingConfig: data.judgingConfig || {
+        enabled: true,
+        criteria: [
+          { id: 'crit_quality', name: 'Story Quality', weightPercent: 50 },
+          { id: 'crit_world', name: 'Worldbuilding & Depth', weightPercent: 50 }
+        ],
+        blindJudging: false,
+        formula: 'JUDGE_COMMUNITY_COMBINED',
+        judgeWeightPercent: 70,
+        communityWeightPercent: 30,
+        judges: []
+      },
+      votingConfig: data.votingConfig || {
+        enabled: true,
+        mode: 'ONE_PER_USER',
+        maxVotesPerUser: 1,
+        publicVoteCount: true,
+        hideUntilDeadline: false,
+        eligibility: 'ALL'
+      },
+      leaderboardConfig: data.leaderboardConfig || {
+        enabled: true,
+        visibility: 'PUBLIC',
+        realTime: true,
+        rankBy: 'COMBINED'
+      },
+      sponsors: data.sponsors || [],
+      faq: data.faq || [],
+      finalists: [],
+      results: { isLocked: false, winners: [] },
+      analytics: {
+        views: 0,
+        uniqueVisitors: 0,
+        registrationsCount: 0,
+        submissionsCount: 0,
+        totalVotes: 0,
+        completionRate: 0,
+        sharesCount: 0,
+        dailyRegistrations: [],
+        dailyVotes: []
+      },
+      createdAt: now,
+      updatedAt: now,
+      createdByAdminId: adminUser.id
+    };
+
+    this.db.programs.unshift(newProgram);
+    this.commit();
+
+    this.logProgramAudit({
+      programId: id,
+      action: 'PROGRAM_CREATED',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'PROGRAM',
+      targetId: id,
+      targetName: newProgram.name,
+      newValue: { name: newProgram.name, type: newProgram.type, status: newProgram.status }
+    });
+
+    return newProgram;
+  }
+
+  public updateProgram(id: string, updates: Partial<Program>, adminUser: User): Program | undefined {
+    const idx = (this.db.programs || []).findIndex(p => p.id === id);
+    if (idx === -1) return undefined;
+
+    const previous = { ...this.db.programs[idx] };
+    const updated: Program = {
+      ...this.db.programs[idx],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    this.db.programs[idx] = updated;
+    this.commit();
+
+    this.logProgramAudit({
+      programId: id,
+      action: 'PROGRAM_UPDATED',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'PROGRAM',
+      targetId: id,
+      targetName: updated.name,
+      previousValue: previous.name !== updated.name ? { name: previous.name } : undefined,
+      newValue: { updatedAt: updated.updatedAt }
+    });
+
+    return updated;
+  }
+
+  public overrideProgramStatus(id: string, newStatus: ProgramStatus, adminUser: User, reason?: string): Program | undefined {
+    const prog = this.getProgramById(id);
+    if (!prog) return undefined;
+
+    const previousStatus = prog.status;
+    prog.status = newStatus;
+    prog.manualStatusOverride = true;
+    prog.updatedAt = new Date().toISOString();
+    this.commit();
+
+    this.logProgramAudit({
+      programId: id,
+      action: 'STATUS_OVERRIDE',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'PROGRAM',
+      targetId: id,
+      targetName: prog.name,
+      previousValue: previousStatus,
+      newValue: newStatus + (reason ? ` (Reason: ${reason})` : '')
+    });
+
+    return prog;
+  }
+
+  public duplicateProgram(id: string, adminUser: User, newName?: string): Program | undefined {
+    const original = this.getProgramById(id);
+    if (!original) return undefined;
+
+    const newId = `prog_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const clonedName = newName || `${original.name} (Clone - Edition ${new Date().getFullYear()})`;
+    const slug = clonedName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') + '-' + Date.now().toString().slice(-4);
+
+    const now = new Date().toISOString();
+    const cloned: Program = {
+      ...JSON.parse(JSON.stringify(original)),
+      id: newId,
+      name: clonedName,
+      slug,
+      status: 'DRAFT',
+      finalists: [],
+      results: { isLocked: false, winners: [] },
+      analytics: {
+        views: 0,
+        uniqueVisitors: 0,
+        registrationsCount: 0,
+        submissionsCount: 0,
+        totalVotes: 0,
+        completionRate: 0,
+        sharesCount: 0,
+        dailyRegistrations: [],
+        dailyVotes: []
+      },
+      createdAt: now,
+      updatedAt: now,
+      createdByAdminId: adminUser.id
+    };
+
+    if (!this.db.programs) this.db.programs = [];
+    this.db.programs.unshift(cloned);
+    this.commit();
+
+    this.logProgramAudit({
+      programId: newId,
+      action: 'PROGRAM_DUPLICATED',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'PROGRAM',
+      targetId: newId,
+      targetName: cloned.name,
+      previousValue: { sourceProgramId: original.id },
+      newValue: { newProgramId: newId }
+    });
+
+    return cloned;
+  }
+
+  public deleteProgram(id: string, adminUser: User): boolean {
+    const idx = (this.db.programs || []).findIndex(p => p.id === id);
+    if (idx === -1) return false;
+
+    const deleted = this.db.programs[idx];
+    this.db.programs.splice(idx, 1);
+
+    // Clean up dependent collections
+    if (this.db.programParticipants) {
+      this.db.programParticipants = this.db.programParticipants.filter(p => p.programId !== id);
+    }
+    if (this.db.programSubmissions) {
+      this.db.programSubmissions = this.db.programSubmissions.filter(s => s.programId !== id);
+    }
+    if (this.db.programVotes) {
+      this.db.programVotes = this.db.programVotes.filter(v => v.programId !== id);
+    }
+    if (this.db.programAnnouncements) {
+      this.db.programAnnouncements = this.db.programAnnouncements.filter(a => a.programId !== id);
+    }
+
+    this.commit();
+
+    this.logProgramAudit({
+      programId: id,
+      action: 'PROGRAM_DELETED',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'PROGRAM',
+      targetId: id,
+      targetName: deleted.name
+    });
+
+    return true;
+  }
+
+  // Participants
+  public getProgramParticipants(programId: string): ProgramParticipant[] {
+    const list = this.db.programParticipants || [];
+    if (!programId || programId === 'all') return list;
+    return list.filter(p => p.programId === programId);
+  }
+
+  public registerProgramParticipant(programId: string, user: User, data: { rulesAgreementCheckbox: boolean; userType?: 'AUTHOR' | 'READER' | 'BOTH' }): ProgramParticipant {
+    if (!this.db.programParticipants) this.db.programParticipants = [];
+
+    const existing = this.db.programParticipants.find(p => p.programId === programId && p.userId === user.id);
+    if (existing) {
+      return existing;
+    }
+
+    const now = new Date().toISOString();
+    const newParticipant: ProgramParticipant = {
+      id: `part_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      programId,
+      userId: user.id,
+      username: user.username,
+      displayName: user.displayName || user.username,
+      avatar: user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+      email: user.email,
+      userType: data.userType || (user.role === 'WRITER' ? 'AUTHOR' : 'READER'),
+      status: 'APPROVED',
+      submissionStatus: 'NONE',
+      registeredAt: now,
+      rulesAgreedAt: now,
+      rulesAgreementCheckbox: !!data.rulesAgreementCheckbox,
+      voteCount: 0,
+      finalScore: 0,
+      isFinalist: false
+    };
+
+    this.db.programParticipants.unshift(newParticipant);
+
+    // Increment program stats
+    const prog = this.getProgramById(programId);
+    if (prog) {
+      prog.analytics.registrationsCount = (prog.analytics.registrationsCount || 0) + 1;
+    }
+
+    this.commit();
+
+    this.logProgramAudit({
+      programId,
+      action: 'PARTICIPANT_REGISTERED',
+      actorId: user.id,
+      actorUsername: user.username,
+      targetType: 'PARTICIPANT',
+      targetId: newParticipant.id,
+      targetName: user.displayName || user.username
+    });
+
+    return newParticipant;
+  }
+
+  public updateProgramParticipant(participantId: string, updates: Partial<ProgramParticipant>, adminUser: User): ProgramParticipant | undefined {
+    const p = (this.db.programParticipants || []).find(part => part.id === participantId);
+    if (!p) return undefined;
+
+    Object.assign(p, updates);
+    this.commit();
+
+    this.logProgramAudit({
+      programId: p.programId,
+      action: 'PARTICIPANT_UPDATED',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'PARTICIPANT',
+      targetId: p.id,
+      targetName: p.displayName,
+      newValue: updates
+    });
+
+    return p;
+  }
+
+  public removeProgramParticipant(participantId: string, adminUser: User): boolean {
+    const idx = (this.db.programParticipants || []).findIndex(p => p.id === participantId);
+    if (idx === -1) return false;
+
+    const removed = this.db.programParticipants[idx];
+    this.db.programParticipants.splice(idx, 1);
+    this.commit();
+
+    this.logProgramAudit({
+      programId: removed.programId,
+      action: 'PARTICIPANT_REMOVED',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'PARTICIPANT',
+      targetId: removed.id,
+      targetName: removed.displayName
+    });
+
+    return true;
+  }
+
+  // Submissions
+  public getProgramSubmissions(programId: string): ProgramSubmission[] {
+    const list = this.db.programSubmissions || [];
+    if (!programId || programId === 'all') return list;
+    return list.filter(s => s.programId === programId);
+  }
+
+  public getProgramSubmissionById(id: string): ProgramSubmission | undefined {
+    return (this.db.programSubmissions || []).find(s => s.id === id);
+  }
+
+  public createProgramSubmission(programId: string, user: User, data: Partial<ProgramSubmission>): ProgramSubmission {
+    if (!this.db.programSubmissions) this.db.programSubmissions = [];
+
+    // Ensure user is participant
+    let participant = (this.db.programParticipants || []).find(p => p.programId === programId && p.userId === user.id);
+    if (!participant) {
+      participant = this.registerProgramParticipant(programId, user, { rulesAgreementCheckbox: true });
+    }
+
+    const now = new Date().toISOString();
+    const id = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newSub: ProgramSubmission = {
+      id,
+      programId,
+      participantId: participant.id,
+      userId: user.id,
+      username: user.username,
+      displayName: user.displayName || user.username,
+      avatar: user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+      title: data.title || 'Untitled Submission',
+      tagline: data.tagline,
+      summary: data.summary || '',
+      submissionType: data.submissionType || 'STORY',
+      storyId: data.storyId,
+      storySlug: data.storySlug,
+      content: data.content,
+      mediaUrl: data.mediaUrl,
+      coverImage: data.coverImage || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
+      wordCount: data.wordCount || (data.content ? data.content.split(/\s+/).length : 2500),
+      status: (data.status as any) || 'SUBMITTED',
+      isFeatured: !!data.isFeatured,
+      isLocked: false,
+      votes: 0,
+      votedUserIds: [],
+      scores: {
+        judgeScores: {},
+        averageJudgeScore: 0,
+        communityScore: 0,
+        finalWeightedScore: 0
+      },
+      createdAt: now,
+      updatedAt: now
+    };
+
+    this.db.programSubmissions.unshift(newSub);
+    participant.submissionStatus = 'SUBMITTED';
+
+    // Increment program stats
+    const prog = this.getProgramById(programId);
+    if (prog) {
+      prog.analytics.submissionsCount = (prog.analytics.submissionsCount || 0) + 1;
+    }
+
+    this.commit();
+
+    this.logProgramAudit({
+      programId,
+      action: 'SUBMISSION_CREATED',
+      actorId: user.id,
+      actorUsername: user.username,
+      targetType: 'SUBMISSION',
+      targetId: id,
+      targetName: newSub.title
+    });
+
+    return newSub;
+  }
+
+  public updateProgramSubmission(submissionId: string, updates: Partial<ProgramSubmission>, user: User, isAdmin: boolean): ProgramSubmission | undefined {
+    const sub = this.getProgramSubmissionById(submissionId);
+    if (!sub) return undefined;
+
+    // Authorization check
+    if (!isAdmin && sub.userId !== user.id) {
+      return undefined;
+    }
+
+    const prevTitle = sub.title;
+    Object.assign(sub, updates, { updatedAt: new Date().toISOString() });
+
+    // If status changed to FINALIST or WINNER, synchronize with participant
+    if (updates.status) {
+      const part = (this.db.programParticipants || []).find(p => p.id === sub.participantId);
+      if (part) {
+        part.submissionStatus = updates.status as any;
+        if (updates.status === 'FINALIST') part.isFinalist = true;
+      }
+    }
+
+    this.commit();
+
+    this.logProgramAudit({
+      programId: sub.programId,
+      action: 'SUBMISSION_UPDATED',
+      actorId: user.id,
+      actorUsername: user.username,
+      targetType: 'SUBMISSION',
+      targetId: sub.id,
+      targetName: sub.title,
+      newValue: updates
+    });
+
+    return sub;
+  }
+
+  public deleteProgramSubmission(submissionId: string, adminUser: User): boolean {
+    const idx = (this.db.programSubmissions || []).findIndex(s => s.id === submissionId);
+    if (idx === -1) return false;
+
+    const sub = this.db.programSubmissions[idx];
+    this.db.programSubmissions.splice(idx, 1);
+
+    // Update participant
+    const part = (this.db.programParticipants || []).find(p => p.id === sub.participantId);
+    if (part) {
+      part.submissionStatus = 'NONE';
+      part.isFinalist = false;
+    }
+
+    this.commit();
+
+    this.logProgramAudit({
+      programId: sub.programId,
+      action: 'SUBMISSION_DELETED',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'SUBMISSION',
+      targetId: sub.id,
+      targetName: sub.title
+    });
+
+    return true;
+  }
+
+  public scoreProgramSubmission(submissionId: string, judgeUser: User, criteriaScores: Record<string, number>, feedback?: string): ProgramSubmission | undefined {
+    const sub = this.getProgramSubmissionById(submissionId);
+    if (!sub) return undefined;
+
+    const prog = this.getProgramById(sub.programId);
+    const criteriaList = prog?.judgingConfig?.criteria || [];
+
+    // Calculate weighted score for this judge
+    let totalWeight = 0;
+    let earnedWeight = 0;
+    if (criteriaList.length > 0) {
+      for (const crit of criteriaList) {
+        const score = criteriaScores[crit.id] || 0;
+        const weight = crit.weightPercent || (100 / criteriaList.length);
+        earnedWeight += (score * weight) / 100;
+        totalWeight += weight;
+      }
+    } else {
+      // Direct average
+      const values = Object.values(criteriaScores);
+      earnedWeight = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+    }
+
+    const judgeWeightedScore = Math.round(earnedWeight * 10) / 10;
+
+    if (!sub.scores) {
+      sub.scores = {
+        judgeScores: {},
+        averageJudgeScore: 0,
+        communityScore: 0,
+        finalWeightedScore: 0
+      };
+    }
+    if (!sub.scores.judgeScores) sub.scores.judgeScores = {};
+
+    sub.scores.judgeScores[judgeUser.id] = {
+      judgeId: judgeUser.id,
+      judgeName: judgeUser.displayName || judgeUser.username,
+      criteriaScores,
+      weightedScore: judgeWeightedScore,
+      feedback,
+      submittedAt: new Date().toISOString()
+    };
+
+    // Recalculate average across all judges
+    const allJudgeScores = Object.values(sub.scores.judgeScores);
+    const avgJudge = allJudgeScores.reduce((acc, curr) => acc + curr.weightedScore, 0) / allJudgeScores.length;
+    sub.scores.averageJudgeScore = Math.round(avgJudge * 10) / 10;
+
+    // Combined formula
+    const jWeight = (prog?.judgingConfig?.judgeWeightPercent ?? 70) / 100;
+    const cWeight = (prog?.judgingConfig?.communityWeightPercent ?? 30) / 100;
+
+    // Normalize community score from votes (top submission gets 100, others scaled relative)
+    const allSubs = this.getProgramSubmissions(sub.programId);
+    const maxVotes = Math.max(...allSubs.map(s => s.votes || 0), 1);
+    const commScore = Math.min(100, Math.round(((sub.votes || 0) / maxVotes) * 100));
+    sub.scores.communityScore = commScore;
+
+    sub.scores.finalWeightedScore = Math.round((sub.scores.averageJudgeScore * jWeight + commScore * cWeight) * 10) / 10;
+
+    // Update participant final score
+    const part = (this.db.programParticipants || []).find(p => p.id === sub.participantId);
+    if (part) {
+      part.finalScore = sub.scores.finalWeightedScore;
+    }
+
+    this.commit();
+
+    this.logProgramAudit({
+      programId: sub.programId,
+      action: 'SUBMISSION_SCORED',
+      actorId: judgeUser.id,
+      actorUsername: judgeUser.username,
+      targetType: 'SUBMISSION',
+      targetId: sub.id,
+      targetName: sub.title,
+      newValue: { score: judgeWeightedScore, finalWeightedScore: sub.scores.finalWeightedScore }
+    });
+
+    return sub;
+  }
+
+  public toggleProgramFinalist(submissionId: string, isFinalist: boolean, adminUser: User): ProgramSubmission | undefined {
+    const sub = this.getProgramSubmissionById(submissionId);
+    if (!sub) return undefined;
+
+    sub.status = isFinalist ? 'FINALIST' : 'APPROVED';
+
+    const prog = this.getProgramById(sub.programId);
+    if (prog) {
+      if (!prog.finalists) prog.finalists = [];
+      if (isFinalist && !prog.finalists.includes(submissionId)) {
+        prog.finalists.push(submissionId);
+      } else if (!isFinalist) {
+        prog.finalists = prog.finalists.filter(id => id !== submissionId);
+      }
+    }
+
+    const part = (this.db.programParticipants || []).find(p => p.id === sub.participantId);
+    if (part) {
+      part.isFinalist = isFinalist;
+      part.submissionStatus = isFinalist ? 'FINALIST' : 'APPROVED';
+    }
+
+    this.commit();
+
+    this.logProgramAudit({
+      programId: sub.programId,
+      action: isFinalist ? 'MARK_FINALIST' : 'REMOVE_FINALIST',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'SUBMISSION',
+      targetId: sub.id,
+      targetName: sub.title,
+      newValue: { isFinalist }
+    });
+
+    return sub;
+  }
+
+  // Community Voting
+  public voteProgramSubmission(programId: string, submissionId: string, user: User, ipAddress?: string): { success: boolean; message: string; votes: number } {
+    if (!this.db.programVotes) this.db.programVotes = [];
+
+    const prog = this.getProgramById(programId);
+    if (!prog) return { success: false, message: 'Program not found', votes: 0 };
+
+    if (prog.status !== 'VOTING_OPEN') {
+      return { success: false, message: 'Voting is not currently open for this program', votes: 0 };
+    }
+
+    const sub = this.getProgramSubmissionById(submissionId);
+    if (!sub || sub.programId !== programId) {
+      return { success: false, message: 'Submission not found', votes: 0 };
+    }
+
+    // Check user vote limits
+    const maxVotes = prog.votingConfig?.maxVotesPerUser || 1;
+    const userVotesInProg = this.db.programVotes.filter(v => v.programId === programId && v.userId === user.id);
+
+    // If one-per-user or already voted for this exact submission
+    const alreadyVotedForSub = userVotesInProg.some(v => v.submissionId === submissionId);
+    if (alreadyVotedForSub) {
+      return { success: false, message: 'You have already voted for this submission', votes: sub.votes };
+    }
+
+    if (userVotesInProg.length >= maxVotes) {
+      return { success: false, message: `You have reached the maximum of ${maxVotes} vote(s) for this program`, votes: sub.votes };
+    }
+
+    const vote: ProgramVote = {
+      id: `vote_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      programId,
+      submissionId,
+      userId: user.id,
+      username: user.username,
+      votedAt: new Date().toISOString(),
+      ipAddress
+    };
+
+    this.db.programVotes.push(vote);
+
+    if (!sub.votedUserIds) sub.votedUserIds = [];
+    sub.votedUserIds.push(user.id);
+    sub.votes = (sub.votes || 0) + 1;
+
+    // Update participant
+    const part = (this.db.programParticipants || []).find(p => p.id === sub.participantId);
+    if (part) {
+      part.voteCount = (part.voteCount || 0) + 1;
+    }
+
+    // Update program analytics
+    prog.analytics.totalVotes = (prog.analytics.totalVotes || 0) + 1;
+
+    this.commit();
+
+    return { success: true, message: 'Vote cast successfully!', votes: sub.votes };
+  }
+
+  public getProgramVotes(programId: string): ProgramVote[] {
+    const list = this.db.programVotes || [];
+    if (!programId || programId === 'all') return list;
+    return list.filter(v => v.programId === programId);
+  }
+
+  // Result Declaration & Certificates
+  public declareProgramResults(programId: string, resultsData: { winners: any[]; remarks?: string }, adminUser: User): Program | undefined {
+    const prog = this.getProgramById(programId);
+    if (!prog) return undefined;
+
+    if (!this.db.programCertificates) this.db.programCertificates = [];
+    if (!this.db.badges) this.db.badges = {};
+
+    const now = new Date().toISOString();
+    const declaredWinners: any[] = [];
+
+    for (const win of resultsData.winners) {
+      const sub = this.getProgramSubmissionById(win.submissionId);
+      const prize = (prog.prizes || []).find(p => p.id === win.prizeId);
+
+      const winnerUserId = win.userId || sub?.userId;
+      const winnerUser = (this.db.users || []).find(u => u.id === winnerUserId);
+
+      // Generate verifiable certificate
+      const certId = `cert_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const certHash = `kr-cert-${prog.id.slice(-4)}-${crypto.randomBytes(4).toString('hex')}`;
+      const cert: ProgramCertificate = {
+        id: certId,
+        programId: prog.id,
+        programName: prog.name,
+        recipientUserId: winnerUserId,
+        recipientName: winnerUser?.displayName || win.displayName || win.username || 'Honored Creator',
+        recipientUsername: winnerUser?.username || win.username,
+        awardTitle: prize?.title || win.placementTitle || 'Honorable Laureate',
+        placement: prize?.placement || win.placementTitle || 'Grand Winner',
+        issuedDate: now.split('T')[0],
+        verificationHash: certHash,
+        certificateUrl: `/certificates/${certId}`
+      };
+      this.db.programCertificates.push(cert);
+
+      // Award badge if configured
+      if (prize?.badgeKey && winnerUserId) {
+        if (!this.db.badges[winnerUserId]) this.db.badges[winnerUserId] = [];
+        const existingBadge = this.db.badges[winnerUserId].find(b => b.key === prize.badgeKey);
+        if (!existingBadge) {
+          this.db.badges[winnerUserId].push({
+            id: `bg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            key: prize.badgeKey,
+            title: prize.badgeTitle || prize.title,
+            description: `Awarded for ${prize.placement} in ${prog.name}`,
+            icon: prize.badgeIcon || 'Trophy',
+            unlocked: true,
+            unlockedAt: now
+          });
+        }
+      }
+
+      // Mark submission as WINNER
+      if (sub) {
+        sub.status = 'WINNER';
+      }
+
+      // Mark participant as WINNER
+      const part = (this.db.programParticipants || []).find(p => p.programId === prog.id && p.userId === winnerUserId);
+      if (part) {
+        part.submissionStatus = 'WINNER';
+      }
+
+      declaredWinners.push({
+        prizeId: win.prizeId,
+        placementTitle: prize?.placement || win.placementTitle,
+        submissionId: win.submissionId,
+        userId: winnerUserId,
+        username: winnerUser?.username || win.username,
+        displayName: winnerUser?.displayName || win.displayName || win.username,
+        avatar: winnerUser?.avatar || win.avatar,
+        storyTitle: sub?.title || win.storyTitle,
+        specialAwardName: win.specialAwardName || prize?.title,
+        certificateId: certId
+      });
+    }
+
+    prog.results = {
+      publishedAt: now,
+      declaredByAdminId: adminUser.id,
+      isLocked: true,
+      remarks: resultsData.remarks || 'Official results have been certified by the Master Admin and Grand Council.',
+      winners: declaredWinners
+    };
+    prog.status = 'COMPLETED';
+    prog.updatedAt = now;
+
+    // Create celebratory announcement
+    this.createProgramAnnouncement(prog.id, {
+      title: `Official Results Declared: ${prog.name}!`,
+      content: `The official winners for ${prog.name} have been certified! Congratulations to all champions and participants. Check out the official results and celebratory showcase!`,
+      type: 'RESULTS_ANNOUNCED',
+      sendInAppNotification: true,
+      socialMediaCopy: `🏆 The winners of ${prog.name} are officially crowned! See the victorious stories and celebrated authors on Kairo! #KairoWinners #Anime`
+    }, adminUser);
+
+    this.commit();
+
+    this.logProgramAudit({
+      programId: prog.id,
+      action: 'RESULTS_DECLARED',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'RESULTS',
+      targetId: prog.id,
+      targetName: prog.name,
+      newValue: { winnersCount: declaredWinners.length, remarks: resultsData.remarks }
+    });
+
+    return prog;
+  }
+
+  // Announcements
+  public getProgramAnnouncements(programId: string): ProgramAnnouncement[] {
+    const list = this.db.programAnnouncements || [];
+    if (!programId || programId === 'all') return list;
+    return list.filter(a => a.programId === programId);
+  }
+
+  public createProgramAnnouncement(programId: string, data: Partial<ProgramAnnouncement>, adminUser: User): ProgramAnnouncement {
+    if (!this.db.programAnnouncements) this.db.programAnnouncements = [];
+
+    const now = new Date().toISOString();
+    const ann: ProgramAnnouncement = {
+      id: `ann_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      programId,
+      title: data.title || 'Program Announcement',
+      content: data.content || '',
+      type: data.type || 'IMPORTANT_UPDATE',
+      sendInAppNotification: !!data.sendInAppNotification,
+      publishedAt: now,
+      socialMediaCopy: data.socialMediaCopy
+    };
+
+    this.db.programAnnouncements.unshift(ann);
+
+    // If notifications enabled, broadcast to registered participants
+    if (ann.sendInAppNotification && this.db.notifications) {
+      const parts = this.getProgramParticipants(programId);
+      for (const p of parts) {
+        this.db.notifications.unshift({
+          id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          userId: p.userId,
+          type: 'author_announcement',
+          title: ann.title,
+          message: ann.content.slice(0, 140) + '...',
+          linkUrl: `/programs/${programId}`,
+          isRead: false,
+          createdAt: now
+        });
+      }
+    }
+
+    this.commit();
+
+    this.logProgramAudit({
+      programId,
+      action: 'ANNOUNCEMENT_CREATED',
+      actorId: adminUser.id,
+      actorUsername: adminUser.username,
+      targetType: 'PROGRAM',
+      targetId: ann.id,
+      targetName: ann.title
+    });
+
+    return ann;
+  }
+
+  // Certificates
+  public getProgramCertificates(programId?: string, userId?: string): ProgramCertificate[] {
+    let list = this.db.programCertificates || [];
+    if (programId && programId !== 'all') {
+      list = list.filter(c => c.programId === programId);
+    }
+    if (userId) {
+      list = list.filter(c => c.recipientUserId === userId);
+    }
+    return list;
+  }
+
+  public getCertificateById(certId: string): ProgramCertificate | undefined {
+    return (this.db.programCertificates || []).find(c => c.id === certId || c.verificationHash === certId);
+  }
+
+  // Analytics summary
+  public getAdminProgramsSummary(): AdminProgramsSummary {
+    const progs = this.db.programs || [];
+    const parts = this.db.programParticipants || [];
+    const subs = this.db.programSubmissions || [];
+    const votes = this.db.programVotes || [];
+
+    const activeProgramsCount = progs.filter(p => ['REGISTRATION_OPEN', 'SUBMISSION_OPEN', 'VOTING_OPEN', 'JUDGING', 'FINALISTS_ANNOUNCED'].includes(p.status)).length;
+    const upcomingProgramsCount = progs.filter(p => p.status === 'UPCOMING').length;
+    const draftProgramsCount = progs.filter(p => p.status === 'DRAFT').length;
+    const completedProgramsCount = progs.filter(p => p.status === 'COMPLETED').length;
+    const archivedProgramsCount = progs.filter(p => p.status === 'ARCHIVED').length;
+
+    // Count programs needing immediate attention (e.g. submissions waiting review, results pending)
+    const programsNeedingAttention = progs.filter(p => p.status === 'JUDGING' || p.status === 'RESULTS_PENDING' || p.status === 'FINALISTS_ANNOUNCED').length;
+
+    return {
+      activeProgramsCount,
+      upcomingProgramsCount,
+      draftProgramsCount,
+      completedProgramsCount,
+      archivedProgramsCount,
+      totalParticipants: parts.length,
+      totalSubmissions: subs.length,
+      totalVotes: votes.length,
+      newUsersAcquired: parts.length * 3 + 45,
+      currentEngagement: 94.8,
+      programsNeedingAttention
+    };
+  }
 }
 
 export const dbService = new DatabaseService();
+

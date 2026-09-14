@@ -10,12 +10,14 @@ interface DiscoverViewProps {
   initialSort?: string;
   onOpenStory: (storySlug: string) => void;
   onReadChapter: (storySlug: string, chapterNumber: number) => void;
+  onOpenAuthor?: (username: string) => void;
 }
 
 export const DiscoverView: React.FC<DiscoverViewProps> = ({
   initialSort = 'popular',
   onOpenStory,
   onReadChapter,
+  onOpenAuthor,
 }) => {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,16 +241,25 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-pink-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (onOpenAuthor) {
+                        onOpenAuthor(story.authorUsername || story.authorId);
+                      }
+                    }}
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity text-left cursor-pointer group/author"
+                    title={`View @${story.authorUsername}'s profile`}
+                  >
                     <img
                       src={story.authorAvatar}
                       alt={story.authorDisplayName}
-                      className="w-5 h-5 rounded-full object-cover"
+                      className="w-5 h-5 rounded-full object-cover ring-1 ring-pink-200 group-hover/author:ring-[#9e3b5f]"
                     />
-                    <span className="text-[11px] font-medium text-[#544246] truncate max-w-[100px]">
+                    <span className="text-[11px] font-medium text-[#544246] group-hover/author:text-[#9e3b5f] truncate max-w-[100px]">
                       {story.authorDisplayName}
                     </span>
-                  </div>
+                  </button>
 
                   <button
                     onClick={e => {

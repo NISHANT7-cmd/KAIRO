@@ -282,6 +282,23 @@ app.patch('/api/auth/profile', requireAuth, (req: Request, res: Response) => {
   return res.json({ user: enrichedUser });
 });
 
+app.get('/api/users/profile/:idOrUsername', (req: Request, res: Response) => {
+  const viewer = getUserFromReq(req);
+  const target = req.params.idOrUsername;
+  const targetIdOrUsername = target === 'me' ? (viewer?.id || '') : target;
+  
+  if (!targetIdOrUsername) {
+    return res.status(401).json({ error: 'Please sign in to view your profile' });
+  }
+
+  const profile = dbService.getPublicUserProfile(targetIdOrUsername, viewer?.id);
+  if (!profile) {
+    return res.status(404).json({ error: 'User profile not found' });
+  }
+
+  return res.json(profile);
+});
+
 // ----------------------------------------------------
 // STORIES & CHAPTERS
 // ----------------------------------------------------
@@ -337,8 +354,7 @@ app.get('/api/stories/:idOrSlug', (req: Request, res: Response) => {
 app.post('/api/stories', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   if (user.role === 'USER') {
-    dbService.updateUser(user.id, { role: 'WRITER', isVerifiedWriter: true });
-    user.role = 'WRITER';
+    return res.status(403).json({ error: 'Reader accounts cannot create or publish stories. Please switch to an Author or Writer persona.' });
   }
   const story = dbService.createStory(req.body, user);
   return res.json({ story });
@@ -408,6 +424,21 @@ app.patch('/api/chapters/:chapterId', requireAuth, (req: Request, res: Response)
 
   const updated = dbService.updateChapter(chapter.id, req.body);
   return res.json({ chapter: updated });
+});
+
+app.delete('/api/chapters/:chapterId', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const chapter = dbService.findChapter(req.params.chapterId);
+  if (!chapter) return res.status(404).json({ error: 'Chapter not found' });
+
+  const story = dbService.findStoryByIdOrSlug(chapter.storyId);
+  if (!story) return res.status(404).json({ error: 'Story not found' });
+  if (story.authorId !== user.id && user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Forbidden: You do not own this chapter' });
+  }
+
+  dbService.deleteChapter(chapter.id);
+  return res.json({ success: true });
 });
 
 // ----------------------------------------------------
@@ -911,6 +942,9 @@ app.post('/api/notifications/read-all', requireAuth, (req: Request, res: Respons
 
 app.get('/api/studio/analytics', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
+  if (user.role === 'USER') {
+    return res.status(403).json({ error: 'Creator Studio analytics are reserved for Author and Writer accounts.' });
+  }
   const stats = dbService.getCreatorAnalytics(user.id);
   return res.json({ stats });
 });
@@ -994,6 +1028,260 @@ app.delete('/api/admin/posts/:id', requireAdmin, (req: Request, res: Response) =
 app.delete('/api/admin/theories/:id', requireAdmin, (req: Request, res: Response) => {
   const success = dbService.deleteTheory(req.params.id);
   return res.json({ success });
+});
+
+// ==========================================
+// MASTER ADMIN PROGRAMS & COMPETITIONS API
+// ==========================================
+
+// 1. Admin Summary Stats
+app.get('/api/admin/programs/summary', requireAdmin, (req: Request, res: Response) => {
+  const summary = dbService.getAdminProgramsSummary();
+  return res.json({ summary });
+});
+
+// 2. Admin List Programs (with filters)
+app.get('/api/admin/programs', requireAdmin, (req: Request, res: Response) => {
+  const filter = {
+    status: req.query.status as string,
+    type: req.query.type as string,
+    visibility: req.query.visibility as string,
+    search: req.query.search as string
+  };
+  const programs = dbService.getPrograms(filter);
+  return res.json({ programs });
+});
+
+// 3. Admin Create Program
+app.post('/api/admin/programs', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const newProgram = dbService.createProgram(req.body, adminUser);
+  return res.status(201).json({ program: newProgram });
+});
+
+// 4. Admin Get Single Program Detail
+app.get('/api/admin/programs/:id', requireAdmin, (req: Request, res: Response) => {
+  const program = dbService.getProgramById(req.params.id);
+  if (!program) return res.status(404).json({ error: 'Program not found' });
+  return res.json({ program });
+});
+
+// 5. Admin Update Program
+app.patch('/api/admin/programs/:id', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const updated = dbService.updateProgram(req.params.id, req.body, adminUser);
+  if (!updated) return res.status(404).json({ error: 'Program not found' });
+  return res.json({ program: updated });
+});
+
+// 6. Admin Manual Status Override
+app.post('/api/admin/programs/:id/status', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const { status, reason } = req.body;
+  if (!status) return res.status(400).json({ error: 'Status is required' });
+  const updated = dbService.overrideProgramStatus(req.params.id, status, adminUser, reason);
+  if (!updated) return res.status(404).json({ error: 'Program not found' });
+  return res.json({ program: updated });
+});
+
+// 7. Admin Duplicate Program
+app.post('/api/admin/programs/:id/duplicate', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const cloned = dbService.duplicateProgram(req.params.id, adminUser, req.body.newName);
+  if (!cloned) return res.status(404).json({ error: 'Source program not found' });
+  return res.status(201).json({ program: cloned });
+});
+
+// 8. Admin Delete Program
+app.delete('/api/admin/programs/:id', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const success = dbService.deleteProgram(req.params.id, adminUser);
+  return res.json({ success });
+});
+
+// 9. Admin Participants Management
+app.get('/api/admin/programs/:id/participants', requireAdmin, (req: Request, res: Response) => {
+  const participants = dbService.getProgramParticipants(req.params.id);
+  return res.json({ participants });
+});
+
+app.patch('/api/admin/programs/:id/participants/:participantId', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const updated = dbService.updateProgramParticipant(req.params.participantId, req.body, adminUser);
+  if (!updated) return res.status(404).json({ error: 'Participant not found' });
+  return res.json({ participant: updated });
+});
+
+app.delete('/api/admin/programs/:id/participants/:participantId', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const success = dbService.removeProgramParticipant(req.params.participantId, adminUser);
+  return res.json({ success });
+});
+
+// 10. Admin Submissions Management
+app.get('/api/admin/programs/:id/submissions', requireAdmin, (req: Request, res: Response) => {
+  const submissions = dbService.getProgramSubmissions(req.params.id);
+  return res.json({ submissions });
+});
+
+app.patch('/api/admin/programs/:id/submissions/:submissionId', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const updated = dbService.updateProgramSubmission(req.params.submissionId, req.body, adminUser, true);
+  if (!updated) return res.status(404).json({ error: 'Submission not found' });
+  return res.json({ submission: updated });
+});
+
+app.delete('/api/admin/programs/:id/submissions/:submissionId', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const success = dbService.deleteProgramSubmission(req.params.submissionId, adminUser);
+  return res.json({ success });
+});
+
+app.post('/api/admin/programs/:id/submissions/:submissionId/finalist', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const updated = dbService.toggleProgramFinalist(req.params.submissionId, !!req.body.isFinalist, adminUser);
+  if (!updated) return res.status(404).json({ error: 'Submission not found' });
+  return res.json({ submission: updated });
+});
+
+app.post('/api/admin/programs/:id/submissions/:submissionId/score', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const { criteriaScores, feedback } = req.body;
+  if (!criteriaScores) return res.status(400).json({ error: 'Criteria scores required' });
+  const updated = dbService.scoreProgramSubmission(req.params.submissionId, adminUser, criteriaScores, feedback);
+  if (!updated) return res.status(404).json({ error: 'Submission not found' });
+  return res.json({ submission: updated });
+});
+
+// 11. Admin Votes View & Audit
+app.get('/api/admin/programs/:id/votes', requireAdmin, (req: Request, res: Response) => {
+  const votes = dbService.getProgramVotes(req.params.id);
+  return res.json({ votes });
+});
+
+// 12. Admin Result Declaration
+app.post('/api/admin/programs/:id/declare-results', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const { winners, remarks } = req.body;
+  if (!winners || !Array.isArray(winners)) return res.status(400).json({ error: 'Winners array required' });
+  const updated = dbService.declareProgramResults(req.params.id, { winners, remarks }, adminUser);
+  if (!updated) return res.status(404).json({ error: 'Program not found' });
+  return res.json({ program: updated });
+});
+
+// 13. Admin Announcements
+app.get('/api/admin/programs/:id/announcements', requireAdmin, (req: Request, res: Response) => {
+  const announcements = dbService.getProgramAnnouncements(req.params.id);
+  return res.json({ announcements });
+});
+
+app.post('/api/admin/programs/:id/announcements', requireAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const ann = dbService.createProgramAnnouncement(req.params.id, req.body, adminUser);
+  return res.status(201).json({ announcement: ann });
+});
+
+// 14. Admin Audit Logs
+app.get('/api/admin/programs/:id/audit-logs', requireAdmin, (req: Request, res: Response) => {
+  const logs = dbService.getProgramAuditLogs(req.params.id);
+  return res.json({ logs });
+});
+
+// ------------------------------------------
+// PUBLIC & PARTICIPANT PROGRAMS APIS
+// ------------------------------------------
+
+// Public list of active/published programs
+app.get('/api/programs', (req: Request, res: Response) => {
+  const programs = dbService.getPrograms({
+    status: req.query.status as string,
+    type: req.query.type as string,
+    visibility: 'public',
+    search: req.query.search as string
+  });
+  return res.json({ programs });
+});
+
+// Public single program
+app.get('/api/programs/:slugOrId', (req: Request, res: Response) => {
+  const program = dbService.getProgramBySlug(req.params.slugOrId) || dbService.getProgramById(req.params.slugOrId);
+  if (!program) return res.status(404).json({ error: 'Program not found' });
+  return res.json({ program });
+});
+
+// Public submissions for a program
+app.get('/api/programs/:id/submissions', (req: Request, res: Response) => {
+  const submissions = dbService.getProgramSubmissions(req.params.id);
+  // Filter out internal drafts unless requested
+  const publicSubs = submissions.filter(s => s.status !== 'DRAFT');
+  return res.json({ submissions: publicSubs });
+});
+
+// Public announcements for a program
+app.get('/api/programs/:id/announcements', (req: Request, res: Response) => {
+  const announcements = dbService.getProgramAnnouncements(req.params.id);
+  return res.json({ announcements });
+});
+
+// User register for program
+app.post('/api/programs/:id/register', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { rulesAgreementCheckbox, userType } = req.body;
+  if (!rulesAgreementCheckbox) {
+    return res.status(400).json({ error: 'You must agree to the program rules to participate' });
+  }
+  const participant = dbService.registerProgramParticipant(req.params.id, user, { rulesAgreementCheckbox, userType });
+  return res.json({ participant });
+});
+
+// User get status in program
+app.get('/api/programs/:id/my-status', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const participants = dbService.getProgramParticipants(req.params.id);
+  const myParticipant = participants.find(p => p.userId === user.id);
+  const submissions = dbService.getProgramSubmissions(req.params.id);
+  const mySubmission = submissions.find(s => s.userId === user.id);
+  const votes = dbService.getProgramVotes(req.params.id);
+  const myVotes = votes.filter(v => v.userId === user.id);
+
+  return res.json({
+    isRegistered: !!myParticipant,
+    participant: myParticipant || null,
+    submission: mySubmission || null,
+    votesCastCount: myVotes.length,
+    votedSubmissionIds: myVotes.map(v => v.submissionId)
+  });
+});
+
+// User submit entry
+app.post('/api/programs/:id/submit', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const prog = dbService.getProgramById(req.params.id);
+  if (!prog) return res.status(404).json({ error: 'Program not found' });
+
+  if (!['SUBMISSION_OPEN', 'REGISTRATION_OPEN'].includes(prog.status)) {
+    return res.status(400).json({ error: 'Submissions are not currently open for this program' });
+  }
+
+  const submission = dbService.createProgramSubmission(req.params.id, user, req.body);
+  return res.status(201).json({ submission });
+});
+
+// User cast vote
+app.post('/api/programs/:id/submissions/:submissionId/vote', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const result = dbService.voteProgramSubmission(req.params.id, req.params.submissionId, user, req.ip);
+  if (!result.success) {
+    return res.status(400).json({ error: result.message });
+  }
+  return res.json(result);
+});
+
+// Public verify certificate
+app.get('/api/certificates/:certId', (req: Request, res: Response) => {
+  const cert = dbService.getCertificateById(req.params.certId);
+  if (!cert) return res.status(404).json({ error: 'Certificate not found' });
+  return res.json({ certificate: cert });
 });
 
 // Health Check & Root API Status

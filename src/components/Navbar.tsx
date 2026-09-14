@@ -5,6 +5,7 @@ import {
   Tv, Library, ChevronDown, CheckCircle2, Shield 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { KairoLogo } from './KairoLogo';
 
 interface NavbarProps {
   currentView: string;
@@ -41,19 +42,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button 
             id="kairo-logo-btn"
             onClick={() => onNavigate('home')} 
-            className="flex items-center gap-2.5 group cursor-pointer focus:outline-none"
+            className="flex items-center group cursor-pointer focus:outline-none"
+            title="KAIRO - Return Home"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#9e3b5f] to-[#f47fa5] flex items-center justify-center text-white shadow-md shadow-pink-900/20 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="font-extrabold text-xl tracking-tight font-display text-[#26152b] group-hover:text-[#9e3b5f] transition-colors">
-                KAIRO
-              </span>
-              <span className="text-[10px] tracking-wider uppercase font-semibold text-[#877276] -mt-1">
-                Fandom & Stories
-              </span>
-            </div>
+            <KairoLogo size="sm" layout="horizontal" />
           </button>
 
           {/* Desktop Nav Links */}
@@ -156,6 +148,29 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
+          {/* Writer & Author Studio Button (Exclusive to Authors/Writers - Hidden for Readers) */}
+          {(!user || user.role !== 'USER') && (
+            <button
+              id="nav-writer-studio-btn"
+              onClick={() => {
+                if (user) {
+                  onNavigate('studio');
+                } else {
+                  onOpenAuth();
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                currentView === 'studio' || currentView === 'create-story' || currentView === 'editor'
+                  ? 'bg-[#9e3b5f] text-white shadow-md'
+                  : 'btn-gradient text-white hover:scale-102 hover:shadow-md'
+              }`}
+              title="Writer Studio - Write and publish your stories"
+            >
+              <Feather className="w-3.5 h-3.5" />
+              <span>Write</span>
+            </button>
+          )}
+
           {/* User Profile Avatar / Login CTA */}
           {user ? (
             <div className="relative">
@@ -190,12 +205,28 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                   <div className="py-1.5 space-y-0.5">
                     <button
-                      onClick={() => onNavigate('profile')}
+                      onClick={() => onNavigate('profile', user.username)}
                       className="w-full px-3 py-2 rounded-xl text-xs font-medium text-[#26152b] hover:bg-[#fee7ff] flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <UserIcon className="w-4 h-4 text-[#9e3b5f]" />
                       <span>My Profile & Badges</span>
                     </button>
+
+                    {user.role !== 'USER' && (
+                      <button
+                        id="dropdown-studio-btn"
+                        onClick={() => onNavigate('studio')}
+                        className="w-full px-3 py-2 rounded-xl text-xs font-semibold text-[#9e3b5f] hover:bg-[#fee7ff] flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Feather className="w-4 h-4 text-[#9e3b5f]" />
+                          <span>Creator Studio</span>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#fee7ff] text-[#9e3b5f] font-bold border border-pink-200">
+                          Write
+                        </span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => onNavigate('library')}

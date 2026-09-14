@@ -2,7 +2,10 @@ import {
   User, Story, Chapter, ReadingProgress, LibraryItem, Review, 
   ChapterComment, Community, CommunityPost, Theory, Character, 
   CharacterRelationship, World, Universe, AnimeEntry, Notification, Badge, CreatorStats, SearchResult,
-  AdminPlatformStats
+  AdminPlatformStats, PublicUserProfile,
+  Program, ProgramParticipant, ProgramSubmission, ProgramVote,
+  ProgramAnnouncement, ProgramAuditLog, ProgramCertificate,
+  AdminProgramsSummary, ProgramStatus
 } from '../types';
 
 const TOKEN_KEY = 'kairo_auth_token';
@@ -409,6 +412,52 @@ export const api = {
     }
   },
 
+  async getUserProfile(idOrUsername: string): Promise<PublicUserProfile> {
+    const clean = encodeURIComponent(idOrUsername.trim().replace(/^@/, ''));
+    try {
+      const res = await request<PublicUserProfile>(`/api/users/profile/${clean}`);
+      return res;
+    } catch (err: any) {
+      if (!isServerFailure(err)) {
+        throw err;
+      }
+      // Fallback in demo mode
+      const allUsers = [...DEMO_FALLBACK_USERS, ...getLocalUsers()];
+      const found = allUsers.find(u => 
+        u.id.toLowerCase() === clean.toLowerCase() || 
+        u.username.toLowerCase() === clean.toLowerCase()
+      );
+      if (!found) {
+        throw new Error('User profile not found');
+      }
+      const localActive = getActiveLocalUser();
+      const isSelf = Boolean(localActive && localActive.id === found.id);
+      return {
+        user: found,
+        isFollowing: false,
+        isSelf,
+        stories: [],
+        posts: [],
+        universes: [],
+        theories: [],
+        readingList: [],
+        certificates: [],
+        badges: found.role === 'ADMIN' ? ['Master Admin'] : found.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
+        stats: {
+          totalStories: 0,
+          totalReads: found.totalReads || 0,
+          totalLikes: 0,
+          totalPosts: 0,
+          totalTheories: 0,
+          totalUniverses: 0,
+          followersCount: found.followersCount || 0,
+          followingCount: found.followingCount || 0,
+          chaptersCount: 0,
+        }
+      };
+    }
+  },
+
   // Stories
   async getStories(params: { genre?: string; tag?: string; authorId?: string; universeId?: string; featured?: boolean; sort?: string; status?: string } = {}) {
     const q = new URLSearchParams();
@@ -478,6 +527,12 @@ export const api = {
     return request<{ chapter: Chapter }>(`/api/chapters/${chapterId}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
+    });
+  },
+
+  async deleteChapter(chapterId: string) {
+    return request<{ success: boolean }>(`/api/chapters/${chapterId}`, {
+      method: 'DELETE',
     });
   },
 
@@ -901,10 +956,6 @@ export const api = {
     return request<SearchResult>(`/api/search?q=${encodeURIComponent(query)}`);
   },
 
-  async getUserProfile(username: string) {
-    return request<{ user: User; stories: Story[]; badges: Badge[] }>(`/api/users/${username}`);
-  },
-
   // Master Admin Portal
   async adminGetStats() {
     return request<{ stats: AdminPlatformStats }>('/api/admin/stats');
@@ -950,5 +1001,195 @@ export const api = {
     return request<{ success: boolean }>(`/api/admin/theories/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  // ==========================================
+  // MASTER ADMIN PROGRAMS & COMPETITIONS API
+  // ==========================================
+
+  async adminGetProgramsSummary() {
+    return request<{ summary: AdminProgramsSummary }>('/api/admin/programs/summary');
+  },
+
+  async adminGetPrograms(filter?: { status?: string; type?: string; search?: string; visibility?: string }) {
+    const params = new URLSearchParams();
+    if (filter?.status) params.set('status', filter.status);
+    if (filter?.type) params.set('type', filter.type);
+    if (filter?.visibility) params.set('visibility', filter.visibility);
+    if (filter?.search) params.set('search', filter.search);
+    const qs = params.toString();
+    return request<{ programs: Program[] }>(`/api/admin/programs${qs ? `?${qs}` : ''}`);
+  },
+
+  async adminCreateProgram(data: Partial<Program>) {
+    return request<{ program: Program }>('/api/admin/programs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async adminGetProgram(id: string) {
+    return request<{ program: Program }>(`/api/admin/programs/${id}`);
+  },
+
+  async adminUpdateProgram(id: string, data: Partial<Program>) {
+    return request<{ program: Program }>(`/api/admin/programs/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async adminOverrideProgramStatus(id: string, status: ProgramStatus, reason?: string) {
+    return request<{ program: Program }>(`/api/admin/programs/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status, reason }),
+    });
+  },
+
+  async adminDuplicateProgram(id: string, newName?: string) {
+    return request<{ program: Program }>(`/api/admin/programs/${id}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify({ newName }),
+    });
+  },
+
+  async adminDeleteProgram(id: string) {
+    return request<{ success: boolean }>(`/api/admin/programs/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async adminGetProgramParticipants(programId: string) {
+    return request<{ participants: ProgramParticipant[] }>(`/api/admin/programs/${programId}/participants`);
+  },
+
+  async adminUpdateProgramParticipant(programId: string, participantId: string, data: Partial<ProgramParticipant>) {
+    return request<{ participant: ProgramParticipant }>(`/api/admin/programs/${programId}/participants/${participantId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async adminRemoveProgramParticipant(programId: string, participantId: string) {
+    return request<{ success: boolean }>(`/api/admin/programs/${programId}/participants/${participantId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async adminGetProgramSubmissions(programId: string) {
+    return request<{ submissions: ProgramSubmission[] }>(`/api/admin/programs/${programId}/submissions`);
+  },
+
+  async adminUpdateProgramSubmission(programId: string, submissionId: string, data: Partial<ProgramSubmission>) {
+    return request<{ submission: ProgramSubmission }>(`/api/admin/programs/${programId}/submissions/${submissionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async adminDeleteProgramSubmission(programId: string, submissionId: string) {
+    return request<{ success: boolean }>(`/api/admin/programs/${programId}/submissions/${submissionId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async adminToggleProgramFinalist(programId: string, submissionId: string, isFinalist: boolean) {
+    return request<{ submission: ProgramSubmission }>(`/api/admin/programs/${programId}/submissions/${submissionId}/finalist`, {
+      method: 'POST',
+      body: JSON.stringify({ isFinalist }),
+    });
+  },
+
+  async adminScoreProgramSubmission(programId: string, submissionId: string, criteriaScores: Record<string, number>, feedback?: string) {
+    return request<{ submission: ProgramSubmission }>(`/api/admin/programs/${programId}/submissions/${submissionId}/score`, {
+      method: 'POST',
+      body: JSON.stringify({ criteriaScores, feedback }),
+    });
+  },
+
+  async adminGetProgramVotes(programId: string) {
+    return request<{ votes: ProgramVote[] }>(`/api/admin/programs/${programId}/votes`);
+  },
+
+  async adminDeclareProgramResults(programId: string, winners: any[], remarks?: string) {
+    return request<{ program: Program }>(`/api/admin/programs/${programId}/declare-results`, {
+      method: 'POST',
+      body: JSON.stringify({ winners, remarks }),
+    });
+  },
+
+  async adminGetProgramAnnouncements(programId: string) {
+    return request<{ announcements: ProgramAnnouncement[] }>(`/api/admin/programs/${programId}/announcements`);
+  },
+
+  async adminCreateProgramAnnouncement(programId: string, data: Partial<ProgramAnnouncement>) {
+    return request<{ announcement: ProgramAnnouncement }>(`/api/admin/programs/${programId}/announcements`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async adminGetProgramAuditLogs(programId?: string) {
+    const id = programId || 'all';
+    return request<{ logs: ProgramAuditLog[] }>(`/api/admin/programs/${id}/audit-logs`);
+  },
+
+  // ------------------------------------------
+  // PUBLIC & PARTICIPANT PROGRAMS API METHODS
+  // ------------------------------------------
+
+  async getPublicPrograms(filter?: { status?: string; type?: string; search?: string }) {
+    const params = new URLSearchParams();
+    if (filter?.status) params.set('status', filter.status);
+    if (filter?.type) params.set('type', filter.type);
+    if (filter?.search) params.set('search', filter.search);
+    const qs = params.toString();
+    return request<{ programs: Program[] }>(`/api/programs${qs ? `?${qs}` : ''}`);
+  },
+
+  async getPublicProgram(slugOrId: string) {
+    return request<{ program: Program }>(`/api/programs/${slugOrId}`);
+  },
+
+  async getPublicProgramSubmissions(programId: string) {
+    return request<{ submissions: ProgramSubmission[] }>(`/api/programs/${programId}/submissions`);
+  },
+
+  async getPublicProgramAnnouncements(programId: string) {
+    return request<{ announcements: ProgramAnnouncement[] }>(`/api/programs/${programId}/announcements`);
+  },
+
+  async registerProgram(programId: string, data: { rulesAgreementCheckbox: boolean; userType?: string }) {
+    return request<{ participant: ProgramParticipant }>(`/api/programs/${programId}/register`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getMyProgramStatus(programId: string) {
+    return request<{
+      isRegistered: boolean;
+      participant: ProgramParticipant | null;
+      submission: ProgramSubmission | null;
+      votesCastCount: number;
+      votedSubmissionIds: string[];
+    }>(`/api/programs/${programId}/my-status`);
+  },
+
+  async submitProgramEntry(programId: string, data: Partial<ProgramSubmission>) {
+    return request<{ submission: ProgramSubmission }>(`/api/programs/${programId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async voteProgramSubmission(programId: string, submissionId: string) {
+    return request<{ success: boolean; message: string; votes: number }>(`/api/programs/${programId}/submissions/${submissionId}/vote`, {
+      method: 'POST',
+    });
+  },
+
+  async verifyCertificate(certId: string) {
+    return request<{ certificate: ProgramCertificate }>(`/api/certificates/${certId}`);
   },
 };

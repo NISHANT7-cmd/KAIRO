@@ -22,9 +22,10 @@ import { ProfileView } from './components/ProfileView';
 import { AdminPortalView } from './components/AdminPortalView';
 import { WorldBuilderModal } from './components/WorldBuilderModal';
 import { CharacterBuilderModal } from './components/CharacterBuilderModal';
+import { KairoLogo } from './components/KairoLogo';
 
 export function KairoApp() {
-  const { isAuthModalOpen, openAuthModal, closeAuthModal } = useAuth();
+  const { user, isAuthModalOpen, openAuthModal, closeAuthModal } = useAuth();
 
   // Navigation State
   const [currentView, setCurrentView] = useState<string>('home');
@@ -32,6 +33,7 @@ export function KairoApp() {
   const [selectedChapterNumber, setSelectedChapterNumber] = useState<number>(1);
   const [selectedUniverseSlug, setSelectedUniverseSlug] = useState<string>('the-astral-universe');
   const [selectedCommunitySlug, setSelectedCommunitySlug] = useState<string>('astral-universe-fandom');
+  const [selectedProfileIdOrUsername, setSelectedProfileIdOrUsername] = useState<string | undefined>(undefined);
   const [editorStoryId, setEditorStoryId] = useState<string>('');
   const [editorChapterId, setEditorChapterId] = useState<string | undefined>(undefined);
 
@@ -60,6 +62,8 @@ export function KairoApp() {
             setSelectedUniverseSlug(parts[1]);
           } else if (view === 'community' && parts[1]) {
             setSelectedCommunitySlug(parts[1]);
+          } else if (view === 'profile') {
+            setSelectedProfileIdOrUsername(parts[1] || undefined);
           }
         }
       }
@@ -85,6 +89,9 @@ export function KairoApp() {
     } else if (view === 'community' && data) {
       setSelectedCommunitySlug(data);
       window.location.hash = `community/${data}`;
+    } else if (view === 'profile') {
+      setSelectedProfileIdOrUsername(data || undefined);
+      window.location.hash = data ? `profile/${data}` : 'profile';
     } else if (view === 'editor' && data) {
       setEditorStoryId(data.storyId);
       setEditorChapterId(data.chapterId);
@@ -116,7 +123,7 @@ export function KairoApp() {
       {/* Top Main Navigation Bar */}
       <Navbar
         currentView={currentView}
-        onNavigate={(view) => navigateTo(view)}
+        onNavigate={(view, data) => navigateTo(view, data)}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenNotifs={() => setIsNotificationOpen(true)}
         onOpenAuth={openAuthModal}
@@ -138,6 +145,7 @@ export function KairoApp() {
           <DiscoverView
             onOpenStory={(slug) => navigateTo('story', slug)}
             onReadChapter={(slug, num) => navigateTo('reader', { slug, chapterNumber: num })}
+            onOpenAuthor={(username) => navigateTo('profile', username)}
           />
         )}
 
@@ -147,7 +155,7 @@ export function KairoApp() {
             onBack={() => navigateTo('discover')}
             onReadChapter={(slug, num) => navigateTo('reader', { slug, chapterNumber: num })}
             onOpenUniverse={(slug) => navigateTo('universe', slug)}
-            onOpenAuthor={(username) => navigateTo('profile')}
+            onOpenAuthor={(username) => navigateTo('profile', username)}
           />
         )}
 
@@ -172,6 +180,7 @@ export function KairoApp() {
             initialCommunitySlug={selectedCommunitySlug}
             onOpenStory={(slug) => navigateTo('story', slug)}
             onRequireAuth={openAuthModal}
+            onOpenProfile={(username) => navigateTo('profile', username)}
           />
         )}
 
@@ -188,6 +197,7 @@ export function KairoApp() {
             onOpenWorldBuilder={() => setIsWorldBuilderOpen(true)}
             onOpenCharacterBuilder={() => setIsCharacterBuilderOpen(true)}
             onOpenStoryDetail={(slug) => navigateTo('story', slug)}
+            onReadChapter={(slug, num) => navigateTo('reader', { slug, chapterNumber: num })}
           />
         )}
 
@@ -217,9 +227,14 @@ export function KairoApp() {
 
         {currentView === 'profile' && (
           <ProfileView
+            userIdOrUsername={selectedProfileIdOrUsername}
             onOpenStory={(slug) => navigateTo('story', slug)}
             onOpenStudio={() => navigateTo('studio')}
             onOpenAdmin={() => navigateTo('admin')}
+            onOpenUniverse={(slug) => navigateTo('universe', slug)}
+            onOpenCommunity={(slug) => navigateTo('community', slug)}
+            onNavigate={(view, data) => navigateTo(view, data)}
+            onBack={() => navigateTo('home')}
           />
         )}
 
@@ -235,7 +250,7 @@ export function KairoApp() {
       {/* Mobile Bottom Navigation */}
       <BottomNav
         currentView={currentView}
-        onNavigate={(view) => navigateTo(view)}
+        onNavigate={(view, data) => navigateTo(view, data)}
       />
 
       {/* Global Modals & Drawers */}
@@ -276,16 +291,24 @@ export function KairoApp() {
       {/* Global Footer (Desktop & Tablet) */}
       <footer className="border-t border-pink-100/80 bg-white/60 py-8 px-4 sm:px-6 lg:px-8 text-xs text-[#877276] mb-14 md:mb-0">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-[#9e3b5f] font-display">KAIRO</span>
-            <span>•</span>
+          <div className="flex items-center gap-2.5">
+            <button 
+              onClick={() => navigateTo('home')} 
+              className="hover:opacity-80 transition-opacity cursor-pointer"
+              title="KAIRO Home"
+            >
+              <KairoLogo size="xs" layout="horizontal" showTagline={false} />
+            </button>
+            <span className="text-pink-300">•</span>
             <span>Social Storytelling, Anime & Fictional Universes</span>
           </div>
           <div className="flex items-center gap-4 font-semibold text-[#544246]">
             <button onClick={() => navigateTo('discover')} className="hover:text-[#9e3b5f]">Discover</button>
             <button onClick={() => navigateTo('universes')} className="hover:text-[#9e3b5f]">Lore Universes</button>
             <button onClick={() => navigateTo('anime')} className="hover:text-[#9e3b5f]">Anime Hub</button>
-            <button onClick={() => navigateTo('studio')} className="hover:text-[#9e3b5f]">Creator Studio</button>
+            {(!user || user.role !== 'USER') && (
+              <button onClick={() => navigateTo('studio')} className="hover:text-[#9e3b5f]">Creator Studio</button>
+            )}
           </div>
         </div>
       </footer>

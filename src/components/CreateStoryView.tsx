@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowLeft, ArrowRight, Check, Image as ImageIcon, Globe, BookOpen } from 'lucide-react';
+import { Sparkles, ArrowLeft, ArrowRight, Check, Image as ImageIcon, Globe, BookOpen, Feather } from 'lucide-react';
 import { StoryType, AgeRating, StoryStatus } from '../types';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 interface CreateStoryViewProps {
   onBack: () => void;
@@ -9,6 +10,7 @@ interface CreateStoryViewProps {
 }
 
 export const CreateStoryView: React.FC<CreateStoryViewProps> = ({ onBack, onStoryCreated }) => {
+  const { user, updateProfile } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -29,6 +31,41 @@ export const CreateStoryView: React.FC<CreateStoryViewProps> = ({ onBack, onStor
     { label: 'Cyberpunk Neon', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80' },
     { label: 'Starry Library', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&auto=format&fit=crop&q=80' },
   ];
+
+  if (user?.role === 'USER') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6">
+        <div className="glass-card rounded-3xl p-8 border border-pink-200 shadow-xl bg-gradient-to-br from-[#fee7ff] to-white space-y-5">
+          <div className="w-14 h-14 rounded-2xl bg-white shadow-md text-[#9e3b5f] flex items-center justify-center mx-auto border border-pink-100">
+            <BookOpen className="w-7 h-7" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold font-display text-[#26152b]">Story Creation Disabled for Readers</h2>
+            <p className="text-xs sm:text-sm text-[#544246] max-w-md mx-auto">
+              Reader accounts cannot write or publish serialized fiction. To create stories and access authoring tools, switch to an Author / Writer persona.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              onClick={onBack}
+              className="px-4 py-2.5 rounded-xl bg-white border border-pink-200 text-xs font-semibold text-[#544246] cursor-pointer"
+            >
+              Return
+            </button>
+            <button
+              onClick={async () => {
+                await updateProfile({ role: 'WRITER', isVerifiedWriter: true });
+              }}
+              className="btn-gradient px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm"
+            >
+              <Feather className="w-3.5 h-3.5" />
+              <span>Upgrade to Writer Persona</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleCreate = async () => {
     if (!title.trim()) {

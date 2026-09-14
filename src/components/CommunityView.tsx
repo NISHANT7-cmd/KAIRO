@@ -22,12 +22,14 @@ interface CommunityViewProps {
   initialCommunitySlug?: string;
   onOpenStory: (storySlug: string) => void;
   onRequireAuth?: () => void;
+  onOpenProfile?: (usernameOrId: string) => void;
 }
 
 export const CommunityView: React.FC<CommunityViewProps> = ({
   initialCommunitySlug = 'astral-universe-fandom',
   onOpenStory,
   onRequireAuth,
+  onOpenProfile,
 }) => {
   const { user, openAuthModal } = useAuth();
 
@@ -258,6 +260,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               onReportContent={(type, id) => setReportTarget({ type, id })}
               activeTagFilter={activeTagFilter}
               onTagFilterChange={setActiveTagFilter}
+              onOpenProfile={onOpenProfile}
             />
           </div>
         </div>

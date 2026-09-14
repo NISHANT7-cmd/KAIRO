@@ -101,10 +101,21 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <span>Start Reading</span>
               </button>
 
+              {user?.role !== 'USER' && (
+                <button
+                  id="hero-write-story-btn"
+                  onClick={() => onNavigate('studio')}
+                  className="px-5 py-3.5 rounded-2xl font-bold text-sm bg-white/90 hover:bg-white text-[#9e3b5f] border border-pink-200/90 shadow-2xs hover:shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Feather className="w-4 h-4 text-[#9e3b5f]" />
+                  <span>Write & Publish</span>
+                </button>
+              )}
+
               <button
                 id="hero-explore-universes-btn"
                 onClick={() => onNavigate('universes')}
-                className="px-6 py-3.5 rounded-2xl font-bold text-sm bg-white/80 hover:bg-white text-[#635882] border border-pink-200/90 shadow-2xs hover:shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+                className="px-5 py-3.5 rounded-2xl font-bold text-sm bg-white/80 hover:bg-white text-[#635882] border border-pink-200/90 shadow-2xs hover:shadow-xs transition-all flex items-center gap-2 cursor-pointer"
               >
                 <Globe className="w-4 h-4 text-[#635882]" />
                 <span>Explore Universes</span>
@@ -267,16 +278,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
 
               <div className="mt-4 pt-3 border-t border-pink-100/70 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate('profile', story.authorUsername || story.authorId);
+                  }}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity text-left cursor-pointer group/author"
+                  title={`View @${story.authorUsername}'s profile`}
+                >
                   <img
                     src={story.authorAvatar}
                     alt={story.authorDisplayName}
-                    className="w-5 h-5 rounded-full object-cover"
+                    className="w-5 h-5 rounded-full object-cover ring-1 ring-pink-200 group-hover/author:ring-[#9e3b5f]"
                   />
-                  <span className="text-[#544246] font-medium text-[11px] truncate max-w-[120px]">
+                  <span className="text-[#544246] group-hover/author:text-[#9e3b5f] font-semibold text-[11px] truncate max-w-[120px]">
                     {story.authorDisplayName}
                   </span>
-                </div>
+                </button>
                 <div className="flex items-center gap-1 font-bold text-[#9e3b5f]">
                   <Star className="w-3.5 h-3.5 fill-[#9e3b5f]" />
                   <span>{story.rating}</span>
@@ -286,6 +304,79 @@ export const HomeView: React.FC<HomeViewProps> = ({
           ))}
         </div>
       </section>
+
+      {/* Authors & Creators Studio Callout (or Reader Discovery Sanctuary if Reader role) */}
+      {user?.role !== 'USER' ? (
+        <section className="relative overflow-hidden rounded-3xl p-6 sm:p-10 border border-pink-200/90 shadow-md bg-gradient-to-r from-[#fee7ff] via-white to-[#f6ebff]">
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 border border-pink-200 text-[#9e3b5f] text-xs font-bold">
+                <Feather className="w-3.5 h-3.5" />
+                <span>WRITERS & AUTHORS GUILD</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black font-display text-[#26152b]">
+                Ready to publish your own anime universe?
+              </h2>
+              <p className="text-xs sm:text-sm text-[#544246] leading-relaxed">
+                KAIRO gives authors serialized novel publishing, auto-saving chapter manuscripts, rich lore codexes, character relationship networks, and detailed reader metrics.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                id="home-cta-new-story-btn"
+                onClick={() => onNavigate('create-story')}
+                className="btn-gradient px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md cursor-pointer"
+              >
+                <Feather className="w-4 h-4" />
+                <span>Publish a Story</span>
+              </button>
+              <button
+                id="home-cta-open-studio-btn"
+                onClick={() => onNavigate('studio')}
+                className="px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm bg-white hover:bg-pink-50 text-[#635882] border border-pink-200 shadow-2xs transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <span>Creator Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="relative overflow-hidden rounded-3xl p-6 sm:p-10 border border-pink-200/90 shadow-md bg-gradient-to-r from-[#fee7ff] via-white to-[#f6ebff]">
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 border border-pink-200 text-[#9e3b5f] text-xs font-bold">
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>IMMERSIVE STORYTELLING REALM</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black font-display text-[#26152b]">
+                Explore thousands of serialized light novel chapters
+              </h2>
+              <p className="text-xs sm:text-sm text-[#544246] leading-relaxed">
+                Follow master storytellers, discuss plot twists with fellow readers in fandom hubs, and dive into original world lore codexes.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => onNavigate('discover')}
+                className="btn-gradient px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md cursor-pointer"
+              >
+                <Compass className="w-4 h-4" />
+                <span>Explore Catalog</span>
+              </button>
+              <button
+                onClick={() => onNavigate('community')}
+                className="px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm bg-white hover:bg-pink-50 text-[#635882] border border-pink-200 shadow-2xs transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <Users className="w-4 h-4" />
+                <span>Join Discussions</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Featured Universe & World Spotlight */}
       {universes.length > 0 && (

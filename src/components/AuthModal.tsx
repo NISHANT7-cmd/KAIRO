@@ -4,6 +4,7 @@ import {
   BookOpen, Feather, Eye, EyeOff, Shield, ArrowRight, Palette, Award
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { KairoLogo } from './KairoLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -135,8 +136,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#9e3b5f] to-[#f47fa5] flex items-center justify-center text-white mx-auto shadow-md shadow-pink-900/20 mb-3">
-            <Sparkles className="w-6 h-6" />
+          <div className="flex justify-center mb-3">
+            <KairoLogo size="md" layout="icon-only" />
           </div>
           <h2 className="text-2xl font-black font-display text-[#26152b]">
             {isSignUp 
@@ -148,7 +149,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               ? (step === 'creds' 
                   ? 'Sign up as a Reader or Writer to experience serialized stories and interactive lore.' 
                   : 'Customize your pen name, avatar, and genre tastes.') 
-              : 'Sign in to access your reading progress, creator studio, and fandom discussions.'}
+              : 'Sign in to access your reading progress, personalized library, and fandom discussions.'}
           </p>
         </div>
 

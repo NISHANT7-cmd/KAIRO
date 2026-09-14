@@ -28,6 +28,34 @@ export interface User {
   publishedStoriesCount?: number;
 }
 
+export interface PublicUserProfile {
+  user: User;
+  isFollowing: boolean;
+  isSelf: boolean;
+  stories: Story[];
+  posts: CommunityPost[];
+  universes: Universe[];
+  theories: CommunityPost[];
+  readingList: {
+    story: Story;
+    listType: string;
+    addedAt: string;
+  }[];
+  certificates: ProgramCertificate[];
+  badges: string[];
+  stats: {
+    totalStories: number;
+    totalReads: number;
+    totalLikes: number;
+    totalPosts: number;
+    totalTheories: number;
+    totalUniverses: number;
+    followersCount: number;
+    followingCount: number;
+    chaptersCount: number;
+  };
+}
+
 export interface AdminPlatformStats {
   totalUsers: number;
   totalWriters: number;
@@ -704,4 +732,368 @@ export interface SearchResult {
   theories: Theory[];
   anime: AnimeEntry[];
   authors?: User[];
+}
+
+// ==========================================
+// MASTER ADMIN PROGRAMS & COMPETITIONS TYPES
+// ==========================================
+
+export type ProgramType = 
+  | 'Writing Competition'
+  | 'Story Challenge'
+  | 'Reader Challenge'
+  | 'Author Contest'
+  | 'Fan Art Competition'
+  | 'Theory Competition'
+  | 'Community Challenge'
+  | 'Kairo Originals'
+  | 'Seasonal Festival'
+  | 'Author League'
+  | 'Reader Tournament'
+  | 'Voting Contest'
+  | 'Special Event'
+  | 'Custom Program'
+  | string;
+
+export type ProgramStatus = 
+  | 'DRAFT'
+  | 'UPCOMING'
+  | 'REGISTRATION_OPEN'
+  | 'SUBMISSION_OPEN'
+  | 'VOTING_OPEN'
+  | 'JUDGING'
+  | 'FINALISTS_ANNOUNCED'
+  | 'RESULTS_PENDING'
+  | 'COMPLETED'
+  | 'ARCHIVED'
+  | 'CANCELLED';
+
+export interface ProgramTimeline {
+  registrationOpens: string;
+  registrationCloses: string;
+  submissionOpens: string;
+  submissionDeadline: string;
+  votingStarts: string;
+  votingEnds: string;
+  judgingStarts: string;
+  judgingEnds: string;
+  finalistAnnouncementDate: string;
+  resultDeclarationDate: string;
+  winnerAnnouncementTime?: string;
+  programEndDate: string;
+}
+
+export interface ProgramRules {
+  fullRules: string;
+  participationRequirements: string;
+  allowedContent: string;
+  prohibitedContent: string;
+  wordLimitMin?: number;
+  wordLimitMax?: number;
+  chapterLimitMin?: number;
+  chapterLimitMax?: number;
+  imageRequirements?: string;
+  fileRequirements?: string;
+  submissionLimitPerUser: number;
+  teamParticipationAllowed: boolean;
+  eligibilityCriteria: string;
+  disqualificationConditions: string;
+  copyrightRequirements: string;
+  aiContentPolicy: 'Allowed with disclosure' | 'Strictly Prohibited' | 'Assisted Only' | 'Unrestricted';
+  plagiarismPolicy: string;
+  judgingRules: string;
+  requireRulesAgreement: boolean;
+}
+
+export interface ProgramPrize {
+  id: string;
+  placement: string; // e.g. '1st Place', '2nd Place', '3rd Place', 'Best Character', 'Best Worldbuilding', 'Reader Choice', 'Breakthrough Creator'
+  title: string;
+  description: string;
+  cashAmount?: number;
+  currency?: string;
+  xpReward?: number;
+  kairoCoins?: number;
+  badgeKey?: string;
+  badgeTitle?: string;
+  badgeIcon?: string;
+  featuredPlacementDays?: number;
+  kairoOriginalStatus?: boolean;
+  certificateAwarded?: boolean;
+  premiumBenefits?: string;
+}
+
+export interface JudgingCriterion {
+  id: string;
+  name: string;
+  weightPercent: number; // e.g. 30 (representing 30%)
+  description?: string;
+}
+
+export interface ProgramJudge {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  title?: string;
+  assignedSubmissionIds?: string[];
+}
+
+export interface JudgingConfig {
+  enabled: boolean;
+  criteria: JudgingCriterion[];
+  blindJudging: boolean;
+  formula: 'WEIGHTED_CRITERIA' | 'JUDGE_COMMUNITY_COMBINED' | 'JUDGE_ONLY' | 'COMMUNITY_ONLY';
+  judgeWeightPercent: number;
+  communityWeightPercent: number;
+  judges: ProgramJudge[];
+}
+
+export interface VotingConfig {
+  enabled: boolean;
+  mode: 'ONE_PER_USER' | 'MULTIPLE_VOTES' | 'DAILY_VOTE';
+  maxVotesPerUser: number;
+  publicVoteCount: boolean;
+  hideUntilDeadline: boolean;
+  eligibility: 'ALL' | 'AUTHORS_ONLY' | 'READERS_ONLY' | 'MIN_LEVEL';
+  minAccountAgeDays?: number;
+}
+
+export interface LeaderboardConfig {
+  enabled: boolean;
+  visibility: 'PUBLIC' | 'PRIVATE' | 'FINAL_ONLY';
+  realTime: boolean;
+  rankBy: 'VOTES' | 'SCORE' | 'JUDGE_SCORE' | 'COMBINED';
+  hideRankingsUntil?: string;
+}
+
+export interface ProgramSponsor {
+  id: string;
+  name: string;
+  logoUrl: string;
+  websiteUrl?: string;
+  tier?: string;
+}
+
+export interface ProgramFaq {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+export interface ProgramWinner {
+  prizeId: string;
+  placementTitle: string;
+  submissionId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  storyTitle?: string;
+  specialAwardName?: string;
+  certificateId?: string;
+}
+
+export interface ProgramResults {
+  publishedAt?: string;
+  declaredByAdminId?: string;
+  isLocked: boolean;
+  remarks?: string;
+  winners: ProgramWinner[];
+}
+
+export interface ProgramAnalytics {
+  views: number;
+  uniqueVisitors: number;
+  registrationsCount: number;
+  submissionsCount: number;
+  totalVotes: number;
+  completionRate: number;
+  sharesCount: number;
+  dailyRegistrations?: Array<{ date: string; count: number }>;
+  dailyVotes?: Array<{ date: string; count: number }>;
+}
+
+export interface Program {
+  id: string;
+  name: string;
+  slug: string;
+  tagline: string;
+  description: string;
+  type: ProgramType;
+  customType?: string;
+  coverImage: string;
+  bannerImage: string;
+  thumbnail: string;
+  organizerName: string;
+  theme: string;
+  category: string;
+  eligibility: string;
+  ageRestriction?: string;
+  countryEligibility?: string;
+  language: string;
+  maxParticipants: number;
+  minParticipants: number;
+  targetAudience: 'author-only' | 'reader-only' | 'both';
+  visibility: 'public' | 'private' | 'invite-only';
+  status: ProgramStatus;
+  manualStatusOverride?: boolean;
+  timeline: ProgramTimeline;
+  rules: ProgramRules;
+  prizes: ProgramPrize[];
+  judgingConfig: JudgingConfig;
+  votingConfig: VotingConfig;
+  leaderboardConfig: LeaderboardConfig;
+  sponsors: ProgramSponsor[];
+  faq: ProgramFaq[];
+  finalists: string[]; // submission IDs
+  results: ProgramResults;
+  analytics: ProgramAnalytics;
+  createdAt: string;
+  updatedAt: string;
+  createdByAdminId: string;
+}
+
+export interface ProgramParticipant {
+  id: string;
+  programId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  email: string;
+  userType: 'AUTHOR' | 'READER' | 'BOTH';
+  status: 'APPROVED' | 'PENDING' | 'REJECTED' | 'CANCELLED';
+  submissionStatus: 'NONE' | 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'FINALIST' | 'WINNER' | 'DISQUALIFIED';
+  registeredAt: string;
+  rulesAgreedAt: string;
+  rulesAgreementCheckbox: boolean;
+  voteCount: number;
+  finalScore: number;
+  isFinalist: boolean;
+  adminNotes?: string;
+}
+
+export interface ProgramSubmissionScore {
+  judgeScores: Record<string, {
+    judgeId: string;
+    judgeName: string;
+    criteriaScores: Record<string, number>;
+    weightedScore: number;
+    feedback?: string;
+    submittedAt: string;
+  }>;
+  averageJudgeScore: number;
+  communityScore: number;
+  adminScore?: number;
+  finalWeightedScore: number;
+}
+
+export interface ProgramSubmission {
+  id: string;
+  programId: string;
+  participantId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  title: string;
+  tagline?: string;
+  summary: string;
+  submissionType: 'STORY' | 'CHAPTER' | 'TEXT' | 'ARTWORK' | 'THEORY' | 'CONCEPT' | 'CUSTOM';
+  storyId?: string;
+  storySlug?: string;
+  content?: string;
+  mediaUrl?: string;
+  coverImage?: string;
+  customFields?: Record<string, string>;
+  wordCount?: number;
+  status: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'FINALIST' | 'DISQUALIFIED' | 'WINNER';
+  isFeatured: boolean;
+  isLocked: boolean;
+  votes: number;
+  votedUserIds: string[];
+  scores: ProgramSubmissionScore;
+  adminNotes?: string;
+  correctionRequested?: string;
+  disqualificationReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProgramVote {
+  id: string;
+  programId: string;
+  submissionId: string;
+  userId: string;
+  username: string;
+  votedAt: string;
+  ipAddress?: string;
+  userAgent?: string;
+  dayDate?: string;
+}
+
+export interface ProgramAnnouncement {
+  id: string;
+  programId: string;
+  title: string;
+  content: string;
+  type: 
+    | 'REGISTRATION_OPENING'
+    | 'REGISTRATION_REMINDER'
+    | 'SUBMISSION_REMINDER'
+    | 'VOTING_OPEN'
+    | 'VOTING_ENDING'
+    | 'FINALISTS_ANNOUNCED'
+    | 'RESULTS_ANNOUNCED'
+    | 'WINNER_ANNOUNCEMENT'
+    | 'PROGRAM_EXTENSION'
+    | 'IMPORTANT_UPDATE';
+  sendInAppNotification: boolean;
+  scheduledFor?: string;
+  publishedAt: string;
+  socialMediaCopy?: string;
+}
+
+export interface ProgramAuditLog {
+  id: string;
+  programId: string;
+  action: string;
+  actorId: string;
+  actorUsername: string;
+  targetType?: 'PROGRAM' | 'PARTICIPANT' | 'SUBMISSION' | 'VOTE' | 'RESULTS' | 'SETTINGS';
+  targetId?: string;
+  targetName?: string;
+  previousValue?: any;
+  newValue?: any;
+  timestamp: string;
+  ipAddress?: string;
+}
+
+export interface ProgramCertificate {
+  id: string;
+  programId: string;
+  programName: string;
+  recipientUserId: string;
+  recipientName: string;
+  recipientUsername: string;
+  awardTitle: string;
+  placement: string;
+  issuedDate: string;
+  verificationHash: string;
+  certificateUrl?: string;
+}
+
+export interface AdminProgramsSummary {
+  activeProgramsCount: number;
+  upcomingProgramsCount: number;
+  draftProgramsCount: number;
+  completedProgramsCount: number;
+  archivedProgramsCount: number;
+  totalParticipants: number;
+  totalSubmissions: number;
+  totalVotes: number;
+  newUsersAcquired: number;
+  currentEngagement: number;
+  programsNeedingAttention: number;
 }

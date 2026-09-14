@@ -16,6 +16,7 @@ interface CommunityFeedProps {
   onReportContent: (type: string, id: string) => void;
   activeTagFilter: string;
   onTagFilterChange: (tag: string) => void;
+  onOpenProfile?: (usernameOrId: string) => void;
 }
 
 export const CommunityFeed: React.FC<CommunityFeedProps> = ({
@@ -26,7 +27,8 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
   onRequireAuth,
   onReportContent,
   activeTagFilter,
-  onTagFilterChange
+  onTagFilterChange,
+  onOpenProfile
 }) => {
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
@@ -254,15 +256,20 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
             >
               {/* Post Header: Author, Community & Badges */}
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => onOpenProfile?.(post.authorUsername || post.authorId)}
+                  className="flex items-center gap-3 text-left hover:opacity-85 transition-opacity cursor-pointer group/author"
+                  title={`View @${post.authorUsername}'s profile`}
+                >
                   <img
                     src={post.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
                     alt={post.authorDisplayName || post.authorUsername}
-                    className="w-10 h-10 rounded-2xl object-cover border border-pink-100 shadow-2xs"
+                    className="w-10 h-10 rounded-2xl object-cover border border-pink-100 shadow-2xs group-hover/author:ring-2 group-hover/author:ring-[#9e3b5f]"
                   />
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-xs sm:text-sm text-[#26152b]">
+                      <span className="font-bold text-xs sm:text-sm text-[#26152b] group-hover/author:text-[#9e3b5f]">
                         {post.authorDisplayName || post.authorUsername}
                       </span>
                       {post.isAuthorOfStory && (
@@ -295,7 +302,7 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
                       )}
                     </div>
                   </div>
-                </div>
+                </button>
 
                 {/* More actions: Report */}
                 <button
@@ -575,19 +582,24 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
                       post.comments.map(c => (
                         <div key={c.id} className="p-3 rounded-2xl bg-pink-50/30 border border-pink-100/60 space-y-1.5 text-xs">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onOpenProfile?.(c.authorUsername || c.authorId)}
+                              className="flex items-center gap-2 hover:opacity-85 transition-opacity text-left cursor-pointer group/author"
+                              title={`View @${c.authorUsername}'s profile`}
+                            >
                               <img
                                 src={c.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=60&auto=format&fit=crop&q=80'}
                                 alt={c.authorDisplayName || c.authorUsername}
-                                className="w-6 h-6 rounded-lg object-cover"
+                                className="w-6 h-6 rounded-lg object-cover ring-1 ring-pink-200 group-hover/author:ring-[#9e3b5f]"
                               />
-                              <span className="font-bold text-[#26152b]">{c.authorDisplayName || c.authorUsername}</span>
+                              <span className="font-bold text-[#26152b] group-hover/author:text-[#9e3b5f]">{c.authorDisplayName || c.authorUsername}</span>
                               {c.isSpoiler && (
                                 <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 rounded font-bold">
                                   SPOILER
                                 </span>
                               )}
-                            </div>
+                            </button>
                             <span className="text-[10px] text-[#877276]">
                               {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
