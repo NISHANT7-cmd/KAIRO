@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Community, CommunityPost, PostType, User } from '../../types';
 import { api } from '../../services/api';
+import { ImageUploader } from '../ImageUploader';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -267,15 +268,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
           )}
 
-          {/* Media URL / Fan Art */}
+          {/* Media / Image Attachment Upload */}
           <div>
-            <label className="block text-xs font-bold text-[#26152b] mb-1">Image / Media Attachment URL (Optional)</label>
-            <input
-              type="url"
+            <ImageUploader
+              id="create-post-media-upload"
+              label="Image / Media Attachment (Upload from Gallery or Storage)"
               value={mediaUrl}
-              onChange={e => setMediaUrl(e.target.value)}
-              placeholder="https://images.unsplash.com/..."
-              className="w-full h-9 px-3.5 rounded-xl border border-pink-200 text-xs outline-none focus:border-[#9e3b5f]"
+              onChange={setMediaUrl}
+              aspect="auto"
+              helperText="Upload fan art, theory diagrams, or scene illustrations directly from your device"
+              placeholder="https://..."
             />
           </div>
 

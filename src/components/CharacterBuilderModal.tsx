@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, X, User } from 'lucide-react';
 import { api } from '../services/api';
+import { ImageUploader } from './ImageUploader';
 
 interface CharacterBuilderModalProps {
   isOpen: boolean;
@@ -132,14 +133,14 @@ export const CharacterBuilderModal: React.FC<CharacterBuilderModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#544246] mb-1">
-              Portrait Image URL
-            </label>
-            <input
-              type="text"
+            <ImageUploader
+              id="character-portrait-upload"
+              label="Character Portrait / Artwork"
               value={portrait}
-              onChange={e => setPortrait(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-white border border-pink-200 text-xs"
+              onChange={setPortrait}
+              aspect="cover"
+              helperText="Upload portrait directly from your gallery or device storage"
+              placeholder="https://images.unsplash.com/..."
             />
           </div>
 

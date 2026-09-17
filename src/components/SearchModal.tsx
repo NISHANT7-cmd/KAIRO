@@ -59,21 +59,21 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-[#26152b]/40 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-6 sm:pt-20 px-3 sm:px-4 bg-[#26152b]/40 backdrop-blur-md animate-in fade-in duration-150">
       <div 
-        className="w-full max-w-2xl glass-card rounded-3xl p-6 shadow-2xl border border-pink-200/90 overflow-hidden flex flex-col max-h-[80vh]"
+        className="w-full max-w-2xl glass-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl border border-pink-200/90 overflow-hidden flex flex-col max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Search Input Bar */}
-        <div className="flex items-center gap-3 pb-4 border-b border-pink-100">
-          <Search className="w-5 h-5 text-[#9e3b5f]" />
+        <div className="flex items-center gap-2.5 sm:gap-3 pb-3 sm:pb-4 border-b border-pink-100">
+          <Search className="w-4 h-4 sm:w-5 sm:h-5 text-[#9e3b5f] shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={handleInputChange}
-            placeholder="Search stories, characters, lore, anime..."
-            className="flex-1 bg-transparent text-base sm:text-lg text-[#26152b] placeholder-[#877276] outline-none font-medium"
+            placeholder="Search stories, lore, anime..."
+            className="flex-1 bg-transparent text-sm sm:text-base text-[#26152b] placeholder-[#877276] outline-none font-medium truncate"
           />
           {query && (
             <button

@@ -3,10 +3,11 @@ import {
   ArrowLeft, Feather, Save, Sparkles, Check, Clock, 
   FileText, Bold, Italic, Quote, Heading, Eye, Trash2, 
   Split, Columns, Music, Volume2, MessageSquare, AlertCircle,
-  Wand2, BookOpen, ChevronRight, X, RotateCcw
+  Wand2, BookOpen, ChevronRight, X, RotateCcw, Image as ImageIcon
 } from 'lucide-react';
 import { Story, Chapter } from '../types';
 import { api } from '../services/api';
+import { ImageUploader } from './ImageUploader';
 
 interface ChapterEditorViewProps {
   storyId: string;
@@ -81,7 +82,28 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Illustration upload modal
+  const [showIllustrationModal, setShowIllustrationModal] = useState(false);
+  const [illustrationUrl, setIllustrationUrl] = useState('');
+  const [illustrationCaption, setIllustrationCaption] = useState('');
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleInsertIllustration = () => {
+    if (!illustrationUrl) return;
+    const tag = `\n\n![${illustrationCaption || 'Chapter Illustration'}](${illustrationUrl})\n\n`;
+    if (textareaRef.current) {
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      const newContent = content.substring(0, start) + tag + content.substring(end);
+      setContent(newContent);
+    } else {
+      setContent(prev => prev + tag);
+    }
+    setIllustrationUrl('');
+    setIllustrationCaption('');
+    setShowIllustrationModal(false);
+  };
 
   // Storage key for autosave
   const storageKey = `kairo_draft_${storyId}_${chapterId || 'new'}`;
@@ -622,6 +644,20 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
                   >
                     <Quote className="w-4 h-4" />
                   </button>
+
+                  <div className="w-[1px] h-5 bg-pink-200 mx-1" />
+
+                  {/* Direct Gallery/Storage Illustration Insert */}
+                  <button
+                    type="button"
+                    id="editor-insert-image-btn"
+                    onClick={() => setShowIllustrationModal(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/80 hover:bg-white text-[#9e3b5f] font-bold text-xs border border-pink-200 cursor-pointer shadow-2xs hover:scale-102 transition-all"
+                    title="Insert Light Novel Scene Illustration (Upload from Gallery or Device Storage)"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Insert Illustration</span>
+                  </button>
                 </div>
 
                 {/* Text Area */}
@@ -821,6 +857,72 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Illustration Insert Modal (Upload from Gallery or Device Storage) */}
+        {showIllustrationModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-lg glass-card rounded-3xl p-6 sm:p-7 border border-pink-200 shadow-2xl space-y-4 bg-white/95">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-[#9e3b5f]" />
+                  <h3 className="font-extrabold text-base text-[#26152b] font-display">
+                    Insert Light Novel Scene Illustration
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowIllustrationModal(false)}
+                  className="text-gray-400 hover:text-gray-600 font-bold p-1 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div>
+                <ImageUploader
+                  id="editor-illustration-upload"
+                  label="Illustration Image"
+                  value={illustrationUrl}
+                  onChange={setIllustrationUrl}
+                  aspect="auto"
+                  helperText="Upload image directly from gallery or storage to insert into chapter"
+                  placeholder="https://images.unsplash.com/..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#544246] mb-1">
+                  Illustration Caption / Alt Description (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={illustrationCaption}
+                  onChange={e => setIllustrationCaption(e.target.value)}
+                  placeholder="e.g. Elena summoning the Astral Blade in the Moonlit Glade"
+                  className="w-full h-10 px-3.5 rounded-xl border border-pink-200 text-xs text-[#26152b] outline-none focus:border-[#9e3b5f]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-pink-100">
+                <button
+                  type="button"
+                  onClick={() => setShowIllustrationModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInsertIllustration}
+                  disabled={!illustrationUrl}
+                  className="btn-gradient px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                >
+                  Insert Into Chapter
+                </button>
               </div>
             </div>
           </div>

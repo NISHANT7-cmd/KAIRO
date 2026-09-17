@@ -4,6 +4,7 @@ import {
   Sliders, Image as ImageIcon, Plus, Trash2, CheckCircle2 
 } from 'lucide-react';
 import { Program, ProgramType, ProgramStatus, JudgingCriterion, ProgramPrize } from '../../types';
+import { ImageUploader } from '../ImageUploader';
 
 interface CreateProgramModalProps {
   programToEdit?: Program | null;
@@ -933,37 +934,27 @@ export const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
           {activeStep === 'BRANDING' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-[#26152b] uppercase tracking-wider mb-1.5">
-                  Banner Image URL (1600x500 recommended)
-                </label>
-                <input
-                  type="url"
+                <ImageUploader
+                  id="program-banner-upload"
+                  label="Program Banner Header (1600x500 recommended)"
                   value={bannerImage}
-                  onChange={e => setBannerImage(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-pink-200 text-sm focus:outline-none"
+                  onChange={setBannerImage}
+                  aspect="banner"
+                  helperText="Upload banner directly from your gallery or internal storage"
+                  placeholder="https://images.unsplash.com/..."
                 />
-                {bannerImage && (
-                  <div className="mt-2 h-32 w-full rounded-2xl overflow-hidden border border-pink-200">
-                    <img src={bannerImage} alt="Banner Preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#26152b] uppercase tracking-wider mb-1.5">
-                  Cover Card Image URL (800x600 recommended)
-                </label>
-                <input
-                  type="url"
+                <ImageUploader
+                  id="program-cover-upload"
+                  label="Program Cover Card Artwork (800x600 recommended)"
                   value={coverImage}
-                  onChange={e => setCoverImage(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-pink-200 text-sm focus:outline-none"
+                  onChange={setCoverImage}
+                  aspect="cover"
+                  helperText="Upload cover card artwork from gallery or storage"
+                  placeholder="https://images.unsplash.com/..."
                 />
-                {coverImage && (
-                  <div className="mt-2 h-40 w-48 rounded-2xl overflow-hidden border border-pink-200">
-                    <img src={coverImage} alt="Cover Preview" className="w-full h-full object-cover" />
-                  </div>
-                )}
               </div>
             </div>
           )}

@@ -10,7 +10,8 @@ import {
   CommunityComment, CommunityType, PostType,
   Program, ProgramParticipant, ProgramSubmission, ProgramVote,
   ProgramAnnouncement, ProgramAuditLog, ProgramCertificate,
-  AdminProgramsSummary, ProgramStatus
+  AdminProgramsSummary, ProgramStatus,
+  UserInterestProfile, UserBehaviorEvent, AdminRecommendationSettings
 } from '../src/types.js';
 import {
   initialCommunities, initialPosts, initialChatRooms, initialChatMessages,
@@ -94,6 +95,9 @@ export interface DatabaseSchema {
   programAnnouncements: ProgramAnnouncement[];
   programAuditLogs: ProgramAuditLog[];
   programCertificates: ProgramCertificate[];
+  userInterestProfiles: Record<string, UserInterestProfile>;
+  userBehaviorEvents: UserBehaviorEvent[];
+  adminRecommendationSettings: AdminRecommendationSettings;
 }
 
 function hashPassword(password: string, salt: string): string {
@@ -527,6 +531,190 @@ Every 12 days, the twin moons synchronize in orbital harmonic resonance, intensi
       featured: false,
       createdAt: '2025-02-05T07:00:00Z',
       updatedAt: '2025-02-26T18:00:00Z',
+    },
+    {
+      id: 'story_ja_1',
+      authorId: 'usr_3',
+      authorUsername: 'sakura_dreamer',
+      authorDisplayName: 'Sakura Dreamer',
+      authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80',
+      title: '星屑の召喚士：零章',
+      slug: 'hoshikuzu-no-shoukanshi',
+      description: '天空の浮島エーテルガルドで、孤児の少女アリアは真夜中の日食の瞬間に禁断の星紋を目覚めさせる。ゼニス魔法学院で繰り広げられる過酷な競争と、星々の終焉を巡る壮大なダークファンタジー。',
+      coverImage: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+      genre: 'Fantasy',
+      tags: ['Light Novel', 'Anime-Inspired', 'Magic Academy', 'Original Universe', 'Shonen'],
+      language: 'Japanese',
+      ageRating: 'Teen',
+      storyType: 'Light Novel',
+      status: 'Ongoing',
+      views: 45200,
+      likes: 5620,
+      rating: 4.95,
+      ratingCount: 910,
+      universeId: 'uni_1',
+      universeName: 'The Astral Universe',
+      chaptersCount: 3,
+      liveReadersCount: 230,
+      featured: true,
+      createdAt: '2025-02-12T10:00:00Z',
+      updatedAt: '2025-03-01T15:00:00Z',
+    },
+    {
+      id: 'story_ja_2',
+      authorId: 'usr_1',
+      authorUsername: 'althea_v',
+      authorDisplayName: 'Althea Vance',
+      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+      title: 'ネオ東京レクイエム：記憶の残響',
+      slug: 'neo-tokyo-requiem',
+      description: '2149年のネオ京都。電脳抽出された記憶が闇市で売買される街で、反逆のシンセ・アーティストが世界を揺るがす封印されたメモリーチップを手にする。',
+      coverImage: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80',
+      genre: 'Sci-Fi',
+      tags: ['Cyberpunk', 'Light Novel', 'Mystery', 'Anime Aesthetic', 'Synthwave'],
+      language: 'Japanese',
+      ageRating: 'Teen',
+      storyType: 'Light Novel',
+      status: 'Ongoing',
+      views: 31200,
+      likes: 3890,
+      rating: 4.88,
+      ratingCount: 620,
+      chaptersCount: 2,
+      liveReadersCount: 115,
+      featured: false,
+      createdAt: '2025-02-14T12:00:00Z',
+      updatedAt: '2025-02-28T18:00:00Z',
+    },
+    {
+      id: 'story_es_1',
+      authorId: 'usr_2',
+      authorUsername: 'voidknight',
+      authorDisplayName: 'Void Knight',
+      authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
+      title: 'El Despertar de las Sombras',
+      slug: 'el-despertar-de-las-sombras',
+      description: 'Tras el regicidio del Emperador Eterno, ocho reinos en pugna sangrienta convocan a los antiguos portadores de runas. Una historia oscura de traición, magia prohibida y destino.',
+      coverImage: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
+      genre: 'Dark Fantasy',
+      tags: ['Grimdark', 'Serialized Novel', 'Epic Magic', 'Political Intrigue'],
+      language: 'Spanish',
+      ageRating: 'Mature',
+      storyType: 'Serialized Novel',
+      status: 'Ongoing',
+      views: 38900,
+      likes: 4120,
+      rating: 4.89,
+      ratingCount: 780,
+      chaptersCount: 2,
+      liveReadersCount: 140,
+      featured: true,
+      createdAt: '2025-02-08T09:00:00Z',
+      updatedAt: '2025-03-02T11:00:00Z',
+    },
+    {
+      id: 'story_fr_1',
+      authorId: 'usr_1',
+      authorUsername: 'althea_v',
+      authorDisplayName: 'Althea Vance',
+      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+      title: 'Les Arcanes d\'Astralia : L\'Éclipse',
+      slug: 'les-arcanes-d-astralia',
+      description: 'Dans les archipels suspendus d\'Aethelgard, une apprentie alchimiste réveille un artefact stellaire oublié capable d\'inverser le flux du temps céleste.',
+      coverImage: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80',
+      genre: 'Fantasy',
+      tags: ['Light Novel', 'Magic Academy', 'Cosmic Romance', 'Original Universe'],
+      language: 'French',
+      ageRating: 'Teen',
+      storyType: 'Light Novel',
+      status: 'Ongoing',
+      views: 27400,
+      likes: 3100,
+      rating: 4.92,
+      ratingCount: 510,
+      chaptersCount: 2,
+      liveReadersCount: 95,
+      featured: false,
+      createdAt: '2025-02-10T14:00:00Z',
+      updatedAt: '2025-02-27T16:00:00Z',
+    },
+    {
+      id: 'story_ko_1',
+      authorId: 'usr_2',
+      authorUsername: 'voidknight',
+      authorDisplayName: 'Void Knight',
+      authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
+      title: '심연의 각성자: 무한의 탑',
+      slug: 'abyssal-awakener-tower',
+      description: '칠흑 같은 심연 아래 솟아오른 100층의 시련의 탑. 봉인된 고대 성흔을 계승한 소년이 파멸의 예언을 뒤엎기 위해 검을 쥐었다.',
+      coverImage: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
+      genre: 'Action',
+      tags: ['Shonen', 'High Stakes', 'Fantasy', 'Anime-Inspired', 'Leveling'],
+      language: 'Korean',
+      ageRating: 'Teen',
+      storyType: 'Serialized Novel',
+      status: 'Ongoing',
+      views: 42100,
+      likes: 5200,
+      rating: 4.94,
+      ratingCount: 880,
+      chaptersCount: 2,
+      liveReadersCount: 190,
+      featured: true,
+      createdAt: '2025-02-15T16:00:00Z',
+      updatedAt: '2025-03-01T20:00:00Z',
+    },
+    {
+      id: 'story_hi_1',
+      authorId: 'usr_3',
+      authorUsername: 'sakura_dreamer',
+      authorDisplayName: 'Sakura Dreamer',
+      authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80',
+      title: 'नक्षत्र योद्धा: अनंत काल',
+      slug: 'nakshatra-yoddha-anant-kaal',
+      description: 'आकाशगंगा के तैरते द्वीपों पर, एक अनाथ खोजी रात के सूर्यग्रहण के दौरान ब्रह्मांडीय मंत्र शक्ति को जागृत करता है।',
+      coverImage: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&auto=format&fit=crop&q=80',
+      genre: 'Fantasy',
+      tags: ['Epic Magic', 'World Building', 'Original Universe', 'Mythology'],
+      language: 'Hindi',
+      ageRating: 'Everyone',
+      storyType: 'Original Fiction',
+      status: 'Ongoing',
+      views: 24300,
+      likes: 2980,
+      rating: 4.91,
+      ratingCount: 450,
+      chaptersCount: 2,
+      liveReadersCount: 80,
+      featured: false,
+      createdAt: '2025-02-16T10:00:00Z',
+      updatedAt: '2025-02-28T14:00:00Z',
+    },
+    {
+      id: 'story_de_1',
+      authorId: 'usr_1',
+      authorUsername: 'althea_v',
+      authorDisplayName: 'Althea Vance',
+      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+      title: 'Die Sternenwanderer von Aethelgard',
+      slug: 'die-sternenwanderer-von-aethelgard',
+      description: 'In den schwebenden Himmelsinseln entdeckt eine Schrottsammlerin ein verbotenes kosmisches Relikt vor dem Untergang der Welten.',
+      coverImage: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80',
+      genre: 'Sci-Fi',
+      tags: ['Space Opera', 'Deep Lore', 'Light Novel'],
+      language: 'German',
+      ageRating: 'Teen',
+      storyType: 'Light Novel',
+      status: 'Ongoing',
+      views: 19800,
+      likes: 2400,
+      rating: 4.86,
+      ratingCount: 390,
+      chaptersCount: 2,
+      liveReadersCount: 65,
+      featured: false,
+      createdAt: '2025-02-18T11:00:00Z',
+      updatedAt: '2025-02-26T17:00:00Z',
     }
   ];
 
@@ -710,6 +898,128 @@ By nightfall, the black banner of the Crimson Raven fluttered over the highest k
       publishedAt: '2025-02-15T15:00:00Z',
       createdAt: '2025-02-15T13:00:00Z',
       updatedAt: '2025-02-15T15:00:00Z',
+    },
+    {
+      id: 'chap_ja_1_1',
+      storyId: 'story_ja_1',
+      chapterNumber: 1,
+      title: '第1話：真夜中の星紋',
+      subtitle: '運命が天空の孤島を揺るがす刻',
+      content: `真夜中の空に双子の月が交差する瞬間、ポート・ルナリスの上空は深紫と紅蓮の光に染まっていた。
+
+第9浮遊ドックの錆びた縁で、アリアは星風に銀髪をなびかせながら風防ゴーグルを直した。遥か眼下に広がるエーテル雲海では、古代の魔力水脈がまるで低音の弦楽器のように低く唸りを上げている。
+
+「アリア、コンバーターの出力を安定させて！」インカムからライラの焦った声が響く。「もしその古代遺物が暴走したら、二人仲良く宇宙の塵になっちゃうよ！」
+
+「分かってる。でも、この遺物……脈打ってるの」
+
+冷たいはずの星の遺物が、まるで生きている心臓のようにトクン、トクンと彼女の鼓動に呼応していた。
+
+その瞬間、天空が裂けた。封印の光がアリアの右腕に走り、忘れ去られた神代の星紋が銀色の輝きを放ち始めた――。`,
+      wordCount: 1650,
+      readingTime: 7,
+      status: 'published',
+      publishedAt: '2025-02-12T10:00:00Z',
+      createdAt: '2025-02-12T08:00:00Z',
+      updatedAt: '2025-02-12T10:00:00Z',
+    },
+    {
+      id: 'chap_ja_2_1',
+      storyId: 'story_ja_2',
+      chapterNumber: 1,
+      title: '第1話：ネオンと記憶の密売人',
+      subtitle: '電脳の霧に消えた遺言',
+      content: `2149年、ネオ京都の夜は決して暗闇を迎えない。ホログラムの雨が濡れたアスファルトに千の色を反射していた。
+
+サイバー路地裏のバーで、蓮は手のひらに収まる生体チップを見つめていた。抽出されたばかりの記憶データ。通常の記憶とは異なり、神経同期のパルスが青く光っている。
+
+「これが創始者の最期の記憶か……」
+
+メガコーポレーションが全神経警察を総動員して追ってくる理由が、今まさに彼の掌の中で息づいていた。`,
+      wordCount: 1800,
+      readingTime: 8,
+      status: 'published',
+      publishedAt: '2025-02-14T12:00:00Z',
+      createdAt: '2025-02-14T10:00:00Z',
+      updatedAt: '2025-02-14T12:00:00Z',
+    },
+    {
+      id: 'chap_es_1_1',
+      storyId: 'story_es_1',
+      chapterNumber: 1,
+      title: 'Capítulo 1: La Caída del Trono Eterno',
+      subtitle: 'El eco de la sangre sobre la piedra',
+      content: `La noche en que el Emperador fue asesinado, el cielo de la capital ardió con fuego frío. Ocho campanas de bronce resonaron a través del valle, anunciando que la dinastía de tres milenios había llegado a su sangriento final.
+
+Lucian observaba desde los parapetos mientras las banderas sombrías eran izadas. Con el sello rúnico palpitando en su antebrazo, sabía que el exilio había terminado. Era momento de reclamar lo que fue arrebatado.`,
+      wordCount: 1720,
+      readingTime: 7,
+      status: 'published',
+      publishedAt: '2025-02-08T09:00:00Z',
+      createdAt: '2025-02-08T07:00:00Z',
+      updatedAt: '2025-02-08T09:00:00Z',
+    },
+    {
+      id: 'chap_fr_1_1',
+      storyId: 'story_fr_1',
+      chapterNumber: 1,
+      title: 'Chapitre 1 : L\'Éveil sous les Deux Lunes',
+      subtitle: 'La poussière d\'étoiles ne ment jamais',
+      content: `Au-dessus de Port Lunaris, le ciel s'illuminait d'ombres pourpres et d'or scintillant. Dans le silence des quais suspendus, Aria contemplait l'artefact antique récupéré dans la faille. 
+
+Pour la première fois depuis des siècles, les glyphes de l'éther s'illuminaient d'un éclat bleuté, synchronisé avec les battements de son propre cœur.`,
+      wordCount: 1540,
+      readingTime: 6,
+      status: 'published',
+      publishedAt: '2025-02-10T14:00:00Z',
+      createdAt: '2025-02-10T12:00:00Z',
+      updatedAt: '2025-02-10T14:00:00Z',
+    },
+    {
+      id: 'chap_ko_1_1',
+      storyId: 'story_ko_1',
+      chapterNumber: 1,
+      title: '제1화: 심연의 부름',
+      subtitle: '백 번째 탑의 문이 열리다',
+      content: `심연의 안개가 걷히자 거대한 흑철색 탑이 모습을 드러냈다. 성흔을 계승한 소년 진우는 검의 자루를 꽉 쥐었다.
+
+"탑의 시련을 통과한 자만이 운명을 바꿀 수 있다."
+
+시스템의 청명한 알림음과 함께, 첫 번째 관문의 푸른 장막이 갈라지기 시작했다.`,
+      wordCount: 1600,
+      readingTime: 6,
+      status: 'published',
+      publishedAt: '2025-02-15T16:00:00Z',
+      createdAt: '2025-02-15T14:00:00Z',
+      updatedAt: '2025-02-15T16:00:00Z',
+    },
+    {
+      id: 'chap_hi_1_1',
+      storyId: 'story_hi_1',
+      chapterNumber: 1,
+      title: 'अध्याय 1: नक्षत्रों का आह्वान',
+      subtitle: 'जब आकाश से दिव्य ज्योति उतरी',
+      content: `आकाशगंगा के तैरते द्वीपों पर रात का सन्नाटा छा गया था। प्राचीन शिलालेख अचानक नीली आभा से चमकने लगा और आर्यन के हाथों में दिव्य शक्ति का संचार होने लगा।`,
+      wordCount: 1400,
+      readingTime: 5,
+      status: 'published',
+      publishedAt: '2025-02-16T10:00:00Z',
+      createdAt: '2025-02-16T08:00:00Z',
+      updatedAt: '2025-02-16T10:00:00Z',
+    },
+    {
+      id: 'chap_de_1_1',
+      storyId: 'story_de_1',
+      chapterNumber: 1,
+      title: 'Kapitel 1: Das Erwachen der Himmelsinseln',
+      subtitle: 'Wo das Licht der Sterne schwindet',
+      content: `Über den Docks von Port Lunaris zog ein Sturm kosmischen Äthers auf. Inmitten der metallenen Trümmer fand Aria das Siegel, das die Geschichte von Aethelgard für immer verändern sollte.`,
+      wordCount: 1550,
+      readingTime: 6,
+      status: 'published',
+      publishedAt: '2025-02-18T11:00:00Z',
+      createdAt: '2025-02-18T09:00:00Z',
+      updatedAt: '2025-02-18T11:00:00Z',
     }
   ];
 
@@ -1240,7 +1550,27 @@ By nightfall, the black banner of the Crimson Raven fluttered over the highest k
     programVotes: initialVotes,
     programAnnouncements: initialAnnouncements,
     programAuditLogs: initialAuditLogs,
-    programCertificates: initialCertificates
+    programCertificates: initialCertificates,
+    userInterestProfiles: {},
+    userBehaviorEvents: [],
+    adminRecommendationSettings: {
+      weights: {
+        genreMatch: 0.25,
+        themeMatch: 0.15,
+        languageMatch: 0.10,
+        storyTypeMatch: 0.10,
+        behavioralSimilarity: 0.15,
+        authorAffinity: 0.10,
+        communityAffinity: 0.05,
+        contentQuality: 0.05,
+        freshness: 0.05
+      },
+      explorationRate: 0.15,
+      trendingThreshold: 1000,
+      qualityRatingThreshold: 4.2,
+      updatedAt: now,
+      updatedBy: 'system'
+    }
   };
 }
 
@@ -1361,6 +1691,32 @@ class DatabaseService {
     }
     if (!parsed.programCertificates || parsed.programCertificates.length === 0) {
       parsed.programCertificates = initialCertificates;
+    }
+    if (!parsed.userInterestProfiles) {
+      parsed.userInterestProfiles = {};
+    }
+    if (!parsed.userBehaviorEvents) {
+      parsed.userBehaviorEvents = [];
+    }
+    if (!parsed.adminRecommendationSettings) {
+      parsed.adminRecommendationSettings = {
+        weights: {
+          genreMatch: 0.25,
+          themeMatch: 0.15,
+          languageMatch: 0.10,
+          storyTypeMatch: 0.10,
+          behavioralSimilarity: 0.15,
+          authorAffinity: 0.10,
+          communityAffinity: 0.05,
+          contentQuality: 0.05,
+          freshness: 0.05
+        },
+        explorationRate: 0.15,
+        trendingThreshold: 1000,
+        qualityRatingThreshold: 4.2,
+        updatedAt: new Date().toISOString(),
+        updatedBy: 'system'
+      };
     }
 
     // Merge initial communities if missing
@@ -1662,6 +2018,8 @@ class DatabaseService {
       streak = 1;
     }
 
+    const profile = (this.db.userInterestProfiles && this.db.userInterestProfiles[user.id]) || undefined;
+
     return {
       ...user,
       chaptersReadCount,
@@ -1669,6 +2027,8 @@ class DatabaseService {
       readingStreak: streak,
       streakDays: streak,
       totalReads: Math.max(user.totalReads ?? 0, chaptersReadCount),
+      hasCompletedOnboarding: profile ? profile.hasCompletedOnboarding : false,
+      interestProfile: profile
     };
   }
 
@@ -1707,7 +2067,9 @@ class DatabaseService {
       chaptersCount: number;
     };
   } | undefined {
+    if (!idOrUsername || typeof idOrUsername !== 'string') return undefined;
     const clean = idOrUsername.trim().toLowerCase().replace(/^@/, '');
+    if (!clean || clean === '[object object]' || clean === 'undefined' || clean === 'null') return undefined;
     const user = this.db.users.find(u => 
       u.id.toLowerCase() === clean || 
       u.username.toLowerCase() === clean ||

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Globe, X, Sparkles, MapPin } from 'lucide-react';
 import { api } from '../services/api';
+import { ImageUploader } from './ImageUploader';
 
 interface WorldBuilderModalProps {
   isOpen: boolean;
@@ -109,14 +110,14 @@ export const WorldBuilderModal: React.FC<WorldBuilderModalProps> = ({ isOpen, on
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#544246] mb-1">
-              Map Image URL
-            </label>
-            <input
-              type="text"
+            <ImageUploader
+              id="world-map-upload"
+              label="World Map / Regional Artwork"
               value={mapImageUrl}
-              onChange={e => setMapImageUrl(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-white border border-pink-200 text-xs"
+              onChange={setMapImageUrl}
+              aspect="banner"
+              helperText="Upload cartography map or landscape artwork directly from your device"
+              placeholder="https://images.unsplash.com/..."
             />
           </div>
 

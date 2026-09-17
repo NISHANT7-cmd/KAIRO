@@ -3,6 +3,7 @@ import { Sparkles, ArrowLeft, ArrowRight, Check, Image as ImageIcon, Globe, Book
 import { StoryType, AgeRating, StoryStatus } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { ImageUploader } from './ImageUploader';
 
 interface CreateStoryViewProps {
   onBack: () => void;
@@ -273,37 +274,42 @@ export const CreateStoryView: React.FC<CreateStoryViewProps> = ({ onBack, onStor
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#544246] mb-2">
-              Cover Artwork
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              {coverPresets.map(preset => (
-                <div
-                  key={preset.label}
-                  onClick={() => setCoverImage(preset.url)}
-                  className={`relative rounded-2xl overflow-hidden aspect-3/4 border-2 transition-all cursor-pointer ${
-                    coverImage === preset.url ? 'border-[#9e3b5f] ring-2 ring-pink-400 scale-102' : 'border-transparent'
-                  }`}
-                >
-                  <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-2">
-                    <span className="text-white text-[10px] font-bold">{preset.label}</span>
-                  </div>
-                </div>
-              ))}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#544246] mb-1.5">
+                Story Cover Artwork
+              </label>
+              <ImageUploader
+                id="create-story-cover-upload"
+                value={coverImage}
+                onChange={setCoverImage}
+                aspect="cover"
+                label="Cover Image"
+                helperText="Upload cover image directly from your phone gallery or internal storage"
+                placeholder="https://..."
+              />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-[#877276] mb-1">
-                Or custom image URL:
+              <label className="block text-[11px] font-bold text-[#877276] uppercase tracking-wider mb-2">
+                Or select from atmospheric artwork presets:
               </label>
-              <input
-                type="text"
-                value={coverImage}
-                onChange={e => setCoverImage(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl bg-white border border-pink-200 text-xs text-[#26152b]"
-              />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {coverPresets.map(preset => (
+                  <div
+                    key={preset.label}
+                    onClick={() => setCoverImage(preset.url)}
+                    className={`relative rounded-2xl overflow-hidden aspect-3/4 border-2 transition-all cursor-pointer ${
+                      coverImage === preset.url ? 'border-[#9e3b5f] ring-2 ring-pink-400 scale-102' : 'border-transparent hover:opacity-90'
+                    }`}
+                  >
+                    <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent flex items-end p-2.5">
+                      <span className="text-white text-[11px] font-bold">{preset.label}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 

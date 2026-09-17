@@ -26,6 +26,8 @@ export interface User {
   favoriteThemes: string[];
   createdAt: string;
   publishedStoriesCount?: number;
+  hasCompletedOnboarding?: boolean;
+  interestProfile?: UserInterestProfile;
 }
 
 export interface PublicUserProfile {
@@ -1097,3 +1099,185 @@ export interface AdminProgramsSummary {
   currentEngagement: number;
   programsNeedingAttention: number;
 }
+
+// ----------------------------------------------------
+// KAIRO INTELLIGENT USER ONBOARDING & RECOMMENDATION TYPES
+// ----------------------------------------------------
+
+export interface UserInterestProfile {
+  id: string;
+  userId: string;
+  // Preference weights (0.0 to 1.0)
+  preferredGenres: Record<string, number>;
+  preferredSubgenres: string[];
+  preferredLanguages: string[]; // Content languages (e.g. English, Hindi, Japanese)
+  preferredUiLanguage: string; // Interface language
+  preferredStoryStyles: Record<string, number>; // e.g. "Fast-paced action": 0.9
+  preferredThemes: string[];
+  preferredStoryLengths: string[]; // ['Short', 'Medium', 'Long', 'No preference']
+  preferredSerialization: string[]; // ['Serialized chapters', 'Short stories', 'Long novels']
+  preferredReadingFrequency: string; // 'Daily' | 'A few times a week' | 'Weekly' | 'Whenever I visit'
+  preferredEndingStyles: string[]; // ['Happy', 'Bittersweet', 'Dark', 'Unexpected', 'No preference']
+  animePreferences: string[]; // ['Shonen', 'Dark Fantasy', etc.]
+  readingMediumPreferences: string[]; // ['Light Novels', 'Original Fiction', etc.]
+  userRoles: string[]; // ['Reader', 'Writer', 'World Builder', etc.]
+  userInterests: string[];
+  favoriteAuthorIds: string[];
+  favoriteAnimeIds: string[];
+  seededItemIds: string[];
+  // Persona score multipliers (0 - 100)
+  readerScore: number;
+  writerScore: number;
+  communityScore: number;
+  animeScore: number;
+  hasCompletedOnboarding: boolean;
+  onboardingSkipped?: boolean;
+  // Negative signals & explicit exclusions
+  negativeSignals: {
+    dislikedStoryIds: string[];
+    dislikedGenres: string[];
+    mutedAuthorIds: string[];
+    hiddenRecommendationIds: string[];
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BehaviorEventType =
+  | 'story_view'
+  | 'story_open'
+  | 'chapter_open'
+  | 'chapter_completed'
+  | 'story_completed'
+  | 'bookmark'
+  | 'unbookmark'
+  | 'like'
+  | 'unlike'
+  | 'rating'
+  | 'review'
+  | 'follow_author'
+  | 'unfollow_author'
+  | 'join_community'
+  | 'leave_community'
+  | 'comment'
+  | 'discussion_view'
+  | 'theory_interaction'
+  | 'search'
+  | 'recommendation_click'
+  | 'recommendation_skip'
+  | 'reading_duration'
+  | 'reading_session'
+  | 'share'
+  | 'save_quote'
+  | 'feedback_not_interested'
+  | 'feedback_mute_author'
+  | 'feedback_dislike_genre';
+
+export interface UserBehaviorEvent {
+  id: string;
+  userId: string;
+  eventType: BehaviorEventType;
+  contentType: 'STORY' | 'CHAPTER' | 'AUTHOR' | 'COMMUNITY' | 'ANIME' | 'UNIVERSE';
+  contentId: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface RecommendationFeedbackPayload {
+  action: 'NOT_INTERESTED' | 'DISLIKE_GENRE' | 'MUTE_AUTHOR' | 'DONT_RECOMMEND_STORY';
+  storyId?: string;
+  authorId?: string;
+  genre?: string;
+  reason?: string;
+}
+
+export interface RecommendationStoryItem {
+  story: Story;
+  score: number;
+  explanation: string;
+  matchedTags: string[];
+}
+
+export interface AuthorRecommendationItem {
+  authorId: string;
+  authorUsername: string;
+  authorDisplayName: string;
+  authorAvatar: string;
+  topGenres: string[];
+  matchReason: string;
+  followersCount: number;
+  totalReads: number;
+  isFollowing?: boolean;
+}
+
+export interface AnimeBridgeItem {
+  anime: AnimeEntry;
+  bridgeReason: string;
+  connectedStories: Story[];
+}
+
+export interface StoryDna {
+  topGenres: { name: string; weight: number; emoji: string }[];
+  topStyles: { name: string; weight: number; icon: string }[];
+  primaryMedium: string;
+  languages: string[];
+  readingPace: string;
+  primaryArchetype: string;
+}
+
+export interface PersonalizedHomeFeed {
+  greeting: string;
+  storyDna?: StoryDna;
+  featuredHeroStory: Story | null;
+  heroExplanation: string;
+  continueReading: ReadingProgress | null;
+  curatedSections: {
+    id: string;
+    headline: string;
+    subheadline: string;
+    explanation: string;
+    stories: RecommendationStoryItem[];
+  }[];
+  trendingForYou: RecommendationStoryItem[];
+  fromFollowedAuthors: RecommendationStoryItem[];
+  recommendedCommunities: Community[];
+  recommendedAuthors: AuthorRecommendationItem[];
+  animeBridges: AnimeBridgeItem[];
+  risingStories: RecommendationStoryItem[];
+  serendipityStories: RecommendationStoryItem[];
+}
+
+export interface PersonalizedDiscoverFeed {
+  headline: string;
+  subheadline: string;
+  trendingInYourWorld: RecommendationStoryItem[];
+  popularWithReadersLikeYou: RecommendationStoryItem[];
+  hiddenGems: RecommendationStoryItem[];
+  newReleases: RecommendationStoryItem[];
+  topGenresFiltered: {
+    genre: string;
+    stories: RecommendationStoryItem[];
+  }[];
+}
+
+export interface AdminRecommendationWeights {
+  genreMatch: number;
+  themeMatch: number;
+  languageMatch: number;
+  storyTypeMatch: number;
+  behavioralSimilarity: number;
+  authorAffinity: number;
+  communityAffinity: number;
+  contentQuality: number;
+  freshness: number;
+}
+
+export interface AdminRecommendationSettings {
+  weights: AdminRecommendationWeights;
+  explorationRate: number; // e.g. 0.15 (15%)
+  trendingThreshold: number; // views threshold
+  qualityRatingThreshold: number; // 4.0
+  updatedAt: string;
+  updatedBy: string;
+}
+

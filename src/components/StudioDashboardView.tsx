@@ -8,6 +8,7 @@ import {
 import { Story, Chapter, CreatorStats, StoryStatus, StoryType, AgeRating } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { ImageUploader } from './ImageUploader';
 
 interface StudioDashboardViewProps {
   onCreateStory: () => void;
@@ -914,27 +915,34 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#544246] mb-1">
-                  Cover Image URL
+              <div className="space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#544246]">
+                  Cover Artwork
                 </label>
-                <input
-                  type="text"
+                <ImageUploader
+                  id="studio-edit-story-cover"
                   value={editCoverImage}
-                  onChange={e => setEditCoverImage(e.target.value)}
-                  className="w-full h-10 px-3.5 rounded-xl bg-white border border-pink-200 text-xs text-[#26152b] outline-none focus:border-[#9e3b5f]"
+                  onChange={setEditCoverImage}
+                  aspect="cover"
+                  helperText="Upload a new cover image directly from your phone gallery or device storage"
+                  placeholder="https://..."
                 />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {COVER_PRESETS.map((p, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setEditCoverImage(p.url)}
-                      className="text-[10px] px-2 py-1 rounded-md bg-pink-50 hover:bg-pink-100 text-[#9e3b5f] font-semibold border border-pink-100 cursor-pointer"
-                    >
-                      {p.label}
-                    </button>
-                  ))}
+                <div>
+                  <span className="block text-[10px] font-bold text-[#877276] uppercase tracking-wider mb-1.5">
+                    Or select a preset artwork:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {COVER_PRESETS.map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setEditCoverImage(p.url)}
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-pink-50 hover:bg-pink-100 text-[#9e3b5f] font-bold border border-pink-200 cursor-pointer"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

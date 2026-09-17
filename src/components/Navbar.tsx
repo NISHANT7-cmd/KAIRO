@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, Search, Bell, BookOpen, Flame, Feather, 
   User as UserIcon, LogOut, Compass, Globe, Users, 
-  Tv, Library, ChevronDown, CheckCircle2, Shield 
+  Tv, Library, ChevronDown, CheckCircle2, Shield, Check, Sliders
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { KairoLogo } from './KairoLogo';
 
 interface NavbarProps {
@@ -13,6 +14,7 @@ interface NavbarProps {
   onOpenSearch: () => void;
   onOpenNotifs: () => void;
   onOpenAuth: () => void;
+  onOpenMyTaste?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -20,25 +22,38 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   onOpenSearch,
   onOpenNotifs,
-  onOpenAuth
+  onOpenAuth,
+  onOpenMyTaste,
 }) => {
   const { user, logout, unreadNotifsCount } = useAuth();
+  const { t } = useLanguage();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const navLinks = [
-    { id: 'home', label: 'Home', icon: BookOpen },
-    { id: 'discover', label: 'Discover', icon: Compass },
-    { id: 'universes', label: 'Universes', icon: Globe },
-    { id: 'community', label: 'Community', icon: Users },
-    { id: 'anime', label: 'Anime Hub', icon: Tv },
+    { id: 'home', label: t('nav_home', 'Home'), icon: BookOpen },
+    { id: 'discover', label: t('nav_discover', 'Discover'), icon: Compass },
+    { id: 'universes', label: t('nav_universes', 'Universes'), icon: Globe },
+    { id: 'community', label: t('nav_community', 'Community'), icon: Users },
+    { id: 'anime', label: t('nav_anime', 'Anime Hub'), icon: Tv },
   ];
 
   return (
     <header className="sticky top-0 z-40 w-full glass-panel border-b border-pink-100/80 shadow-xs transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
         
         {/* Brand Logo */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
           <button 
             id="kairo-logo-btn"
             onClick={() => onNavigate('home')} 
@@ -72,40 +87,42 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
         </div>
 
-        {/* Search Bar Input / Trigger */}
-        <div className="flex-1 max-w-md hidden sm:block">
+        {/* Search Bar Input / Trigger - Strictly Clean One-Liner */}
+        <div className="flex-1 max-w-xs sm:max-w-sm md:max-w-md hidden sm:block">
           <button
             id="global-search-trigger"
             onClick={onOpenSearch}
-            className="w-full h-10 px-3.5 rounded-full bg-white/80 hover:bg-white border border-pink-100 hover:border-[#f47fa5]/40 text-left text-xs sm:text-sm text-[#877276] flex items-center justify-between shadow-xs hover:shadow-md transition-all group cursor-pointer"
+            className="w-full h-9 sm:h-10 px-3.5 rounded-full bg-white/80 hover:bg-white border border-pink-100 hover:border-[#f47fa5]/40 text-left text-xs sm:text-sm text-[#877276] flex items-center justify-between shadow-2xs hover:shadow-xs transition-all group cursor-pointer"
           >
-            <div className="flex items-center gap-2.5">
-              <Search className="w-4 h-4 text-[#9e3b5f] group-hover:scale-110 transition-transform" />
-              <span>Search stories, lore, universes, anime...</span>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9e3b5f] group-hover:scale-110 transition-transform shrink-0" />
+              <span className="truncate whitespace-nowrap leading-none font-medium text-xs sm:text-sm">{t('nav_search_placeholder', 'Search...')}</span>
             </div>
-            <kbd className="hidden lg:inline-flex items-center px-2 py-0.5 text-[10px] font-semibold text-[#877276] bg-[#fee7ff]/60 border border-pink-200/50 rounded-md">
+            <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold text-[#877276] bg-[#fee7ff]/60 border border-pink-200/50 rounded-md shrink-0 ml-1.5">
               ⌘K
             </kbd>
           </button>
         </div>
 
         {/* Right Action Items */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           
           {/* Mobile search icon */}
           <button
             id="mobile-search-btn"
             onClick={onOpenSearch}
-            className="sm:hidden p-2 rounded-lg text-[#544246] hover:bg-white/80 cursor-pointer"
+            className="sm:hidden p-1.5 rounded-xl text-[#544246] hover:bg-white/80 active:bg-pink-100 cursor-pointer"
+            title="Search"
+            aria-label="Open Search"
           >
-            <Search className="w-5 h-5" />
+            <Search className="w-4 h-4 text-[#9e3b5f]" />
           </button>
 
           {/* Reading Streak Indicator */}
           {user && (
             <button
               id="streak-indicator-btn"
-              onClick={() => onNavigate('profile', { tab: 'journey' })}
+              onClick={() => onNavigate('profile', { username: user.username, tab: 'about' })}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ffeffe] border border-pink-200/70 text-[#9e3b5f] text-xs font-bold hover:bg-[#fee7ff] transition-all cursor-pointer"
               title="Daily Reading Streak"
             >
@@ -209,8 +226,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                       className="w-full px-3 py-2 rounded-xl text-xs font-medium text-[#26152b] hover:bg-[#fee7ff] flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <UserIcon className="w-4 h-4 text-[#9e3b5f]" />
-                      <span>My Profile & Badges</span>
+                      <span>{t('nav_profile', 'My Profile & Badges')}</span>
                     </button>
+
+                    {onOpenMyTaste && (
+                      <button
+                        onClick={() => {
+                          setShowUserDropdown(false);
+                          onOpenMyTaste();
+                        }}
+                        className="w-full px-3 py-2 rounded-xl text-xs font-medium text-[#26152b] hover:bg-[#fee7ff] flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <Sliders className="w-4 h-4 text-[#9e3b5f]" />
+                        <span>Settings & Taste</span>
+                      </button>
+                    )}
 
                     {user.role !== 'USER' && (
                       <button
@@ -220,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <div className="flex items-center gap-2">
                           <Feather className="w-4 h-4 text-[#9e3b5f]" />
-                          <span>Creator Studio</span>
+                          <span>{t('nav_studio', 'Creator Studio')}</span>
                         </div>
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#fee7ff] text-[#9e3b5f] font-bold border border-pink-200">
                           Write
@@ -233,7 +263,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       className="w-full px-3 py-2 rounded-xl text-xs font-medium text-[#26152b] hover:bg-[#fee7ff] flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <Library className="w-4 h-4 text-[#9e3b5f]" />
-                      <span>Reading Library</span>
+                      <span>{t('nav_library', 'Reading Library')}</span>
                     </button>
 
                     {user.role === 'ADMIN' && (
@@ -242,7 +272,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         className="w-full px-3 py-2 rounded-xl text-xs font-medium text-[#635882] hover:bg-purple-50 flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <Shield className="w-4 h-4 text-[#635882]" />
-                        <span>Admin Dashboard</span>
+                        <span>{t('nav_admin', 'Admin Dashboard')}</span>
                       </button>
                     )}
 
@@ -253,7 +283,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       className="w-full px-3 py-2 rounded-xl text-xs font-medium text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
-                      <span>Sign Out</span>
+                      <span>{t('nav_logout', 'Sign Out')}</span>
                     </button>
                   </div>
                 </div>
@@ -265,7 +295,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenAuth}
               className="btn-gradient px-4 py-2 rounded-full text-xs font-bold cursor-pointer"
             >
-              Sign In
+              {t('nav_signin', 'Sign In')}
             </button>
           )}
 

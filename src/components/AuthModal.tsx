@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { 
   X, Sparkles, User as UserIcon, Mail, Lock, Check, 
-  BookOpen, Feather, Eye, EyeOff, Shield, ArrowRight, Palette, Award
+  BookOpen, Feather, Eye, EyeOff, Shield, ArrowRight, Palette, Award,
+  Camera, Upload
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { KairoLogo } from './KairoLogo';
+import { ImageUploader } from './ImageUploader';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -92,7 +94,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           avatar: selectedAvatar,
           favoriteGenres: selectedGenres,
         });
+        sessionStorage.setItem('kairo_just_registered', 'true');
       } else {
+        sessionStorage.removeItem('kairo_just_registered');
         await login(username.trim() || email.trim(), password);
       }
       onClose();
@@ -107,6 +111,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError('');
     setLoading(true);
     try {
+      sessionStorage.removeItem('kairo_just_registered');
       await login(quickUsername, pass);
       if (quickUsername === 'admin' && onAdminLogin) {
         onAdminLogin();
@@ -343,33 +348,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="space-y-4 animate-in fade-in duration-150">
               
               {/* Avatar Selector */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#544246] mb-2 flex items-center gap-1.5">
-                  <Palette className="w-3.5 h-3.5 text-[#9e3b5f]" />
-                  <span>Choose Your Avatar</span>
+              <div className="space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#544246] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5 text-[#9e3b5f]" />
+                    <span>Set Profile Avatar</span>
+                  </span>
+                  <span className="text-[10px] text-[#9e3b5f] font-semibold lowercase">
+                    upload or pick preset
+                  </span>
                 </label>
-                <div className="grid grid-cols-6 gap-2">
-                  {AVATAR_PRESETS.map((preset, idx) => {
-                    const isSelected = selectedAvatar === preset.url;
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setSelectedAvatar(preset.url)}
-                        title={preset.label}
-                        className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all cursor-pointer ${
-                          isSelected ? 'border-[#9e3b5f] scale-105 shadow-md ring-2 ring-pink-200' : 'border-pink-200 hover:border-pink-300 opacity-70 hover:opacity-100'
-                        }`}
-                      >
-                        <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
-                        {isSelected && (
-                          <div className="absolute inset-0 bg-[#9e3b5f]/30 flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white drop-shadow" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
+
+                {/* Upload from Gallery / Internal Storage */}
+                <ImageUploader
+                  id="auth-signup-avatar-upload"
+                  value={selectedAvatar}
+                  onChange={(url) => setSelectedAvatar(url)}
+                  avatarMode={true}
+                  allowUrlFallback={false}
+                  helperText="Upload your avatar directly from gallery or storage"
+                />
+
+                {/* Quick Presets */}
+                <div>
+                  <span className="block text-[10px] font-bold text-[#877276] uppercase tracking-wider mb-1.5">
+                    Or select a character preset:
+                  </span>
+                  <div className="grid grid-cols-6 gap-2">
+                    {AVATAR_PRESETS.map((preset, idx) => {
+                      const isSelected = selectedAvatar === preset.url;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setSelectedAvatar(preset.url)}
+                          title={preset.label}
+                          className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all cursor-pointer ${
+                            isSelected ? 'border-[#9e3b5f] scale-105 shadow-md ring-2 ring-pink-200' : 'border-pink-200 hover:border-pink-300 opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-[#9e3b5f]/30 flex items-center justify-center">
+                              <Check className="w-4 h-4 text-white drop-shadow" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

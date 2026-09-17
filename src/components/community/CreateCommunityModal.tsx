@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Users, Globe, Lock, Sparkles, Image, Shield } from 'lucide-react';
 import { Community, User } from '../../types';
 import { api } from '../../services/api';
+import { ImageUploader } from '../ImageUploader';
 
 interface CreateCommunityModalProps {
   isOpen: boolean;
@@ -113,25 +114,27 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
             <div>
-              <label className="block text-xs font-bold text-[#26152b] mb-1">Banner Image URL</label>
-              <input
-                type="url"
+              <ImageUploader
+                id="create-community-banner-upload"
+                label="Community Banner Artwork"
                 value={bannerImage}
-                onChange={e => setBannerImage(e.target.value)}
+                onChange={setBannerImage}
+                aspect="banner"
+                helperText="Upload wide header banner from phone gallery or storage"
                 placeholder="https://images.unsplash.com/..."
-                className="w-full h-9 px-3 rounded-xl border border-pink-200 text-xs outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-[#26152b] mb-1">Icon Avatar URL</label>
-              <input
-                type="url"
+              <ImageUploader
+                id="create-community-icon-upload"
+                label="Community Icon Avatar"
                 value={iconImage}
-                onChange={e => setIconImage(e.target.value)}
+                onChange={setIconImage}
+                avatarMode={true}
+                helperText="Upload square badge or avatar from storage"
                 placeholder="https://images.unsplash.com/..."
-                className="w-full h-9 px-3 rounded-xl border border-pink-200 text-xs outline-none"
               />
             </div>
           </div>

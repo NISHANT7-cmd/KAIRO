@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trophy, Calendar, Sparkles, Users, Clock, Vote, Check, Award, Plus, Upload } from 'lucide-react';
 import { CommunityEvent, Contest, User } from '../../types';
 import { api } from '../../services/api';
+import { ImageUploader } from '../ImageUploader';
 
 interface CommunityEventsContestsProps {
   user: User | null;
@@ -331,13 +332,14 @@ export const CommunityEventsContests: React.FC<CommunityEventsContestsProps> = (
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#26152b] mb-1">Artwork URL / Media Link (Optional)</label>
-                <input
-                  type="url"
+                <ImageUploader
+                  id="contest-entry-media-upload"
+                  label="Contest Artwork / Media (Upload from Gallery or Storage)"
                   value={entryMediaUrl}
-                  onChange={e => setEntryMediaUrl(e.target.value)}
+                  onChange={setEntryMediaUrl}
+                  aspect="auto"
+                  helperText="Upload your entry illustration or design directly from your device"
                   placeholder="https://images.unsplash.com/..."
-                  className="w-full h-10 px-3.5 rounded-xl border border-pink-200 text-xs outline-none focus:border-[#9e3b5f]"
                 />
               </div>
 

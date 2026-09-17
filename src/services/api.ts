@@ -5,8 +5,11 @@ import {
   AdminPlatformStats, PublicUserProfile,
   Program, ProgramParticipant, ProgramSubmission, ProgramVote,
   ProgramAnnouncement, ProgramAuditLog, ProgramCertificate,
-  AdminProgramsSummary, ProgramStatus
+  AdminProgramsSummary, ProgramStatus,
+  UserInterestProfile, PersonalizedHomeFeed, PersonalizedDiscoverFeed, StoryDna,
+  AdminRecommendationSettings
 } from '../types';
+import { getStaticFallback, FALLBACK_STORIES, FALLBACK_UNIVERSES, FALLBACK_USERS } from './fallbackData';
 
 const TOKEN_KEY = 'kairo_auth_token';
 
@@ -168,14 +171,15 @@ function isServerFailure(err: any): boolean {
     if (err.status === 400 || err.status === 401 || err.status === 403) {
       return false;
     }
-    // 404, 500+ are server errors
-    if (err.status >= 500 || err.status === 404) {
+    // 0 is network failure, 404 is endpoint/resource missing, 500+ are server errors
+    if (err.status === 0 || err.status >= 500 || err.status === 404) {
       return true;
     }
   }
   const msg = (err.message || '').toLowerCase();
   return msg.includes('network error') || 
          msg.includes('failed to fetch') || 
+         msg.includes('networkerror') ||
          msg.includes('status 404') || 
          msg.includes('status 500') || 
          msg.includes('status 502') || 
@@ -183,10 +187,12 @@ function isServerFailure(err: any): boolean {
          msg.includes('status 504') || 
          msg.includes('html response') ||
          msg.includes('not reachable') ||
-         msg.includes('endpoint not found');
+         msg.includes('endpoint not found') ||
+         msg.includes('unable to connect');
 }
 
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const isGet = !options.method || options.method.toUpperCase() === 'GET';
   const token = getStoredToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -197,54 +203,122 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  let res: Response;
-  try {
-    res = await fetch(url, { ...options, headers });
-  } catch (err: any) {
-    throw new ApiError(`Network error: ${err.message || 'Unable to connect to server'}`, 0, 'NETWORK_ERROR');
-  }
-  
-  let data: any = null;
-  const contentType = res.headers.get('content-type') || '';
-  
-  // Guard against HTML returned when serverless function is missing or router falls back to index.html
-  if (contentType.includes('text/html')) {
-    throw new ApiError(`API returned HTML response (endpoint unreachable or route not found): ${url}`, 404, 'HTML_RESPONSE');
-  }
+  // Retry up to 2 times for transient network/server glitches (e.g. cold container starts or brief disconnects)
+  const maxRetries = isGet ? 2 : 1;
+  let lastError: any = null;
 
-  if (contentType.includes('application/json')) {
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      // Exponential backoff: 250ms, then 700ms
+      const delay = attempt === 1 ? 250 : 700;
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-  } else {
+
     try {
-      const text = await res.text();
-      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+      const res = await fetch(url, { ...options, headers });
+      const contentType = res.headers.get('content-type') || '';
+
+      // Guard against HTML returned when serverless route falls back to index.html
+      if (contentType.includes('text/html')) {
         throw new ApiError(`API returned HTML response (endpoint unreachable or route not found): ${url}`, 404, 'HTML_RESPONSE');
       }
-      if (text) {
+
+      let data: any = null;
+      if (contentType.includes('application/json')) {
         try {
-          data = JSON.parse(text);
+          data = await res.json();
         } catch {
-          data = { error: text };
+          data = null;
+        }
+      } else {
+        try {
+          const text = await res.text();
+          if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+            throw new ApiError(`API returned HTML response (endpoint unreachable or route not found): ${url}`, 404, 'HTML_RESPONSE');
+          }
+          if (text) {
+            try {
+              data = JSON.parse(text);
+            } catch {
+              data = { error: text };
+            }
+          }
+        } catch (e: any) {
+          if (e instanceof ApiError) throw e;
+          if (e.message?.includes('HTML response')) throw e;
+          data = null;
         }
       }
-    } catch (e: any) {
-      if (e instanceof ApiError) throw e;
-      if (e.message?.includes('HTML response')) throw e;
-      data = null;
+
+      if (!res.ok) {
+        // If 502, 503, 504 gateway error from container or proxy, retry
+        if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxRetries) {
+          lastError = new ApiError(`Server temporarily unavailable (${res.status})`, res.status, 'SERVER_UNAVAILABLE');
+          continue;
+        }
+
+        const errorMsg = data?.error || `Request failed with status ${res.status}`;
+        const errorCode = data?.code;
+        throw new ApiError(errorMsg, res.status, errorCode, data);
+      }
+
+      const result = (data ?? {}) as T;
+
+      // Cache successful GET responses in localStorage for seamless offline resilience
+      if (isGet && typeof window !== 'undefined' && result) {
+        try {
+          localStorage.setItem(`kairo_cache_${url}`, JSON.stringify({
+            timestamp: Date.now(),
+            data: result
+          }));
+        } catch {}
+      }
+
+      return result;
+    } catch (err: any) {
+      lastError = err;
+
+      // Do NOT retry intentional 4xx client errors (e.g. 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found)
+      if (err instanceof ApiError && err.status >= 400 && err.status < 500) {
+        throw err;
+      }
+
+      // Retry on network errors or 5xx server failures
+      if (attempt < maxRetries) {
+        continue;
+      }
     }
   }
 
-  if (!res.ok) {
-    const errorMsg = data?.error || `Request failed with status ${res.status}`;
-    const errorCode = data?.code;
-    throw new ApiError(errorMsg, res.status, errorCode, data);
+  // If network failed and this is a GET request, check offline cache
+  if (isGet && typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(`kairo_cache_${url}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.data) {
+          console.warn(`[KAIRO API] Network unavailable for ${url}. Serving cached response.`);
+          return parsed.data as T;
+        }
+      }
+    } catch {}
   }
 
-  return (data ?? {}) as T;
+  // If no cache exists, check static fallback for critical read routes
+  if (isGet) {
+    const fallback = getStaticFallback<T>(url);
+    if (fallback !== null) {
+      console.warn(`[KAIRO API] Network unavailable for ${url}. Serving pre-seeded fallback.`);
+      return fallback;
+    }
+  }
+
+  if (lastError instanceof ApiError) {
+    throw lastError;
+  }
+
+  const rawMsg = lastError?.message || 'Unable to connect to server';
+  throw new ApiError(`Network error: ${rawMsg}`, 0, 'NETWORK_ERROR');
 }
 
 export const api = {
@@ -401,6 +475,18 @@ export const api = {
     }
   },
 
+  async uploadImage(image: string, name?: string) {
+    try {
+      return await request<{ url: string; name: string }>('/api/upload', {
+        method: 'POST',
+        body: JSON.stringify({ image, name }),
+      });
+    } catch {
+      // Direct data URL fallback if network/route issues
+      return { url: image, name: name || 'uploaded_image' };
+    }
+  },
+
   async logout() {
     try {
       await request('/api/auth/logout', { method: 'POST' });
@@ -412,47 +498,127 @@ export const api = {
     }
   },
 
-  async getUserProfile(idOrUsername: string): Promise<PublicUserProfile> {
-    const clean = encodeURIComponent(idOrUsername.trim().replace(/^@/, ''));
+  async getUserProfile(idOrUsername?: string | any): Promise<PublicUserProfile> {
+    let resolvedId = '';
+    if (typeof idOrUsername === 'string') {
+      resolvedId = idOrUsername.trim().replace(/^@/, '');
+    } else if (typeof idOrUsername === 'object' && idOrUsername !== null) {
+      resolvedId = (idOrUsername.username || idOrUsername.userId || idOrUsername.id || '').trim().replace(/^@/, '');
+    }
+
+    if (resolvedId === '[object Object]' || resolvedId === 'undefined' || resolvedId === 'null') {
+      resolvedId = '';
+    }
+
+    const localActive = getActiveLocalUser();
+    if (!resolvedId || resolvedId.toLowerCase() === 'me') {
+      if (localActive) {
+        resolvedId = localActive.username || localActive.id;
+      }
+    }
+
+    if (!resolvedId) {
+      if (localActive) {
+        resolvedId = localActive.username || localActive.id;
+      } else {
+        throw new Error('User profile not found');
+      }
+    }
+
+    const clean = encodeURIComponent(resolvedId);
     try {
       const res = await request<PublicUserProfile>(`/api/users/profile/${clean}`);
       return res;
     } catch (err: any) {
       if (!isServerFailure(err)) {
+        // If 404 from server, check if it's the active local user
+        if (localActive && (localActive.username?.toLowerCase() === resolvedId.toLowerCase() || localActive.id?.toLowerCase() === resolvedId.toLowerCase())) {
+          return {
+            user: localActive,
+            isFollowing: false,
+            isSelf: true,
+            stories: [],
+            posts: [],
+            universes: [],
+            theories: [],
+            readingList: [],
+            certificates: [],
+            badges: localActive.role === 'ADMIN' ? ['Master Admin'] : localActive.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
+            stats: {
+              totalStories: 0,
+              totalReads: localActive.totalReads || 0,
+              totalLikes: 0,
+              totalPosts: 0,
+              totalTheories: 0,
+              totalUniverses: 0,
+              followersCount: localActive.followersCount || 0,
+              followingCount: localActive.followingCount || 0,
+              chaptersCount: 0,
+            }
+          };
+        }
         throw err;
       }
       // Fallback in demo mode
       const allUsers = [...DEMO_FALLBACK_USERS, ...getLocalUsers()];
+      const searchTarget = decodeURIComponent(clean).toLowerCase();
       const found = allUsers.find(u => 
-        u.id.toLowerCase() === clean.toLowerCase() || 
-        u.username.toLowerCase() === clean.toLowerCase()
+        u.id.toLowerCase() === searchTarget || 
+        u.username.toLowerCase() === searchTarget ||
+        (u.email && u.email.toLowerCase() === searchTarget)
       );
       if (!found) {
+        if (localActive && (searchTarget === 'me' || localActive.username?.toLowerCase() === searchTarget || localActive.id?.toLowerCase() === searchTarget)) {
+          return {
+            user: localActive,
+            isFollowing: false,
+            isSelf: true,
+            stories: [],
+            posts: [],
+            universes: [],
+            theories: [],
+            readingList: [],
+            certificates: [],
+            badges: localActive.role === 'ADMIN' ? ['Master Admin'] : localActive.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
+            stats: {
+              totalStories: 0,
+              totalReads: localActive.totalReads || 0,
+              totalLikes: 0,
+              totalPosts: 0,
+              totalTheories: 0,
+              totalUniverses: 0,
+              followersCount: localActive.followersCount || 0,
+              followingCount: localActive.followingCount || 0,
+              chaptersCount: 0,
+            }
+          };
+        }
         throw new Error('User profile not found');
       }
-      const localActive = getActiveLocalUser();
       const isSelf = Boolean(localActive && localActive.id === found.id);
+      const userStories = FALLBACK_STORIES.filter(s => s.authorId === found.id || s.authorUsername.toLowerCase() === found.username.toLowerCase());
+      const userUniverses = FALLBACK_UNIVERSES.filter(u => u.authorId === found.id);
       return {
         user: found,
         isFollowing: false,
         isSelf,
-        stories: [],
+        stories: userStories,
         posts: [],
-        universes: [],
+        universes: userUniverses,
         theories: [],
         readingList: [],
         certificates: [],
-        badges: found.role === 'ADMIN' ? ['Master Admin'] : found.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
+        badges: found.role === 'ADMIN' ? ['Platform Admin'] : found.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
         stats: {
-          totalStories: 0,
+          totalStories: userStories.length,
           totalReads: found.totalReads || 0,
-          totalLikes: 0,
+          totalLikes: userStories.reduce((sum, s) => sum + (s.likes || 0), 0),
           totalPosts: 0,
           totalTheories: 0,
-          totalUniverses: 0,
+          totalUniverses: userUniverses.length,
           followersCount: found.followersCount || 0,
           followingCount: found.followingCount || 0,
-          chaptersCount: 0,
+          chaptersCount: userStories.reduce((sum, s) => sum + (s.chaptersCount || 0), 0),
         }
       };
     }
@@ -1191,5 +1357,149 @@ export const api = {
 
   async verifyCertificate(certId: string) {
     return request<{ certificate: ProgramCertificate }>(`/api/certificates/${certId}`);
+  },
+
+  // Onboarding & Personalization
+  async getOnboardingStatus() {
+    return request<{
+      isAuthenticated: boolean;
+      hasCompletedOnboarding: boolean;
+      onboardingSkipped?: boolean;
+      profile: UserInterestProfile | null;
+      storyDna?: StoryDna;
+    }>('/api/onboarding/status');
+  },
+
+  async completeOnboarding(data: Partial<UserInterestProfile>) {
+    return request<{
+      success: boolean;
+      profile: UserInterestProfile;
+      user: User;
+      storyDna: StoryDna;
+    }>('/api/onboarding/complete', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async skipOnboarding() {
+    return request<{
+      success: boolean;
+      profile: UserInterestProfile;
+      user: User;
+    }>('/api/onboarding/skip', {
+      method: 'POST',
+    });
+  },
+
+  async getPersonalizedHomeFeed(lang?: string) {
+    const url = lang ? `/api/recommendations/home?lang=${encodeURIComponent(lang)}` : '/api/recommendations/home';
+    return request<PersonalizedHomeFeed>(url);
+  },
+
+  async getPersonalizedDiscoverFeed(lang?: string) {
+    const url = lang ? `/api/recommendations/discover?lang=${encodeURIComponent(lang)}` : '/api/recommendations/discover';
+    return request<PersonalizedDiscoverFeed>(url);
+  },
+
+  async getTasteProfile() {
+    return request<{
+      profile: UserInterestProfile;
+      storyDna: StoryDna;
+    }>('/api/recommendations/profile');
+  },
+
+  async updateTasteProfile(updates: Partial<UserInterestProfile>) {
+    return request<{
+      profile: UserInterestProfile;
+      storyDna: StoryDna;
+      user?: User;
+    }>('/api/recommendations/profile', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  async resetPersonalization() {
+    return request<{
+      success: boolean;
+      profile: UserInterestProfile;
+      storyDna: StoryDna;
+    }>('/api/recommendations/reset', {
+      method: 'POST',
+    });
+  },
+
+  async sendRecommendationFeedback(data: {
+    action: 'NOT_INTERESTED' | 'DISLIKE_GENRE' | 'MUTE_AUTHOR' | 'DONT_RECOMMEND_STORY';
+    targetId: string;
+    reason?: string;
+    metadata?: any;
+  }) {
+    return request<{ success: boolean; profile: UserInterestProfile }>('/api/recommendations/feedback', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async submitRecommendationFeedback(data: {
+    type: 'not_interested' | 'dont_recommend_genre' | 'mute_author';
+    targetId: string;
+    metadata?: any;
+  }) {
+    const actionMap: Record<string, 'NOT_INTERESTED' | 'DISLIKE_GENRE' | 'MUTE_AUTHOR'> = {
+      not_interested: 'NOT_INTERESTED',
+      dont_recommend_genre: 'DISLIKE_GENRE',
+      mute_author: 'MUTE_AUTHOR',
+    };
+    return this.sendRecommendationFeedback({
+      action: actionMap[data.type] || 'NOT_INTERESTED',
+      targetId: data.targetId,
+      metadata: data.metadata,
+    });
+  },
+
+  async restoreRecommendationFeedback(data: {
+    type: 'story' | 'genre' | 'author';
+    targetId: string;
+  }) {
+    return request<{ success: boolean; profile: UserInterestProfile }>('/api/recommendations/restore-feedback', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async recordBehaviorEvent(data: {
+    eventType: string;
+    contentType: string;
+    contentId: string;
+    metadata?: any;
+  }) {
+    return request<{ recorded: boolean }>('/api/recommendations/events', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getRecommendationExplanation(storyId: string) {
+    return request<{ explanation: string; factors: string[] }>(`/api/recommendations/why/${storyId}`);
+  },
+
+  async getAdminRecommendationSettings() {
+    return request<{
+      settings: AdminRecommendationSettings;
+      analytics: {
+        totalProfiles: number;
+        totalEvents: number;
+        popularGenres: { genre: string; count: number }[];
+      };
+    }>('/api/recommendations/admin/settings');
+  },
+
+  async updateAdminRecommendationSettings(settings: Partial<AdminRecommendationSettings>) {
+    return request<{ success: boolean; settings: AdminRecommendationSettings }>('/api/recommendations/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
   },
 };

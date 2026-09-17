@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { dbService } from './db.js';
-import { User } from '../src/types.js';
+import { recommendationService } from './recommendationService.js';
+import { User, UserInterestProfile } from '../src/types.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -45,8 +46,21 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Dedicated Upload endpoint for gallery/internal storage uploads
+app.post('/api/upload', (req: Request, res: Response) => {
+  const { image, name } = req.body || {};
+  if (!image || typeof image !== 'string') {
+    return res.status(400).json({ error: 'Image data URL or string is required' });
+  }
+  return res.json({ 
+    url: image, 
+    name: name || 'uploaded_image',
+    uploadedAt: new Date().toISOString()
+  });
+});
 
 interface AuthVerificationResult {
   user: User | null;
@@ -285,13 +299,21 @@ app.patch('/api/auth/profile', requireAuth, (req: Request, res: Response) => {
 app.get('/api/users/profile/:idOrUsername', (req: Request, res: Response) => {
   const viewer = getUserFromReq(req);
   const target = req.params.idOrUsername;
-  const targetIdOrUsername = target === 'me' ? (viewer?.id || '') : target;
+  let targetIdOrUsername = target === 'me' ? (viewer?.id || '') : target;
   
-  if (!targetIdOrUsername) {
-    return res.status(401).json({ error: 'Please sign in to view your profile' });
+  if (!targetIdOrUsername || targetIdOrUsername === '[object Object]' || targetIdOrUsername === 'undefined' || targetIdOrUsername === 'null') {
+    if (viewer) {
+      targetIdOrUsername = viewer.id;
+    } else {
+      return res.status(401).json({ error: 'Please sign in to view your profile' });
+    }
   }
 
-  const profile = dbService.getPublicUserProfile(targetIdOrUsername, viewer?.id);
+  let profile = dbService.getPublicUserProfile(targetIdOrUsername, viewer?.id);
+  if (!profile && viewer && (targetIdOrUsername.toLowerCase() === 'me' || targetIdOrUsername === viewer.username || targetIdOrUsername === viewer.id)) {
+    profile = dbService.getPublicUserProfile(viewer.id, viewer.id);
+  }
+
   if (!profile) {
     return res.status(404).json({ error: 'User profile not found' });
   }
@@ -447,6 +469,20 @@ app.delete('/api/chapters/:chapterId', requireAuth, (req: Request, res: Response
 app.post('/api/reading-progress', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const progress = dbService.saveReadingProgress(user.id, req.body);
+  
+  // Track behavior event
+  const isComplete = progress.progressPercent >= 90;
+  recommendationService.recordBehaviorEvent(user.id, {
+    eventType: isComplete ? 'chapter_completed' : 'reading_duration',
+    contentType: 'CHAPTER',
+    contentId: progress.chapterId,
+    metadata: {
+      storyId: progress.storyId,
+      progressPercent: progress.progressPercent,
+      readingTimeMinutes: (progress as any).readingTimeMinutes || 0
+    }
+  });
+
   return res.json({ progress });
 });
 
@@ -468,18 +504,44 @@ app.post('/api/library/toggle', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const { storyId, listType = 'saved' } = req.body;
   const result = dbService.toggleLibrary(user.id, storyId, listType);
+
+  recommendationService.recordBehaviorEvent(user.id, {
+    eventType: result.inLibrary ? 'bookmark' : 'unbookmark',
+    contentType: 'STORY',
+    contentId: storyId,
+    metadata: { listType }
+  });
+
   return res.json(result);
 });
 
 app.post('/api/stories/:id/like', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const result = dbService.toggleLikeStory(user.id, req.params.id);
+
+  if (result.liked) {
+    recommendationService.recordBehaviorEvent(user.id, {
+      eventType: 'like',
+      contentType: 'STORY',
+      contentId: req.params.id
+    });
+  }
+
   return res.json(result);
 });
 
 app.post('/api/users/:id/follow', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const result = dbService.toggleFollowUser(user.id, req.params.id);
+
+  if (result.following) {
+    recommendationService.recordBehaviorEvent(user.id, {
+      eventType: 'follow_author',
+      contentType: 'AUTHOR',
+      contentId: req.params.id
+    });
+  }
+
   return res.json(result);
 });
 
@@ -495,6 +557,14 @@ app.post('/api/chapters/:chapterId/comments', requireAuth, (req: Request, res: R
   const user = (req as any).user as User;
   const { storyId, content, parentId } = req.body;
   const comment = dbService.addChapterComment(user.id, req.params.chapterId, storyId, content, parentId);
+
+  recommendationService.recordBehaviorEvent(user.id, {
+    eventType: 'comment',
+    contentType: 'CHAPTER',
+    contentId: req.params.chapterId,
+    metadata: { storyId }
+  });
+
   return res.json({ comment });
 });
 
@@ -508,6 +578,14 @@ app.post('/api/stories/:id/reviews', requireAuth, (req: Request, res: Response) 
   const user = (req as any).user as User;
   const { rating, reviewText } = req.body;
   const review = dbService.addReview(user.id, req.params.id, Number(rating), reviewText);
+
+  recommendationService.recordBehaviorEvent(user.id, {
+    eventType: 'review',
+    contentType: 'STORY',
+    contentId: req.params.id,
+    metadata: { rating: Number(rating) }
+  });
+
   return res.json({ review });
 });
 
@@ -1284,6 +1362,198 @@ app.get('/api/certificates/:certId', (req: Request, res: Response) => {
   return res.json({ certificate: cert });
 });
 
+// ----------------------------------------------------
+// ONBOARDING & PERSONALIZED RECOMMENDATIONS API
+// ----------------------------------------------------
+
+// Check user onboarding status
+app.get('/api/onboarding/status', (req: Request, res: Response) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.json({
+      isAuthenticated: false,
+      hasCompletedOnboarding: false,
+      profile: null
+    });
+  }
+
+  const profile = recommendationService.getOrInitProfile(user.id);
+  return res.json({
+    isAuthenticated: true,
+    hasCompletedOnboarding: profile.hasCompletedOnboarding,
+    onboardingSkipped: Boolean(profile.onboardingSkipped),
+    profile,
+    storyDna: recommendationService.computeStoryDna(profile)
+  });
+});
+
+// Complete full 7-step onboarding
+app.post('/api/onboarding/complete', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  try {
+    const updatedProfile = recommendationService.completeOnboarding(user.id, req.body);
+    const enrichedUser = dbService.getUserEnriched(user);
+    const storyDna = recommendationService.computeStoryDna(updatedProfile);
+
+    return res.json({
+      success: true,
+      profile: updatedProfile,
+      user: enrichedUser,
+      storyDna
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to complete onboarding' });
+  }
+});
+
+// Skip onboarding with default balanced profile
+app.post('/api/onboarding/skip', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const profile = recommendationService.skipOnboarding(user.id);
+  const enrichedUser = dbService.getUserEnriched(user);
+  return res.json({
+    success: true,
+    profile,
+    user: enrichedUser
+  });
+});
+
+// Get personalized home feed
+app.get('/api/recommendations/home', (req: Request, res: Response) => {
+  const user = getUserFromReq(req);
+  const lang = req.query.lang as string | undefined;
+  const feed = recommendationService.generateHomeFeed(user?.id, lang);
+  return res.json(feed);
+});
+
+// Get personalized discover feed
+app.get('/api/recommendations/discover', (req: Request, res: Response) => {
+  const user = getUserFromReq(req);
+  const lang = req.query.lang as string | undefined;
+  const feed = recommendationService.generateDiscoverFeed(user?.id, lang);
+  return res.json(feed);
+});
+
+// Get user taste profile and Story DNA
+app.get('/api/recommendations/profile', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const profile = recommendationService.getOrInitProfile(user.id);
+  const storyDna = recommendationService.computeStoryDna(profile);
+  return res.json({ profile, storyDna });
+});
+
+// Update taste profile preferences ("My Taste" settings)
+app.put('/api/recommendations/profile', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const updatedProfile = recommendationService.updateProfilePreferences(user.id, req.body);
+  const storyDna = recommendationService.computeStoryDna(updatedProfile);
+  const enrichedUser = dbService.getUserEnriched(user);
+  return res.json({ profile: updatedProfile, storyDna, user: enrichedUser });
+});
+
+// Reset personalization back to baseline
+app.post('/api/recommendations/reset', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const db = (dbService as any).db;
+  if (db.userInterestProfiles && db.userInterestProfiles[user.id]) {
+    delete db.userInterestProfiles[user.id];
+  }
+  const freshProfile = recommendationService.getOrInitProfile(user.id);
+  const storyDna = recommendationService.computeStoryDna(freshProfile);
+  return res.json({ success: true, profile: freshProfile, storyDna });
+});
+
+// Negative signal feedback ("Not interested", "Don't recommend genre", "Mute author")
+app.post('/api/recommendations/feedback', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { action, targetId, reason, metadata } = req.body;
+  if (!action || !targetId) {
+    return res.status(400).json({ error: 'Action and targetId are required' });
+  }
+
+  const profile = recommendationService.handleFeedback(user.id, action, targetId, { reason, ...metadata });
+  return res.json({ success: true, profile });
+});
+
+// Restore a muted author or hidden story/genre
+app.post('/api/recommendations/restore-feedback', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { type, targetId } = req.body;
+  if (!type || !targetId) {
+    return res.status(400).json({ error: 'Type (story|genre|author) and targetId are required' });
+  }
+
+  const profile = recommendationService.restoreNegativeSignal(user.id, type, targetId);
+  return res.json({ success: true, profile });
+});
+
+// Track behavior interaction event
+app.post('/api/recommendations/events', (req: Request, res: Response) => {
+  const user = getUserFromReq(req);
+  if (!user) {
+    return res.json({ recorded: false, reason: 'Guest user' });
+  }
+
+  const { eventType, contentType, contentId, metadata } = req.body;
+  if (!eventType || !contentType || !contentId) {
+    return res.status(400).json({ error: 'Missing event fields' });
+  }
+
+  recommendationService.recordBehaviorEvent(user.id, {
+    eventType,
+    contentType,
+    contentId,
+    metadata
+  });
+
+  return res.json({ recorded: true });
+});
+
+// Explain why a story was recommended
+app.get('/api/recommendations/why/:storyId', (req: Request, res: Response) => {
+  const user = getUserFromReq(req);
+  const storyId = req.params.storyId;
+  const explanation = recommendationService.explainRecommendation(user?.id || 'guest', storyId);
+  return res.json(explanation);
+});
+
+// Admin get recommendation algorithm settings & telemetry
+app.get('/api/recommendations/admin/settings', requireAdmin, (req: Request, res: Response) => {
+  const settings = recommendationService.getAdminSettings();
+  const db = (dbService as any).db;
+  const totalProfiles = Object.keys(db.userInterestProfiles || {}).length;
+  const totalEvents = (db.userBehaviorEvents || []).length;
+
+  // Aggregate popular genres across interest profiles
+  const genreCounts: Record<string, number> = {};
+  for (const pid of Object.keys(db.userInterestProfiles || {})) {
+    const p: UserInterestProfile = db.userInterestProfiles[pid];
+    for (const g of Object.keys(p.preferredGenres || {})) {
+      if (p.preferredGenres[g] >= 0.7) {
+        genreCounts[g] = (genreCounts[g] || 0) + 1;
+      }
+    }
+  }
+
+  return res.json({
+    settings,
+    analytics: {
+      totalProfiles,
+      totalEvents,
+      popularGenres: Object.entries(genreCounts)
+        .map(([genre, count]) => ({ genre, count }))
+        .sort((a, b) => b.count - a.count)
+    }
+  });
+});
+
+// Admin update recommendation weights
+app.put('/api/recommendations/admin/settings', requireAdmin, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const updated = recommendationService.updateAdminSettings(req.body, user);
+  return res.json({ success: true, settings: updated });
+});
+
 // Health Check & Root API Status
 app.get(['/api', '/api/health'], (req: Request, res: Response) => {
   return res.json({ status: 'ok', app: 'KAIRO API', timestamp: new Date().toISOString() });
@@ -1292,6 +1562,19 @@ app.get(['/api', '/api/health'], (req: Request, res: Response) => {
 // 404 Handler for all unmatched API routes (ensures JSON response instead of HTML)
 app.use('/api', (req: Request, res: Response) => {
   res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+});
+
+// Global API Error Handling Middleware (prevents crashing or sending HTML on errors)
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('[API_ERROR_HANDLER]', req.method, req.originalUrl, err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  const status = typeof err.status === 'number' && err.status >= 400 && err.status < 600 ? err.status : 500;
+  return res.status(status).json({
+    error: err?.message || 'An internal server error occurred',
+    code: err?.code || 'INTERNAL_SERVER_ERROR'
+  });
 });
 
 export default app;

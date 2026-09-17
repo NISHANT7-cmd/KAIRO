@@ -1,17 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User as UserIcon, Flame, BookOpen, Feather, Sparkles, 
   LogOut, Edit, Shield, ArrowRight, Compass, Share2, Check, 
   UserPlus, UserCheck, Star, Heart, MessageSquare, Globe, 
   Award, Trophy, Eye, Clock, Calendar, Bookmark, Hash, 
-  ChevronRight, ArrowLeft, ExternalLink, ThumbsUp
+  ChevronRight, ArrowLeft, ExternalLink, ThumbsUp, Camera, Loader2, Sliders
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { Story, PublicUserProfile, User } from '../types';
+import { ImageUploader } from './ImageUploader';
+import { FALLBACK_USERS, FALLBACK_STORIES, FALLBACK_UNIVERSES } from '../services/fallbackData';
 
 interface ProfileViewProps {
-  userIdOrUsername?: string;
+  userIdOrUsername?: string | any;
+  initialTab?: string;
   onOpenStory: (storySlug: string) => void;
   onOpenStudio?: () => void;
   onOpenAdmin?: () => void;
@@ -19,24 +23,32 @@ interface ProfileViewProps {
   onOpenCommunity?: (communitySlug: string) => void;
   onNavigate?: (view: string, data?: any) => void;
   onBack?: () => void;
+  onOpenTasteSettings?: () => void;
+  onOpenOnboarding?: () => void;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ 
   userIdOrUsername,
+  initialTab,
   onOpenStory, 
   onOpenStudio,
   onOpenAdmin,
   onOpenUniverse,
   onOpenCommunity,
   onNavigate,
-  onBack
+  onBack,
+  onOpenTasteSettings,
+  onOpenOnboarding,
 }) => {
   const { user: currentUser, logout, updateProfile, openAuthModal } = useAuth();
+  const { currentLanguage, setLanguage, supportedLanguages, t } = useLanguage();
   
   const [profileData, setProfileData] = useState<PublicUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'stories' | 'posts' | 'universes' | 'theories' | 'shelf' | 'awards' | 'about'>('stories');
+  const [activeTab, setActiveTab] = useState<'stories' | 'posts' | 'universes' | 'theories' | 'shelf' | 'awards' | 'about' | 'taste'>('stories');
+  const [tasteProfileData, setTasteProfileData] = useState<{ profile: any; storyDna: any } | null>(null);
+  const [loadingTaste, setLoadingTaste] = useState(false);
   
   // Follow action state
   const [isFollowing, setIsFollowing] = useState(false);
@@ -53,13 +65,106 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [avatarInput, setAvatarInput] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [quickAvatarUploading, setQuickAvatarUploading] = useState(false);
+  const avatarDirectInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDirectAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setEditError('Please select a valid image file');
+      return;
+    }
+    setQuickAvatarUploading(true);
+    setEditError(null);
+    try {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const result = ev.target?.result as string;
+        if (!result) {
+          setQuickAvatarUploading(false);
+          return;
+        }
+        const img = new Image();
+        img.onload = async () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const maxDim = 500;
+            let { width, height } = img;
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            const dataUrl = ctx ? canvas.toDataURL('image/jpeg', 0.88) : result;
+            if (ctx) ctx.drawImage(img, 0, 0, width, height);
+            
+            await updateProfile({ avatar: dataUrl });
+            if (profileData) {
+              setProfileData({
+                ...profileData,
+                user: { ...profileData.user, avatar: dataUrl }
+              });
+            }
+          } catch (err: any) {
+            setEditError(err.message || 'Failed to update avatar');
+          } finally {
+            setQuickAvatarUploading(false);
+          }
+        };
+        img.onerror = () => {
+          setQuickAvatarUploading(false);
+          setEditError('Could not decode selected image file');
+        };
+        img.src = result;
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setEditError(err.message || 'Error processing avatar');
+      setQuickAvatarUploading(false);
+    }
+    if (avatarDirectInputRef.current) {
+      avatarDirectInputRef.current.value = '';
+    }
+  };
+
+  // Target identifier: safely sanitize input string or object
+  let resolvedTarget = '';
+  let requestedTab: string | undefined = initialTab;
+
+  if (typeof userIdOrUsername === 'string') {
+    if (userIdOrUsername && userIdOrUsername !== '[object Object]' && userIdOrUsername !== 'undefined' && userIdOrUsername !== 'null') {
+      resolvedTarget = userIdOrUsername.trim();
+    }
+  } else if (typeof userIdOrUsername === 'object' && userIdOrUsername !== null) {
+    resolvedTarget = (userIdOrUsername.username || userIdOrUsername.userId || userIdOrUsername.id || '').trim();
+    if (userIdOrUsername.tab) {
+      requestedTab = userIdOrUsername.tab;
+    }
+  }
 
   // Target identifier: if none provided, look up current user
-  const targetId = userIdOrUsername || currentUser?.username || currentUser?.id || 'me';
+  const targetId = resolvedTarget || currentUser?.username || currentUser?.id || 'me';
 
   useEffect(() => {
     loadProfile();
   }, [targetId, currentUser?.id]);
+
+  useEffect(() => {
+    if (requestedTab) {
+      const validTabs = ['stories', 'posts', 'universes', 'theories', 'shelf', 'awards', 'about', 'taste'];
+      if (validTabs.includes(requestedTab)) {
+        setActiveTab(requestedTab as any);
+      } else if (requestedTab === 'journey') {
+        setActiveTab('about');
+      }
+    }
+  }, [requestedTab]);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -87,8 +192,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       setAvatarInput(data.user.avatar || '');
       setEditError(null);
 
-      // Set initial tab appropriately: if no stories but has posts or shelf, switch to shelf or posts
-      if (data.stories.length === 0) {
+      // Set initial tab appropriately if not explicitly requested
+      if (requestedTab) {
+        const validTabs = ['stories', 'posts', 'universes', 'theories', 'shelf', 'awards', 'about', 'taste'];
+        if (validTabs.includes(requestedTab)) {
+          setActiveTab(requestedTab as any);
+        } else if (requestedTab === 'journey') {
+          setActiveTab('about');
+        }
+      } else if (data.stories.length === 0) {
         if (data.readingList.length > 0) {
           setActiveTab('shelf');
         } else if (data.posts.length > 0) {
@@ -100,8 +212,73 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         setActiveTab('stories');
       }
     } catch (err: any) {
-      console.error('Failed to load user profile:', err);
-      setError(err.message || 'User profile not found.');
+      console.warn('[ProfileView] Unable to load profile directly, checking fallback/offline recovery:', err?.message || err);
+      
+      // If error occurred for current user, recover gracefully with their authenticated state
+      if (currentUser && (targetId === 'me' || targetId === currentUser.username || targetId === currentUser.id)) {
+        setProfileData({
+          user: currentUser,
+          isFollowing: false,
+          isSelf: true,
+          stories: [],
+          posts: [],
+          universes: [],
+          theories: [],
+          readingList: [],
+          certificates: [],
+          badges: currentUser.role === 'ADMIN' ? ['Platform Admin'] : currentUser.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
+          stats: {
+            totalStories: 0,
+            totalReads: currentUser.totalReads || 0,
+            totalLikes: 0,
+            totalPosts: 0,
+            totalTheories: 0,
+            totalUniverses: 0,
+            followersCount: currentUser.followersCount || 0,
+            followingCount: currentUser.followingCount || 0,
+            chaptersCount: 0,
+          }
+        });
+        setError(null);
+      } else {
+        // Check if requested user exists in fallback users
+        const targetClean = (targetId || '').toLowerCase().replace(/^@/, '');
+        const fallbackUser = FALLBACK_USERS.find(
+          u => u.username.toLowerCase() === targetClean || u.id.toLowerCase() === targetClean
+        );
+
+        if (fallbackUser) {
+          const userStories = FALLBACK_STORIES.filter(s => s.authorId === fallbackUser.id || s.authorUsername.toLowerCase() === fallbackUser.username.toLowerCase());
+          const userUniverses = FALLBACK_UNIVERSES.filter(u => u.authorId === fallbackUser.id);
+          setProfileData({
+            user: fallbackUser,
+            isFollowing: false,
+            isSelf: Boolean(currentUser && currentUser.id === fallbackUser.id),
+            stories: userStories,
+            posts: [],
+            universes: userUniverses,
+            theories: [],
+            readingList: [],
+            certificates: [],
+            badges: fallbackUser.role === 'ADMIN' ? ['Platform Admin'] : fallbackUser.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
+            stats: {
+              totalStories: userStories.length,
+              totalReads: fallbackUser.totalReads || 0,
+              totalLikes: userStories.reduce((sum, s) => sum + (s.likes || 0), 0),
+              totalPosts: 0,
+              totalTheories: 0,
+              totalUniverses: userUniverses.length,
+              followersCount: fallbackUser.followersCount || 0,
+              followingCount: fallbackUser.followingCount || 0,
+              chaptersCount: userStories.reduce((sum, s) => sum + (s.chaptersCount || 0), 0),
+            }
+          });
+          setError(null);
+        } else {
+          const isNetErr = (err?.message || '').toLowerCase().includes('network') || (err?.message || '').toLowerCase().includes('fetch');
+          setError(isNetErr ? 'Unable to connect to the server. Please check your network connection.' : (err?.message || 'User profile not found.'));
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -184,8 +361,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <UserIcon className="w-8 h-8" />
         </div>
         <h2 className="text-2xl font-black font-display text-[#26152b]">User Profile Unavailable</h2>
-        <p className="text-sm text-[#877276]">{error || 'This user does not exist or has been relocated.'}</p>
-        <div className="flex items-center justify-center gap-3 pt-2">
+        <p className="text-sm text-[#877276] max-w-md mx-auto">{error || 'This user does not exist or has been relocated.'}</p>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => loadProfile()}
+            className="btn-gradient px-5 py-2.5 rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Try Again
+          </button>
           {onBack && (
             <button
               onClick={onBack}
@@ -197,7 +381,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {onNavigate && (
             <button
               onClick={() => onNavigate('home')}
-              className="btn-gradient px-5 py-2.5 rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-pink-50 border border-pink-100 text-xs font-bold text-[#9e3b5f] hover:bg-pink-100 transition-colors cursor-pointer"
             >
               Explore Home
             </button>
@@ -211,7 +395,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const userAvatar = user.avatar || user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80';
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6 pb-28">
+    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-10 space-y-4 sm:space-y-6 pb-24 sm:pb-28">
       
       {/* Top Breadcrumb / Back button */}
       <div className="flex items-center justify-between">
@@ -233,14 +417,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         <div className="flex items-center gap-2">
           {copiedLink && (
-            <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+            <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border border-emerald-200 flex items-center gap-1">
               <Check className="w-3 h-3" />
               <span>Link copied!</span>
             </span>
           )}
           <button
             onClick={handleShareProfile}
-            className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-pink-50 border border-pink-200 text-xs font-bold text-[#544246] flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+            className="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl bg-white hover:bg-pink-50 border border-pink-200 text-xs font-bold text-[#544246] flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
             title="Share Profile Link"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -251,19 +435,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       {/* Admin Quick Jump Banner (If user is viewing their own profile and is ADMIN) */}
       {isSelf && user.role === 'ADMIN' && onOpenAdmin && (
-        <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white p-4 sm:p-5 rounded-3xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
-              <Shield className="w-5 h-5 text-white" />
+        <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+              <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
-              <div className="font-bold text-sm text-white">Master Admin Privileges Active</div>
-              <div className="text-xs text-amber-100">You have full authority to administer platform operations, verify writers, inspect analytics, and manage competitions.</div>
+              <div className="font-bold text-xs sm:text-sm text-white">Master Admin Privileges Active</div>
+              <div className="text-[11px] sm:text-xs text-amber-100">You have full authority to administer platform operations, verify writers, inspect analytics, and manage competitions.</div>
             </div>
           </div>
           <button
             onClick={onOpenAdmin}
-            className="px-4 py-2 rounded-xl bg-white text-amber-900 hover:bg-amber-50 text-xs font-black shadow-sm flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+            className="w-full sm:w-auto px-3.5 py-1.5 sm:py-2 rounded-xl bg-white text-amber-900 hover:bg-amber-50 text-xs font-black shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
           >
             <span>Open Master Admin Portal</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -272,14 +456,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       )}
 
       {/* Instagram-Grade Aesthetic Profile Header Card */}
-      <div className="glass-card rounded-3xl border border-pink-200/90 shadow-md relative overflow-hidden bg-white/95">
+      <div className="glass-card rounded-2xl sm:rounded-3xl border border-pink-200/90 shadow-sm relative overflow-hidden bg-white/95">
         
         {/* Atmospheric Header Banner */}
-        <div className="h-32 sm:h-44 w-full bg-gradient-to-r from-pink-400/30 via-purple-400/25 to-indigo-500/30 relative overflow-hidden">
+        <div className="h-28 sm:h-44 w-full bg-gradient-to-r from-pink-400/30 via-purple-400/25 to-indigo-500/30 relative overflow-hidden">
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#9e3b5f_1px,transparent_1px)] [background-size:16px_16px]" />
           
-          <div className="absolute top-3 right-3 flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-md text-white text-[11px] font-bold flex items-center gap-1.5">
+          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 flex items-center gap-2">
+            <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-black/40 backdrop-blur-md text-white text-[10px] sm:text-[11px] font-bold flex items-center gap-1 sm:gap-1.5">
               <Sparkles className="w-3 h-3 text-pink-300" />
               <span>Astral Level {user.level || 1}</span>
             </span>
@@ -287,37 +471,68 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
 
         {/* Profile Details Container */}
-        <div className="px-6 sm:px-10 pb-8 -mt-16 sm:-mt-20 relative z-10 space-y-6">
+        <div className="px-4 sm:px-10 pb-5 sm:pb-8 -mt-12 sm:-mt-20 relative z-10 space-y-3.5 sm:space-y-6">
           
           {/* Top Row: Avatar + Actions */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3 sm:gap-4">
             
-            {/* Avatar with Halo Ring */}
+            {/* Avatar with Halo Ring & Direct Gallery/Storage Upload */}
             <div className="relative group">
-              <div className="p-1 rounded-3xl sm:rounded-4xl bg-white shadow-xl ring-4 ring-pink-200/80">
+              <div className="p-1 rounded-2xl sm:rounded-4xl bg-white shadow-lg ring-3 sm:ring-4 ring-pink-200/80 relative overflow-hidden">
                 <img
                   src={userAvatar}
                   alt={user.displayName}
-                  className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl sm:rounded-3xl object-cover"
+                  className="w-20 h-20 sm:w-32 sm:h-32 rounded-xl sm:rounded-3xl object-cover"
                 />
+
+                {/* Direct Upload from Gallery/Storage Button for Profile Owner */}
+                {isSelf && (
+                  <>
+                    <button
+                      type="button"
+                      id="profile-avatar-direct-btn"
+                      onClick={() => avatarDirectInputRef.current?.click()}
+                      disabled={quickAvatarUploading}
+                      className="absolute inset-1 rounded-xl sm:rounded-3xl bg-black/50 hover:bg-black/65 text-white flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer backdrop-blur-2xs"
+                      title="Upload avatar photo from your gallery or internal storage"
+                    >
+                      {quickAvatarUploading ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-pink-300" />
+                      ) : (
+                        <>
+                          <Camera className="w-5 h-5 text-pink-200 drop-shadow" />
+                          <span className="text-[9px] font-bold tracking-wide">Upload Photo</span>
+                        </>
+                      )}
+                    </button>
+                    <input
+                      ref={avatarDirectInputRef}
+                      id="profile-avatar-direct-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleDirectAvatarUpload}
+                      className="hidden"
+                    />
+                  </>
+                )}
               </div>
               
               {user.isVerifiedWriter && (
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-[#9e3b5f] text-white flex items-center justify-center shadow-md ring-2 ring-white" title="Verified Author">
-                  <Feather className="w-4 h-4" />
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-purple-600 to-[#9e3b5f] text-white flex items-center justify-center shadow-md ring-2 ring-white z-10" title="Verified Author">
+                  <Feather className="w-3 h-3 sm:w-4 sm:h-4" />
                 </div>
               )}
             </div>
 
             {/* Action Buttons (Follow, Edit, Studio, Signout) */}
-            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               {!isSelf ? (
                 <>
                   <button
                     id="profile-follow-btn"
                     onClick={handleToggleFollow}
                     disabled={followingLoading}
-                    className={`flex-1 sm:flex-none px-6 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs ${
+                    className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-xs ${
                       isFollowing
                         ? 'bg-purple-100 text-[#635882] hover:bg-purple-200 border border-purple-200'
                         : 'btn-gradient'
@@ -325,12 +540,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   >
                     {isFollowing ? (
                       <>
-                        <UserCheck className="w-4 h-4" />
+                        <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <span>Following</span>
                       </>
                     ) : (
                       <>
-                        <UserPlus className="w-4 h-4" />
+                        <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <span>Follow Author</span>
                       </>
                     )}
@@ -339,7 +554,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   {onNavigate && (
                     <button
                       onClick={() => onNavigate('community')}
-                      className="px-4 py-2.5 rounded-2xl bg-white hover:bg-pink-50 border border-pink-200 text-xs font-bold text-[#544246] flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                      className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white hover:bg-pink-50 border border-pink-200 text-xs font-bold text-[#544246] flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
                     >
                       <MessageSquare className="w-3.5 h-3.5 text-[#9e3b5f]" />
                       <span>Fandom</span>
@@ -350,16 +565,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <>
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="px-4 py-2.5 rounded-2xl bg-white hover:bg-pink-50 border border-pink-200 text-xs font-bold text-[#544246] flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                    className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white hover:bg-pink-50 border border-pink-200 text-xs font-bold text-[#544246] flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
                   >
                     <Edit className="w-3.5 h-3.5 text-[#9e3b5f]" />
                     <span>Edit Profile</span>
                   </button>
 
+                  <button
+                    id="profile-tune-taste-btn"
+                    onClick={() => {
+                      if (onOpenTasteSettings) {
+                        onOpenTasteSettings();
+                      } else {
+                        setActiveTab('taste');
+                      }
+                    }}
+                    className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-[#fee7ff]/80 hover:bg-[#fee7ff] border border-pink-300/80 text-xs font-bold text-[#9e3b5f] flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-[#9e3b5f]" />
+                    <span>Tune Taste</span>
+                  </button>
+
                   {(user.role === 'WRITER' || user.role === 'ADMIN') && onOpenStudio && (
                     <button
                       onClick={onOpenStudio}
-                      className="btn-gradient px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="btn-gradient px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Feather className="w-3.5 h-3.5" />
                       <span>Creator Studio</span>
@@ -368,10 +598,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                   <button
                     onClick={logout}
-                    className="p-2.5 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 cursor-pointer transition-colors"
+                    className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60 cursor-pointer transition-colors"
                     title="Sign Out"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 </>
               )}
@@ -379,13 +609,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
 
           {/* User Names, Bio, and Role */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-2xl sm:text-3xl font-black font-display text-[#26152b] tracking-tight">
+          <div className="space-y-1.5 sm:space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-3xl font-black font-display text-[#26152b] tracking-tight">
                 {user.displayName}
               </h1>
               
-              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${
+              <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider ${
                 user.role === 'ADMIN' 
                   ? 'bg-amber-100 text-amber-900 border border-amber-300' 
                   : user.role === 'WRITER' 
@@ -396,43 +626,43 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </span>
 
               {user.isVerifiedWriter && (
-                <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200 text-[10px] font-bold flex items-center gap-1 shadow-2xs">
+                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200 text-[9px] sm:text-[10px] font-bold flex items-center gap-1 shadow-2xs">
                   <Feather className="w-3 h-3 text-purple-600" />
                   <span>Verified Creator</span>
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-[#877276] flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-[#877276] flex-wrap">
               <span className="font-semibold text-[#544246]">@{user.username}</span>
               <span>•</span>
               <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
+                <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 <span>Joined {new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
               </span>
               {user.streakDays !== undefined && user.streakDays > 0 && (
                 <>
                   <span>•</span>
                   <span className="flex items-center gap-1 text-orange-600 font-bold">
-                    <Flame className="w-3.5 h-3.5 fill-orange-500" />
-                    <span>{user.streakDays} Day Reading Streak</span>
+                    <Flame className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-orange-500" />
+                    <span>{user.streakDays} Day Streak</span>
                   </span>
                 </>
               )}
             </div>
 
             {/* Bio */}
-            <p className="text-xs sm:text-sm text-[#544246] leading-relaxed max-w-2xl whitespace-pre-line pt-1">
+            <p className="text-[11px] sm:text-sm text-[#544246] leading-relaxed max-w-2xl whitespace-pre-line pt-0.5 sm:pt-1">
               {user.bio || (isSelf ? 'No bio added yet. Click "Edit Profile" to tell readers about your stories or favorite genres.' : 'Storyteller and wanderer in the Astral Universe.')}
             </p>
 
             {/* Badges Ribbon */}
             {badges && badges.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap pt-2">
+              <div className="flex items-center gap-1.5 flex-wrap pt-1 sm:pt-2">
                 {badges.map(b => (
                   <span 
                     key={b}
-                    className="px-2.5 py-0.5 rounded-full bg-[#fee7ff]/70 text-[#9e3b5f] border border-pink-200/80 text-[11px] font-bold flex items-center gap-1 shadow-2xs"
+                    className="px-2 sm:px-2.5 py-0.5 rounded-full bg-[#fee7ff]/70 text-[#9e3b5f] border border-pink-200/80 text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shadow-2xs"
                   >
                     <Award className="w-3 h-3 text-[#9e3b5f]" />
                     <span>{b}</span>
@@ -443,57 +673,57 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
 
           {/* Instagram-Style Stats Counters Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 pt-4 border-t border-pink-100/90">
-            <div className="bg-[#fff9fc] p-3 rounded-2xl border border-pink-100/80 text-center">
-              <div className="text-xl sm:text-2xl font-black font-display text-[#26152b]">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 pt-2.5 sm:pt-4 border-t border-pink-100/90">
+            <div className="bg-[#fff9fc] p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-pink-100/80 text-center">
+              <div className="text-base sm:text-2xl font-black font-display text-[#26152b]">
                 {stats.totalStories}
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
+              <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
                 Stories
               </div>
             </div>
 
-            <div className="bg-[#fff9fc] p-3 rounded-2xl border border-pink-100/80 text-center">
-              <div className="text-xl sm:text-2xl font-black font-display text-[#9e3b5f]">
+            <div className="bg-[#fff9fc] p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-pink-100/80 text-center">
+              <div className="text-base sm:text-2xl font-black font-display text-[#9e3b5f]">
                 {stats.totalReads > 1000 ? `${(stats.totalReads / 1000).toFixed(1)}k` : stats.totalReads}
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
+              <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
                 Reads
               </div>
             </div>
 
-            <div className="bg-[#fff9fc] p-3 rounded-2xl border border-pink-100/80 text-center">
-              <div className="text-xl sm:text-2xl font-black font-display text-[#26152b]">
+            <div className="bg-[#fff9fc] p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-pink-100/80 text-center">
+              <div className="text-base sm:text-2xl font-black font-display text-[#26152b]">
                 {followersCount}
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
+              <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
                 Followers
               </div>
             </div>
 
-            <div className="bg-[#fff9fc] p-3 rounded-2xl border border-pink-100/80 text-center">
-              <div className="text-xl sm:text-2xl font-black font-display text-[#26152b]">
+            <div className="bg-[#fff9fc] p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-pink-100/80 text-center">
+              <div className="text-base sm:text-2xl font-black font-display text-[#26152b]">
                 {stats.followingCount}
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
+              <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
                 Following
               </div>
             </div>
 
-            <div className="bg-[#fff9fc] p-3 rounded-2xl border border-pink-100/80 text-center">
-              <div className="text-xl sm:text-2xl font-black font-display text-purple-700">
+            <div className="bg-[#fff9fc] p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-pink-100/80 text-center">
+              <div className="text-base sm:text-2xl font-black font-display text-purple-700">
                 {stats.totalPosts}
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
+              <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
                 Posts
               </div>
             </div>
 
-            <div className="bg-[#fff9fc] p-3 rounded-2xl border border-pink-100/80 text-center">
-              <div className="text-xl sm:text-2xl font-black font-display text-emerald-600">
+            <div className="bg-[#fff9fc] p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-pink-100/80 text-center">
+              <div className="text-base sm:text-2xl font-black font-display text-emerald-600">
                 {stats.chaptersCount}
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
+              <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#877276] mt-0.5">
                 Chapters
               </div>
             </div>
@@ -583,6 +813,29 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </button>
         )}
 
+        {isSelf && (
+          <button
+            onClick={() => {
+              setActiveTab('taste');
+              if (!tasteProfileData && !loadingTaste) {
+                setLoadingTaste(true);
+                api.getTasteProfile()
+                  .then(res => setTasteProfileData(res))
+                  .catch(err => console.error(err))
+                  .finally(() => setLoadingTaste(false));
+              }
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'taste'
+                ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-xs'
+                : 'text-[#544246] hover:bg-pink-50'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Story DNA & Taste</span>
+          </button>
+        )}
+
         <button
           onClick={() => setActiveTab('about')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
@@ -596,6 +849,204 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </button>
 
       </div>
+
+      {/* TAB: STORY DNA & TASTE (FOR PROFILE OWNER) */}
+      {activeTab === 'taste' && (
+        <div className="space-y-6">
+          <div className="glass-card rounded-3xl p-6 sm:p-8 border border-pink-200/90 shadow-sm bg-gradient-to-br from-white via-pink-50/40 to-purple-50/30 space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-pink-100">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#9e3b5f]">
+                    KAIRO Recommendation Profile
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200">
+                    {tasteProfileData?.storyDna?.primaryArchetype || 'Imaginative Wanderer'}
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold font-display text-[#26152b]">
+                  Your Story DNA & Taste Model
+                </h3>
+                <p className="text-xs text-[#544246] max-w-xl">
+                  This mathematical interest vector powers your home feed, discover sorting, community suggestions, and author spotlights.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                {onOpenTasteSettings && (
+                  <button
+                    type="button"
+                    onClick={onOpenTasteSettings}
+                    className="px-4 py-2.5 rounded-xl bg-white hover:bg-pink-50 text-[#9e3b5f] border border-pink-200 text-xs font-bold shadow-2xs flex items-center gap-1.5 transition"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Tune Taste Weights</span>
+                  </button>
+                )}
+                {onOpenOnboarding && (
+                  <button
+                    type="button"
+                    onClick={onOpenOnboarding}
+                    className="btn-gradient px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Retake Onboarding</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {loadingTaste ? (
+              <div className="py-12 text-center text-xs text-[#877276]">
+                <Sparkles className="w-6 h-6 animate-spin mx-auto mb-2 text-[#9e3b5f]" />
+                Synthesizing Story DNA...
+              </div>
+            ) : tasteProfileData ? (
+              <div className="space-y-6">
+                {/* Top Genres Affinities */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#877276]">Top Genre Affinities</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(tasteProfileData.storyDna?.topGenres || []).map((g: any) => (
+                      <div key={g.name} className="p-3.5 rounded-2xl bg-white border border-pink-100/90 shadow-2xs space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-[#26152b] flex items-center gap-1.5">
+                            <span>{g.emoji}</span>
+                            <span>{g.name}</span>
+                          </span>
+                          <span className="font-bold text-[#9e3b5f]">{g.weight}% Match</span>
+                        </div>
+                        <div className="w-full bg-pink-100/70 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-[#9e3b5f] to-[#f47fa5] rounded-full transition-all"
+                            style={{ width: `${g.weight}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Narrative Styles & Habits */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                  <div className="p-4 rounded-2xl bg-white border border-pink-100/90 shadow-2xs space-y-1">
+                    <span className="text-[11px] font-bold text-[#877276] uppercase tracking-wider">Preferred Medium</span>
+                    <div className="text-base font-bold text-[#26152b]">{tasteProfileData.storyDna?.primaryMedium || 'Light Novels'}</div>
+                    <span className="text-[11px] text-[#544246]">Serialized novel cadence</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white border border-pink-100/90 shadow-2xs space-y-1">
+                    <span className="text-[11px] font-bold text-[#877276] uppercase tracking-wider">Reading Cadence</span>
+                    <div className="text-base font-bold text-[#26152b]">{tasteProfileData.storyDna?.readingPace || 'Daily Pace'}</div>
+                    <span className="text-[11px] text-[#544246]">Adaptive notification frequency</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white border border-pink-100/90 shadow-2xs space-y-1">
+                    <span className="text-[11px] font-bold text-[#877276] uppercase tracking-wider">Content Languages</span>
+                    <div className="text-base font-bold text-[#26152b]">{tasteProfileData.storyDna?.languages?.join(', ') || 'English'}</div>
+                    <span className="text-[11px] text-[#544246]">Catalog prioritizing</span>
+                  </div>
+                </div>
+
+                {/* Interface Display Language Section */}
+                <div className="p-5 rounded-2xl bg-white border border-pink-100/90 shadow-2xs space-y-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-[#26152b] flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-[#9e3b5f]" />
+                      <span>{t('taste_active_ui_lang', 'Interface Display Language')}</span>
+                    </h4>
+                    <p className="text-xs text-[#877276] mt-0.5">
+                      Automatically detects your regional language. Choose a language to change the entire interface.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                    {supportedLanguages.map((lang) => {
+                      const isCurrent = currentLanguage === lang.id;
+                      return (
+                        <button
+                          key={lang.id}
+                          type="button"
+                          onClick={() => setLanguage(lang.id)}
+                          className={`p-2.5 rounded-xl border text-xs text-left transition flex items-center justify-between cursor-pointer ${
+                            isCurrent
+                              ? 'bg-[#fee7ff] border-[#f47fa5] text-[#9e3b5f] font-bold shadow-2xs'
+                              : 'bg-white hover:bg-pink-50/60 border-pink-100 text-[#26152b]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{lang.flag}</span>
+                            <div>
+                              <span className="block">{lang.native}</span>
+                              <span className="text-[10px] text-[#877276]">{lang.label}</span>
+                            </div>
+                          </div>
+                          {isCurrent && <Check className="w-4 h-4 text-[#9e3b5f] shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 text-center space-y-6">
+                <div className="space-y-3">
+                  <p className="text-xs text-[#877276]">No interest profile saved yet. Complete onboarding to generate your Story DNA!</p>
+                  {onOpenOnboarding && (
+                    <button
+                      type="button"
+                      onClick={onOpenOnboarding}
+                      className="btn-gradient px-4 py-2 rounded-xl text-xs font-bold"
+                    >
+                      Start 7-Step Onboarding
+                    </button>
+                  )}
+                </div>
+
+                {/* Interface Display Language Section when no profile data */}
+                <div className="p-5 rounded-2xl bg-white border border-pink-100/90 shadow-2xs space-y-3 text-left max-w-xl mx-auto">
+                  <div>
+                    <h4 className="text-sm font-bold text-[#26152b] flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-[#9e3b5f]" />
+                      <span>{t('taste_active_ui_lang', 'Interface Display Language')}</span>
+                    </h4>
+                    <p className="text-xs text-[#877276] mt-0.5">
+                      Automatically detects your regional language. Choose a language to change the entire interface.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                    {supportedLanguages.map((lang) => {
+                      const isCurrent = currentLanguage === lang.id;
+                      return (
+                        <button
+                          key={lang.id}
+                          type="button"
+                          onClick={() => setLanguage(lang.id)}
+                          className={`p-2.5 rounded-xl border text-xs text-left transition flex items-center justify-between cursor-pointer ${
+                            isCurrent
+                              ? 'bg-[#fee7ff] border-[#f47fa5] text-[#9e3b5f] font-bold shadow-2xs'
+                              : 'bg-white hover:bg-pink-50/60 border-pink-100 text-[#26152b]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{lang.flag}</span>
+                            <div>
+                              <span className="block">{lang.native}</span>
+                              <span className="text-[10px] text-[#877276]">{lang.label}</span>
+                            </div>
+                          </div>
+                          {isCurrent && <Check className="w-4 h-4 text-[#9e3b5f] shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: STORIES & COLLECTIONS */}
       {activeTab === 'stories' && (
@@ -830,7 +1281,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {readingList.map(item => (
+              {readingList.map(item => {
+                if (!item?.story) return null;
+                return (
                 <div
                   key={item.story.id}
                   onClick={() => onOpenStory(item.story.slug || item.story.id)}
@@ -838,7 +1291,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 >
                   <div className="flex gap-4">
                     <img
-                      src={item.story.coverImage}
+                      src={item.story.coverImage || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800'}
                       alt={item.story.title}
                       className="w-20 h-28 rounded-2xl object-cover shadow-sm shrink-0 group-hover:scale-103 transition-transform"
                     />
@@ -862,7 +1315,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     </span>
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </div>
@@ -1017,13 +1470,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#544246] mb-1">Avatar Image URL</label>
-                <input
-                  type="url"
+                <label className="block text-xs font-bold text-[#544246] mb-1.5">Avatar Image</label>
+                <ImageUploader
+                  id="profile-edit-avatar-upload"
                   value={avatarInput}
-                  onChange={e => setAvatarInput(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-pink-50/50 border border-pink-200 text-xs focus:outline-none focus:border-[#9e3b5f]"
-                  placeholder="https://..."
+                  onChange={setAvatarInput}
+                  avatarMode={true}
+                  helperText="Upload avatar directly from phone gallery or internal storage"
+                  placeholder="Paste avatar URL or upload from storage"
                 />
               </div>
 

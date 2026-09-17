@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ReaderProvider } from './context/ReaderContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { SearchModal } from './components/SearchModal';
@@ -22,6 +23,8 @@ import { ProfileView } from './components/ProfileView';
 import { AdminPortalView } from './components/AdminPortalView';
 import { WorldBuilderModal } from './components/WorldBuilderModal';
 import { CharacterBuilderModal } from './components/CharacterBuilderModal';
+import { OnboardingFlowModal } from './components/onboarding/OnboardingFlowModal';
+import { MyTasteSettingsModal } from './components/profile/MyTasteSettingsModal';
 import { KairoLogo } from './components/KairoLogo';
 
 export function KairoApp() {
@@ -34,6 +37,7 @@ export function KairoApp() {
   const [selectedUniverseSlug, setSelectedUniverseSlug] = useState<string>('the-astral-universe');
   const [selectedCommunitySlug, setSelectedCommunitySlug] = useState<string>('astral-universe-fandom');
   const [selectedProfileIdOrUsername, setSelectedProfileIdOrUsername] = useState<string | undefined>(undefined);
+  const [selectedProfileTab, setSelectedProfileTab] = useState<string | undefined>(undefined);
   const [editorStoryId, setEditorStoryId] = useState<string>('');
   const [editorChapterId, setEditorChapterId] = useState<string | undefined>(undefined);
 
@@ -43,6 +47,22 @@ export function KairoApp() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isWorldBuilderOpen, setIsWorldBuilderOpen] = useState(false);
   const [isCharacterBuilderOpen, setIsCharacterBuilderOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isMyTasteOpen, setIsMyTasteOpen] = useState(false);
+
+  // Only prompt onboarding once right after user registration
+  useEffect(() => {
+    if (user) {
+      const isJustRegistered = sessionStorage.getItem('kairo_just_registered') === 'true';
+      const isLocallyCompleted = localStorage.getItem(`kairo_onboarding_completed_${user.id}`) === 'true';
+      const hasCompleted = user.hasCompletedOnboarding || isLocallyCompleted;
+
+      if (isJustRegistered && !hasCompleted) {
+        sessionStorage.removeItem('kairo_just_registered');
+        setIsOnboardingOpen(true);
+      }
+    }
+  }, [user]);
 
   // Handle URL hash changes for easy navigation and bookmarking
   useEffect(() => {
@@ -63,7 +83,12 @@ export function KairoApp() {
           } else if (view === 'community' && parts[1]) {
             setSelectedCommunitySlug(parts[1]);
           } else if (view === 'profile') {
-            setSelectedProfileIdOrUsername(parts[1] || undefined);
+            const rawSlug = parts[1];
+            if (rawSlug && rawSlug !== '[object Object]' && rawSlug !== 'undefined' && rawSlug !== 'null') {
+              setSelectedProfileIdOrUsername(rawSlug);
+            } else {
+              setSelectedProfileIdOrUsername(user?.username || undefined);
+            }
           }
         }
       }
@@ -72,7 +97,7 @@ export function KairoApp() {
     window.addEventListener('hashchange', handleHashChange);
     handleHashChange();
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [user]);
 
   const navigateTo = (view: string, data?: any) => {
     setCurrentView(view);
@@ -90,8 +115,25 @@ export function KairoApp() {
       setSelectedCommunitySlug(data);
       window.location.hash = `community/${data}`;
     } else if (view === 'profile') {
-      setSelectedProfileIdOrUsername(data || undefined);
-      window.location.hash = data ? `profile/${data}` : 'profile';
+      let targetUsername: string | undefined = undefined;
+      let targetTab: string | undefined = undefined;
+
+      if (typeof data === 'string') {
+        if (data && data !== '[object Object]' && data !== 'undefined' && data !== 'null') {
+          targetUsername = data;
+        }
+      } else if (typeof data === 'object' && data !== null) {
+        targetUsername = data.username || data.userId || data.id || undefined;
+        targetTab = data.tab || undefined;
+      }
+
+      if (!targetUsername && user?.username) {
+        targetUsername = user.username;
+      }
+
+      setSelectedProfileIdOrUsername(targetUsername);
+      setSelectedProfileTab(targetTab);
+      window.location.hash = targetUsername ? `profile/${targetUsername}` : 'profile';
     } else if (view === 'editor' && data) {
       setEditorStoryId(data.storyId);
       setEditorChapterId(data.chapterId);
@@ -127,6 +169,7 @@ export function KairoApp() {
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenNotifs={() => setIsNotificationOpen(true)}
         onOpenAuth={openAuthModal}
+        onOpenMyTaste={() => setIsMyTasteOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -228,6 +271,7 @@ export function KairoApp() {
         {currentView === 'profile' && (
           <ProfileView
             userIdOrUsername={selectedProfileIdOrUsername}
+            initialTab={selectedProfileTab}
             onOpenStory={(slug) => navigateTo('story', slug)}
             onOpenStudio={() => navigateTo('studio')}
             onOpenAdmin={() => navigateTo('admin')}
@@ -235,6 +279,8 @@ export function KairoApp() {
             onOpenCommunity={(slug) => navigateTo('community', slug)}
             onNavigate={(view, data) => navigateTo(view, data)}
             onBack={() => navigateTo('home')}
+            onOpenTasteSettings={() => setIsMyTasteOpen(true)}
+            onOpenOnboarding={() => setIsOnboardingOpen(true)}
           />
         )}
 
@@ -288,6 +334,36 @@ export function KairoApp() {
         onClose={() => setIsCharacterBuilderOpen(false)}
       />
 
+      {/* 7-Step User Onboarding Flow Modal */}
+      <OnboardingFlowModal
+        isOpen={isOnboardingOpen}
+        onClose={() => {
+          setIsOnboardingOpen(false);
+          if (user) {
+            localStorage.setItem(`kairo_onboarding_completed_${user.id}`, 'true');
+          }
+        }}
+        onComplete={() => {
+          setIsOnboardingOpen(false);
+          if (user) {
+            localStorage.setItem(`kairo_onboarding_completed_${user.id}`, 'true');
+          }
+          navigateTo('home');
+        }}
+        onNavigateStory={(slug) => navigateTo('story', slug)}
+      />
+
+      {/* User Taste Profile & Story DNA Settings Modal */}
+      <MyTasteSettingsModal
+        isOpen={isMyTasteOpen}
+        onClose={() => setIsMyTasteOpen(false)}
+        onRetakeOnboarding={() => {
+          setIsMyTasteOpen(false);
+          setIsOnboardingOpen(true);
+        }}
+        currentUser={user}
+      />
+
       {/* Global Footer (Desktop & Tablet) */}
       <footer className="border-t border-pink-100/80 bg-white/60 py-8 px-4 sm:px-6 lg:px-8 text-xs text-[#877276] mb-14 md:mb-0">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -320,9 +396,11 @@ export function KairoApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <ReaderProvider>
-        <KairoApp />
-      </ReaderProvider>
+      <LanguageProvider>
+        <ReaderProvider>
+          <KairoApp />
+        </ReaderProvider>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

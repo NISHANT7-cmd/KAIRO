@@ -1,6 +1,7 @@
 import React from 'react';
 import { BookOpen, Compass, Feather, Users, Library, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface BottomNavProps {
   currentView: string;
@@ -9,15 +10,16 @@ interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({ currentView, onNavigate }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const isReader = user?.role === 'USER';
 
   const items = [
-    { id: 'home', label: 'Home', icon: BookOpen },
-    { id: 'discover', label: 'Discover', icon: Compass },
-    ...(!isReader ? [{ id: 'studio', label: 'Write', icon: Feather, isSpecial: true }] : []),
-    { id: 'community', label: 'Fandom', icon: Users },
-    { id: 'library', label: 'Library', icon: Library },
-    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'home', label: t('nav_home', 'Home'), icon: BookOpen },
+    { id: 'discover', label: t('nav_discover', 'Discover'), icon: Compass },
+    ...(!isReader ? [{ id: 'studio', label: t('nav_studio', 'Write'), icon: Feather, isSpecial: true }] : []),
+    { id: 'community', label: t('nav_community', 'Community'), icon: Users },
+    { id: 'library', label: t('nav_library', 'Library'), icon: Library },
+    { id: 'profile', label: t('nav_profile', 'Profile'), icon: User },
   ];
 
   return (
