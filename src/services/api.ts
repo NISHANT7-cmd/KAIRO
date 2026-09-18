@@ -10,6 +10,7 @@ import {
   AdminRecommendationSettings
 } from '../types';
 import { getStaticFallback, FALLBACK_STORIES, FALLBACK_UNIVERSES, FALLBACK_USERS } from './fallbackData';
+import { ensureSafePayloadImage } from '../utils/imageOptimizer';
 
 const TOKEN_KEY = 'kairo_auth_token';
 
@@ -257,8 +258,11 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
           continue;
         }
 
-        const errorMsg = data?.error || `Request failed with status ${res.status}`;
-        const errorCode = data?.code;
+        let errorMsg = data?.error || `Request failed with status ${res.status}`;
+        if (res.status === 413 || errorMsg.includes('FUNCTION_PAYLOAD_TOO_LARGE') || errorMsg.includes('Entity Too Large')) {
+          errorMsg = 'Cover image payload exceeds network limit. The image has been automatically compressed for you—please click Publish again.';
+        }
+        const errorCode = data?.code || (res.status === 413 ? 'PAYLOAD_TOO_LARGE' : undefined);
         throw new ApiError(errorMsg, res.status, errorCode, data);
       }
 
@@ -642,16 +646,28 @@ export const api = {
   },
 
   async createStory(story: Partial<Story>) {
-    return request<{ story: Story }>('/api/stories', {
+    let safePayload = { ...story };
+    if (safePayload.coverImage && safePayload.coverImage.startsWith('data:image/') && safePayload.coverImage.length > 400000) {
+      safePayload.coverImage = await ensureSafePayloadImage(safePayload.coverImage, { maxDimension: 1000, targetMaxBytes: 300 * 1024 });
+    }
+    const res = await request<{ story: Story; user?: any }>('/api/stories', {
       method: 'POST',
-      body: JSON.stringify(story),
+      body: JSON.stringify(safePayload),
     });
+    if (res.user) {
+      setActiveLocalUser(res.user);
+    }
+    return res;
   },
 
   async updateStory(id: string, updates: Partial<Story>) {
+    let safePayload = { ...updates };
+    if (safePayload.coverImage && safePayload.coverImage.startsWith('data:image/') && safePayload.coverImage.length > 400000) {
+      safePayload.coverImage = await ensureSafePayloadImage(safePayload.coverImage, { maxDimension: 1000, targetMaxBytes: 300 * 1024 });
+    }
     return request<{ story: Story }>(`/api/stories/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(updates),
+      body: JSON.stringify(safePayload),
     });
   },
 

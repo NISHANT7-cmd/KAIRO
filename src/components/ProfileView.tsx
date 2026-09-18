@@ -12,6 +12,7 @@ import { api } from '../services/api';
 import { Story, PublicUserProfile, User } from '../types';
 import { ImageUploader } from './ImageUploader';
 import { FALLBACK_USERS, FALLBACK_STORIES, FALLBACK_UNIVERSES } from '../services/fallbackData';
+import { optimizeImageFile } from '../utils/imageOptimizer';
 
 interface ProfileViewProps {
   userIdOrUsername?: string | any;
@@ -63,6 +64,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [displayNameInput, setDisplayNameInput] = useState('');
   const [bioInput, setBioInput] = useState('');
   const [avatarInput, setAvatarInput] = useState('');
+  const [roleInput, setRoleInput] = useState<'USER' | 'WRITER'>('USER');
   const [savingProfile, setSavingProfile] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [quickAvatarUploading, setQuickAvatarUploading] = useState(false);
@@ -78,58 +80,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setQuickAvatarUploading(true);
     setEditError(null);
     try {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const result = ev.target?.result as string;
-        if (!result) {
-          setQuickAvatarUploading(false);
-          return;
-        }
-        const img = new Image();
-        img.onload = async () => {
-          try {
-            const canvas = document.createElement('canvas');
-            const maxDim = 500;
-            let { width, height } = img;
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            const dataUrl = ctx ? canvas.toDataURL('image/jpeg', 0.88) : result;
-            if (ctx) ctx.drawImage(img, 0, 0, width, height);
-            
-            await updateProfile({ avatar: dataUrl });
-            if (profileData) {
-              setProfileData({
-                ...profileData,
-                user: { ...profileData.user, avatar: dataUrl }
-              });
-            }
-          } catch (err: any) {
-            setEditError(err.message || 'Failed to update avatar');
-          } finally {
-            setQuickAvatarUploading(false);
-          }
-        };
-        img.onerror = () => {
-          setQuickAvatarUploading(false);
-          setEditError('Could not decode selected image file');
-        };
-        img.src = result;
-      };
-      reader.readAsDataURL(file);
+      const optimized = await optimizeImageFile(file, {
+        avatarMode: true,
+        maxDimension: 400,
+        targetMaxBytes: 150 * 1024,
+      });
+
+      await updateProfile({ avatar: optimized.dataUrl });
+      if (profileData) {
+        setProfileData({
+          ...profileData,
+          user: { ...profileData.user, avatar: optimized.dataUrl }
+        });
+      }
     } catch (err: any) {
       setEditError(err.message || 'Error processing avatar');
+    } finally {
       setQuickAvatarUploading(false);
-    }
-    if (avatarDirectInputRef.current) {
-      avatarDirectInputRef.current.value = '';
+      if (avatarDirectInputRef.current) {
+        avatarDirectInputRef.current.value = '';
+      }
     }
   };
 
@@ -329,7 +299,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       const updates: Partial<User> = {
         displayName: displayNameInput.trim() || profileData.user.displayName,
         bio: bioInput.trim(),
-        avatar: avatarInput.trim() || profileData.user.avatar
+        avatar: avatarInput.trim() || profileData.user.avatar,
+        role: roleInput,
+        isVerifiedWriter: roleInput === 'WRITER' ? true : profileData.user.isVerifiedWriter,
       };
       const res = await api.updateProfile(updates);
       if (res.user) {
@@ -564,7 +536,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               ) : (
                 <>
                   <button
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => {
+                      if (profileData) {
+                        setDisplayNameInput(profileData.user.displayName || '');
+                        setBioInput(profileData.user.bio || '');
+                        setAvatarInput(profileData.user.avatar || '');
+                        setRoleInput(profileData.user.role === 'WRITER' ? 'WRITER' : 'USER');
+                      }
+                      setIsEditing(true);
+                    }}
                     className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white hover:bg-pink-50 border border-pink-200 text-xs font-bold text-[#544246] flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
                   >
                     <Edit className="w-3.5 h-3.5 text-[#9e3b5f]" />
@@ -1479,6 +1459,43 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   helperText="Upload avatar directly from phone gallery or internal storage"
                   placeholder="Paste avatar URL or upload from storage"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#544246] mb-1.5">Account Persona</label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setRoleInput('USER')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      roleInput === 'USER'
+                        ? 'bg-pink-50 border-[#9e3b5f] ring-2 ring-pink-200 font-bold text-[#26152b]'
+                        : 'bg-white border-pink-200 text-[#544246] hover:bg-pink-50/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <BookOpen className="w-3.5 h-3.5 text-[#9e3b5f]" />
+                      <span className="text-xs">Reader</span>
+                    </div>
+                    <p className="text-[10px] text-[#877276] font-normal leading-tight">Explore novel realms & discussion</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRoleInput('WRITER')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      roleInput === 'WRITER'
+                        ? 'bg-purple-50 border-[#635882] ring-2 ring-purple-200 font-bold text-[#26152b]'
+                        : 'bg-white border-pink-200 text-[#544246] hover:bg-purple-50/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Feather className="w-3.5 h-3.5 text-[#635882]" />
+                      <span className="text-xs">Author / Writer</span>
+                    </div>
+                    <p className="text-[10px] text-[#877276] font-normal leading-tight">Publish novels & worldbuild lore</p>
+                  </button>
+                </div>
               </div>
 
               <div>

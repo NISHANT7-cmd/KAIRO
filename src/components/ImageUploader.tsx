@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Upload, Image as ImageIcon, Camera, Trash2, Link as LinkIcon, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { Upload, Image as ImageIcon, Camera, Trash2, Link as LinkIcon, AlertCircle, Check, Loader2, Sparkles } from 'lucide-react';
+import { optimizeImageFile } from '../utils/imageOptimizer';
 
 export interface ImageUploaderProps {
   id?: string;
@@ -36,21 +37,23 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlDraft, setUrlDraft] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
+  const [optimizedSize, setOptimizedSize] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uniqueId = id || `uploader-${Math.random().toString(36).substring(2, 9)}`;
 
-  // Optimizes and resizes an image file locally using HTML Canvas
-  const processImageFile = useCallback((file: File) => {
+  // Optimizes and resizes an image file locally using HTML Canvas & WebP/JPEG compression
+  // Guarantees payload fits comfortably under 350KB to eliminate FUNCTION_PAYLOAD_TOO_LARGE
+  const processImageFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setErrorMessage('Please select a valid image file (JPEG, PNG, WebP, GIF).');
       return;
     }
 
-    // Check size threshold (e.g. limit to 35MB raw files)
-    if (file.size > 35 * 1024 * 1024) {
-      setErrorMessage('Image is too large. Please select an image under 35MB.');
+    // Check extreme size threshold (50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      setErrorMessage('Image is excessively large. Please select an image under 50MB.');
       return;
     }
 
@@ -58,80 +61,23 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     setErrorMessage(null);
     setFileName(file.name);
 
-    const reader = new FileReader();
+    try {
+      const result = await optimizeImageFile(file, {
+        avatarMode,
+        maxDimension: avatarMode ? 400 : (aspect === 'banner' ? 1200 : Math.min(1000, maxDimension)),
+        targetMaxBytes: 320 * 1024, // 320 KB safe target for edge proxies
+        initialQuality: quality || 0.82,
+      });
 
-    reader.onerror = () => {
+      onChange(result.dataUrl);
+      setOptimizedSize(result.formattedSize);
       setIsProcessing(false);
-      setErrorMessage('Failed to read image from device storage. Please try again.');
-    };
-
-    reader.onload = (e) => {
-      const result = e.target?.result;
-      if (typeof result !== 'string') {
-        setIsProcessing(false);
-        setErrorMessage('Failed to process image.');
-        return;
-      }
-
-      // If GIF or SVG, do not run through canvas to preserve animation/vectors
-      if (file.type === 'image/gif' || file.type === 'image/svg+xml') {
-        onChange(result);
-        setIsProcessing(false);
-        return;
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        try {
-          let { width, height } = img;
-          const maxDim = avatarMode ? 600 : maxDimension;
-
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-
-          if (!ctx) {
-            onChange(result);
-            setIsProcessing(false);
-            return;
-          }
-
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Convert to efficient JPEG or WebP data URL
-          const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-          const compressedDataUrl = canvas.toDataURL(outputType, quality);
-
-          onChange(compressedDataUrl);
-          setIsProcessing(false);
-        } catch (canvasErr) {
-          // Fallback to raw data URL if canvas context fails
-          onChange(result);
-          setIsProcessing(false);
-        }
-      };
-
-      img.onerror = () => {
-        setIsProcessing(false);
-        setErrorMessage('Unable to decode image. Please choose another image file.');
-      };
-
-      img.src = result;
-    };
-
-    reader.readAsDataURL(file);
-  }, [avatarMode, maxDimension, quality, onChange]);
+    } catch (err: any) {
+      console.error('[ImageUploader] Optimization error:', err);
+      setIsProcessing(false);
+      setErrorMessage(err.message || 'Unable to optimize image. Please select a different image file.');
+    }
+  }, [avatarMode, aspect, maxDimension, quality, onChange]);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -174,6 +120,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     e.stopPropagation();
     onChange('');
     setFileName(null);
+    setOptimizedSize(null);
     setErrorMessage(null);
   };
 
@@ -324,9 +271,16 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           </div>
 
           {fileName && !avatarMode && (
-            <div className="absolute bottom-2 left-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-xs text-white text-[10px] font-medium truncate z-10 flex items-center gap-1">
-              <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span className="truncate">{fileName}</span>
+            <div className="absolute bottom-2 left-2 right-2 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-xs text-white text-[10px] font-medium truncate z-10 flex items-center justify-between gap-1 shadow-md">
+              <div className="flex items-center gap-1 min-w-0 truncate">
+                <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span className="truncate">{fileName}</span>
+              </div>
+              {optimizedSize && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-pink-500/30 text-pink-200 border border-pink-400/40 font-bold shrink-0">
+                  {optimizedSize} • Ready
+                </span>
+              )}
             </div>
           )}
         </div>

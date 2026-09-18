@@ -290,6 +290,15 @@ app.patch('/api/auth/profile', requireAuth, (req: Request, res: Response) => {
   if (Array.isArray(req.body.favoriteThemes)) {
     safeUpdates.favoriteThemes = req.body.favoriteThemes;
   }
+  if (req.body.role === 'WRITER' || (req.body.role === 'USER' && user.role !== 'ADMIN')) {
+    safeUpdates.role = req.body.role;
+    if (req.body.role === 'WRITER') {
+      safeUpdates.isVerifiedWriter = true;
+    }
+  }
+  if (typeof req.body.isVerifiedWriter === 'boolean' && (user.role === 'ADMIN' || user.role === 'WRITER' || req.body.role === 'WRITER')) {
+    safeUpdates.isVerifiedWriter = req.body.isVerifiedWriter;
+  }
 
   const updated = dbService.updateUser(user.id, safeUpdates);
   const enrichedUser = updated ? dbService.getUserEnriched(updated) : undefined;
@@ -376,10 +385,12 @@ app.get('/api/stories/:idOrSlug', (req: Request, res: Response) => {
 app.post('/api/stories', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   if (user.role === 'USER') {
-    return res.status(403).json({ error: 'Reader accounts cannot create or publish stories. Please switch to an Author or Writer persona.' });
+    user.role = 'WRITER';
+    user.isVerifiedWriter = true;
+    dbService.updateUser(user.id, { role: 'WRITER', isVerifiedWriter: true });
   }
   const story = dbService.createStory(req.body, user);
-  return res.json({ story });
+  return res.json({ story, user: dbService.getUserEnriched(user) });
 });
 
 app.patch('/api/stories/:id', requireAuth, (req: Request, res: Response) => {
@@ -1020,9 +1031,6 @@ app.post('/api/notifications/read-all', requireAuth, (req: Request, res: Respons
 
 app.get('/api/studio/analytics', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
-  if (user.role === 'USER') {
-    return res.status(403).json({ error: 'Creator Studio analytics are reserved for Author and Writer accounts.' });
-  }
   const stats = dbService.getCreatorAnalytics(user.id);
   return res.json({ stats });
 });

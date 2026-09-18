@@ -4,6 +4,7 @@ import { StoryType, AgeRating, StoryStatus } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ImageUploader } from './ImageUploader';
+import { ensureSafePayloadImage } from '../utils/imageOptimizer';
 
 interface CreateStoryViewProps {
   onBack: () => void;
@@ -33,41 +34,6 @@ export const CreateStoryView: React.FC<CreateStoryViewProps> = ({ onBack, onStor
     { label: 'Starry Library', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&auto=format&fit=crop&q=80' },
   ];
 
-  if (user?.role === 'USER') {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6">
-        <div className="glass-card rounded-3xl p-8 border border-pink-200 shadow-xl bg-gradient-to-br from-[#fee7ff] to-white space-y-5">
-          <div className="w-14 h-14 rounded-2xl bg-white shadow-md text-[#9e3b5f] flex items-center justify-center mx-auto border border-pink-100">
-            <BookOpen className="w-7 h-7" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold font-display text-[#26152b]">Story Creation Disabled for Readers</h2>
-            <p className="text-xs sm:text-sm text-[#544246] max-w-md mx-auto">
-              Reader accounts cannot write or publish serialized fiction. To create stories and access authoring tools, switch to an Author / Writer persona.
-            </p>
-          </div>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button
-              onClick={onBack}
-              className="px-4 py-2.5 rounded-xl bg-white border border-pink-200 text-xs font-semibold text-[#544246] cursor-pointer"
-            >
-              Return
-            </button>
-            <button
-              onClick={async () => {
-                await updateProfile({ role: 'WRITER', isVerifiedWriter: true });
-              }}
-              className="btn-gradient px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm"
-            >
-              <Feather className="w-3.5 h-3.5" />
-              <span>Upgrade to Writer Persona</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const handleCreate = async () => {
     if (!title.trim()) {
       setError('Please provide a story title.');
@@ -78,11 +44,29 @@ export const CreateStoryView: React.FC<CreateStoryViewProps> = ({ onBack, onStor
     setError('');
 
     try {
+      // If user is on reader persona, promote to Writer
+      if (user?.role === 'USER') {
+        try {
+          await updateProfile({ role: 'WRITER', isVerifiedWriter: true });
+        } catch {
+          // Server will also auto-upgrade on /api/stories
+        }
+      }
+
+      // Ensure cover image payload fits safely within proxy limits (< 300KB)
+      let safeCover = coverImage;
+      if (safeCover && safeCover.startsWith('data:image/')) {
+        safeCover = await ensureSafePayloadImage(safeCover, {
+          maxDimension: 1000,
+          targetMaxBytes: 300 * 1024,
+        });
+      }
+
       const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
       const res = await api.createStory({
         title,
         description,
-        coverImage,
+        coverImage: safeCover,
         genre,
         tags,
         storyType,
@@ -94,7 +78,18 @@ export const CreateStoryView: React.FC<CreateStoryViewProps> = ({ onBack, onStor
 
       onStoryCreated(res.story.id);
     } catch (err: any) {
-      setError(err.message || 'Failed to create story');
+      console.error('[CreateStoryView] error creating story:', err);
+      const msg = err.message || '';
+      if (msg.includes('FUNCTION_PAYLOAD_TOO_LARGE') || msg.includes('Entity Too Large') || err.status === 413) {
+        setError('Cover artwork was too large for the network payload limit. It has been automatically resized—please click Publish again.');
+        // Re-compress even smaller for instant retry
+        if (coverImage && coverImage.startsWith('data:image/')) {
+          const ultraCompact = await ensureSafePayloadImage(coverImage, { maxDimension: 750, targetMaxBytes: 200 * 1024 });
+          setCoverImage(ultraCompact);
+        }
+      } else {
+        setError(msg || 'Failed to create story. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -103,6 +98,30 @@ export const CreateStoryView: React.FC<CreateStoryViewProps> = ({ onBack, onStor
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-8 pb-28">
       
+      {/* Writer Persona Banner for Reader Accounts */}
+      {user?.role === 'USER' && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-[#fee7ff] via-white to-[#ffeffe] border border-pink-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white text-[#9e3b5f] flex items-center justify-center shadow-xs border border-pink-100 shrink-0">
+              <Feather className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="font-bold text-[#26152b] text-sm">Author Persona Ready</span>
+              <p className="text-[#877276]">Creating this story will activate your Writer & Creator persona across KAIRO.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              await updateProfile({ role: 'WRITER', isVerifiedWriter: true });
+            }}
+            className="btn-gradient px-4 py-2 rounded-xl text-xs font-bold cursor-pointer shrink-0 shadow-xs"
+          >
+            Switch to Writer Now
+          </button>
+        </div>
+      )}
+
       {/* Back button */}
       <button
         onClick={onBack}
