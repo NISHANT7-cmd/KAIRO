@@ -151,6 +151,53 @@ export function setActiveLocalUser(user: User | null) {
   } catch {}
 }
 
+export function getLocalCustomStories(): Story[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('kairo_custom_stories');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveLocalCustomStory(story: Story) {
+  if (typeof window === 'undefined' || !story || !story.id) return;
+  try {
+    const existing = getLocalCustomStories();
+    const idx = existing.findIndex(s => s.id === story.id);
+    if (idx >= 0) {
+      existing[idx] = { ...existing[idx], ...story };
+    } else {
+      existing.unshift(story);
+    }
+    localStorage.setItem('kairo_custom_stories', JSON.stringify(existing));
+  } catch {}
+}
+
+export function removeLocalCustomStory(storyId: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getLocalCustomStories();
+    const filtered = existing.filter(s => s.id !== storyId);
+    localStorage.setItem('kairo_custom_stories', JSON.stringify(filtered));
+  } catch {}
+}
+
+export function invalidateApiCache(pattern?: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const keys = Object.keys(localStorage);
+    for (const k of keys) {
+      if (k.startsWith('kairo_cache_')) {
+        if (!pattern || k.includes(pattern)) {
+          localStorage.removeItem(k);
+        }
+      }
+    }
+  } catch {}
+}
+
 export class ApiError extends Error {
   public status: number;
   public code?: string;
@@ -537,11 +584,20 @@ export const api = {
       if (!isServerFailure(err)) {
         // If 404 from server, check if it's the active local user
         if (localActive && (localActive.username?.toLowerCase() === resolvedId.toLowerCase() || localActive.id?.toLowerCase() === resolvedId.toLowerCase())) {
+          const customStories = getLocalCustomStories().filter(s => 
+            s.authorId === localActive.id || 
+            (s.authorUsername && localActive.username && s.authorUsername.toLowerCase() === localActive.username.toLowerCase())
+          );
+          const fallbackStories = FALLBACK_STORIES.filter(s => 
+            s.authorId === localActive.id || 
+            (s.authorUsername && localActive.username && s.authorUsername.toLowerCase() === localActive.username.toLowerCase())
+          );
+          const authorStories = [...customStories, ...fallbackStories];
           return {
             user: localActive,
             isFollowing: false,
             isSelf: true,
-            stories: [],
+            stories: authorStories,
             posts: [],
             universes: [],
             theories: [],
@@ -549,15 +605,15 @@ export const api = {
             certificates: [],
             badges: localActive.role === 'ADMIN' ? ['Master Admin'] : localActive.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
             stats: {
-              totalStories: 0,
-              totalReads: localActive.totalReads || 0,
-              totalLikes: 0,
+              totalStories: authorStories.length,
+              totalReads: authorStories.reduce((acc, s) => acc + (s.views || 0), 0) || (localActive.totalReads || 0),
+              totalLikes: authorStories.reduce((acc, s) => acc + (s.likes || 0), 0),
               totalPosts: 0,
               totalTheories: 0,
-              totalUniverses: 0,
+              totalUniverses: authorStories.some(s => s.universeId) ? 1 : 0,
               followersCount: localActive.followersCount || 0,
               followingCount: localActive.followingCount || 0,
-              chaptersCount: 0,
+              chaptersCount: authorStories.reduce((acc, s) => acc + (s.chaptersCount || 0), 0),
             }
           };
         }
@@ -573,11 +629,20 @@ export const api = {
       );
       if (!found) {
         if (localActive && (searchTarget === 'me' || localActive.username?.toLowerCase() === searchTarget || localActive.id?.toLowerCase() === searchTarget)) {
+          const customStories = getLocalCustomStories().filter(s => 
+            s.authorId === localActive.id || 
+            (s.authorUsername && localActive.username && s.authorUsername.toLowerCase() === localActive.username.toLowerCase())
+          );
+          const fallbackStories = FALLBACK_STORIES.filter(s => 
+            s.authorId === localActive.id || 
+            (s.authorUsername && localActive.username && s.authorUsername.toLowerCase() === localActive.username.toLowerCase())
+          );
+          const authorStories = [...customStories, ...fallbackStories];
           return {
             user: localActive,
             isFollowing: false,
             isSelf: true,
-            stories: [],
+            stories: authorStories,
             posts: [],
             universes: [],
             theories: [],
@@ -585,15 +650,15 @@ export const api = {
             certificates: [],
             badges: localActive.role === 'ADMIN' ? ['Master Admin'] : localActive.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
             stats: {
-              totalStories: 0,
-              totalReads: localActive.totalReads || 0,
-              totalLikes: 0,
+              totalStories: authorStories.length,
+              totalReads: authorStories.reduce((acc, s) => acc + (s.views || 0), 0) || (localActive.totalReads || 0),
+              totalLikes: authorStories.reduce((acc, s) => acc + (s.likes || 0), 0),
               totalPosts: 0,
               totalTheories: 0,
-              totalUniverses: 0,
+              totalUniverses: authorStories.some(s => s.universeId) ? 1 : 0,
               followersCount: localActive.followersCount || 0,
               followingCount: localActive.followingCount || 0,
-              chaptersCount: 0,
+              chaptersCount: authorStories.reduce((acc, s) => acc + (s.chaptersCount || 0), 0),
             }
           };
         }
@@ -654,9 +719,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(safePayload),
     });
+    if (res.story) {
+      saveLocalCustomStory(res.story);
+    }
     if (res.user) {
       setActiveLocalUser(res.user);
     }
+    invalidateApiCache('/api/stories');
+    invalidateApiCache('/api/users/profile');
     return res;
   },
 
@@ -665,14 +735,23 @@ export const api = {
     if (safePayload.coverImage && safePayload.coverImage.startsWith('data:image/') && safePayload.coverImage.length > 400000) {
       safePayload.coverImage = await ensureSafePayloadImage(safePayload.coverImage, { maxDimension: 1000, targetMaxBytes: 300 * 1024 });
     }
-    return request<{ story: Story }>(`/api/stories/${id}`, {
+    const res = await request<{ story: Story }>(`/api/stories/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(safePayload),
     });
+    if (res.story) {
+      saveLocalCustomStory(res.story);
+    }
+    invalidateApiCache('/api/stories');
+    invalidateApiCache('/api/users/profile');
+    return res;
   },
 
   async deleteStory(id: string) {
-    return request<{ success: boolean }>(`/api/stories/${id}`, { method: 'DELETE' });
+    removeLocalCustomStory(id);
+    invalidateApiCache('/api/stories');
+    invalidateApiCache('/api/users/profile');
+    return request<{ success: boolean }>(`/api/stories/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
   async getStoryChapters(storyId: string) {
@@ -1082,15 +1161,49 @@ export const api = {
   },
 
   // Characters, Worlds, Universes
-  async getCharacters(authorId?: string) {
-    const q = authorId ? `?authorId=${authorId}` : '';
+  async getCharacters(params?: { authorId?: string; storyId?: string }) {
+    const parts: string[] = [];
+    if (params?.authorId) parts.push(`authorId=${encodeURIComponent(params.authorId)}`);
+    if (params?.storyId) parts.push(`storyId=${encodeURIComponent(params.storyId)}`);
+    const q = parts.length > 0 ? `?${parts.join('&')}` : '';
     return request<{ characters: Character[]; relationships: CharacterRelationship[] }>(`/api/characters${q}`);
   },
 
+  async getStoryCharacters(storyId: string) {
+    return request<{ characters: Character[] }>(`/api/stories/${encodeURIComponent(storyId)}/characters`);
+  },
+
   async createCharacter(character: Partial<Character>) {
+    invalidateApiCache('/api/characters');
+    invalidateApiCache('/api/stories');
     return request<{ character: Character }>('/api/characters', {
       method: 'POST',
       body: JSON.stringify(character),
+    });
+  },
+
+  async updateCharacter(id: string, updates: Partial<Character>) {
+    invalidateApiCache('/api/characters');
+    invalidateApiCache('/api/stories');
+    return request<{ character: Character }>(`/api/characters/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  async deleteCharacter(id: string) {
+    invalidateApiCache('/api/characters');
+    invalidateApiCache('/api/stories');
+    return request<{ success: boolean }>(`/api/characters/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async extractStoryCharacters(storyId: string) {
+    invalidateApiCache('/api/characters');
+    invalidateApiCache('/api/stories');
+    return request<{ characters: Character[] }>(`/api/stories/${encodeURIComponent(storyId)}/characters/extract`, {
+      method: 'POST',
     });
   },
 

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, Star, BookOpen, Heart, Bookmark, Share2, 
   UserPlus, UserCheck, ChevronRight, Clock, MessageSquare, 
-  Lightbulb, Shield, Globe, ArrowLeft, Play 
+  Lightbulb, Shield, Globe, ArrowLeft, Play, Plus, Pencil, Trash2, Users, Wand2 
 } from 'lucide-react';
 import { Story, Chapter, Review, Character, Theory, ReadingProgress } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { CharacterBuilderModal } from './CharacterBuilderModal';
 
 interface StoryDetailViewProps {
   storyIdOrSlug: string;
@@ -41,6 +42,11 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
   const [reviewText, setReviewText] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  // Character Authoring & Management
+  const [isCharacterModalOpen, setIsCharacterModalOpen] = useState(false);
+  const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
+  const [isExtractingCharacters, setIsExtractingCharacters] = useState(false);
+
   useEffect(() => {
     loadStoryData();
   }, [storyIdOrSlug, user]);
@@ -53,13 +59,21 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
       setChapters(res.chapters || []);
       setReviews(res.reviews || []);
 
-      const [charsRes, theoriesRes] = await Promise.all([
-        api.getCharacters(),
-        api.getTheories(res.story.id),
-      ]);
-
-      const storyChars = (charsRes.characters || []).filter(c => c.storyId === res.story.id || c.worldId);
+      // Fetch characters specifically for this story (never random characters)
+      let storyChars: Character[] = [];
+      try {
+        const charsRes = await api.getStoryCharacters(res.story.id);
+        storyChars = charsRes.characters || [];
+      } catch {
+        const allChars = await api.getCharacters({ storyId: res.story.id });
+        storyChars = (allChars.characters || []).filter(c => 
+          c.storyId === res.story.id || 
+          (c.storyTitle && c.storyTitle.toLowerCase() === res.story.title.toLowerCase())
+        );
+      }
       setCharacters(storyChars);
+
+      const theoriesRes = await api.getTheories(res.story.id).catch(() => ({ theories: [] }));
       setTheories(theoriesRes.theories || []);
 
       if (user) {
@@ -85,6 +99,37 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
       setInLibrary(res.inLibrary);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleAutoExtractCharacters = async () => {
+    if (!story) return;
+    setIsExtractingCharacters(true);
+    try {
+      const res = await api.extractStoryCharacters(story.id);
+      if (res.characters && res.characters.length > 0) {
+        setCharacters(res.characters);
+      } else {
+        alert('No explicit named character profiles found in the manuscript text yet.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Failed to auto-extract characters');
+    } finally {
+      setIsExtractingCharacters(false);
+    }
+  };
+
+  const handleDeleteCharacter = async (charId: string, charName: string) => {
+    if (!window.confirm(`Are you sure you want to remove "${charName}" from this story's character dossier?`)) {
+      return;
+    }
+    try {
+      await api.deleteCharacter(charId);
+      setCharacters(prev => prev.filter(c => c.id !== charId));
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Failed to delete character');
     }
   };
 
@@ -476,40 +521,160 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
       {/* Tab Content 3: Characters */}
       {activeTab === 'characters' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {characters.map(char => (
-              <div
-                key={char.id}
-                className="glass-card rounded-3xl p-5 border border-pink-100 shadow-sm space-y-3"
-              >
-                <div className="flex items-center gap-3.5">
-                  <img
-                    src={char.portrait}
-                    alt={char.name}
-                    className="w-14 h-14 rounded-2xl object-cover border-2 border-pink-200 shadow-xs"
-                  />
-                  <div>
-                    <div className="px-2 py-0.5 rounded-md bg-[#fee7ff] text-[#9e3b5f] text-[10px] font-bold uppercase inline-block">
-                      {char.role}
-                    </div>
-                    <h4 className="font-bold text-base text-[#26152b] font-display mt-0.5">
-                      {char.name}
-                    </h4>
-                    <span className="text-xs text-[#877276]">Age: {char.age}</span>
-                  </div>
-                </div>
+          {/* Header & Author Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-pink-100">
+            <div>
+              <h3 className="font-bold text-lg text-[#26152b] font-display flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#9e3b5f]" />
+                Story Dramatis Personae
+                <span className="px-2 py-0.5 rounded-full bg-pink-100 text-[#9e3b5f] text-xs font-bold">
+                  {characters.length}
+                </span>
+              </h3>
+              <p className="text-xs text-[#877276]">
+                Canon characters established within this narrative universe.
+              </p>
+            </div>
 
-                <div className="text-xs space-y-1.5 pt-2 border-t border-pink-100">
-                  <div className="text-[#9e3b5f] font-semibold">
-                    Power: {char.primaryPower}
-                  </div>
-                  <p className="text-[#544246] line-clamp-3 leading-relaxed">
-                    {char.biography}
-                  </p>
-                </div>
+            {Boolean(user && story && (user.id === story.authorId || user.username?.toLowerCase() === story.authorUsername?.toLowerCase() || user.role === 'ADMIN')) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleAutoExtractCharacters}
+                  disabled={isExtractingCharacters}
+                  className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                  title="Auto-scan chapters and synopsis to extract character dossiers"
+                >
+                  <Wand2 className={`w-3.5 h-3.5 ${isExtractingCharacters ? 'animate-spin' : ''}`} />
+                  <span>{isExtractingCharacters ? 'Scanning Manuscript...' : 'Auto-Detect from Story'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCharacter(null);
+                    setIsCharacterModalOpen(true);
+                  }}
+                  className="btn-gradient px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Character</span>
+                </button>
               </div>
-            ))}
+            )}
           </div>
+
+          {/* Empty State */}
+          {characters.length === 0 ? (
+            <div className="glass-card rounded-3xl p-10 border border-pink-100 text-center space-y-4 max-w-lg mx-auto">
+              <div className="w-14 h-14 rounded-2xl bg-pink-100 text-[#9e3b5f] flex items-center justify-center mx-auto shadow-xs">
+                <Users className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-bold text-base text-[#26152b] font-display">
+                  No Characters Introduced Yet
+                </h4>
+                <p className="text-xs text-[#544246] leading-relaxed">
+                  {Boolean(user && story && (user.id === story.authorId || user.username?.toLowerCase() === story.authorUsername?.toLowerCase() || user.role === 'ADMIN'))
+                    ? 'As the author, you can introduce your protagonists, companions, and antagonists, or let our scanner detect them from your chapters.'
+                    : 'The author has not yet introduced individual character dossiers for this manuscript. Stay tuned as new chapters unfold!'}
+                </p>
+              </div>
+
+              {Boolean(user && story && (user.id === story.authorId || user.username?.toLowerCase() === story.authorUsername?.toLowerCase() || user.role === 'ADMIN')) && (
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCharacter(null);
+                      setIsCharacterModalOpen(true);
+                    }}
+                    className="btn-gradient px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add First Character</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAutoExtractCharacters}
+                    disabled={isExtractingCharacters}
+                    className="px-4 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Wand2 className={`w-4 h-4 ${isExtractingCharacters ? 'animate-spin' : ''}`} />
+                    <span>Auto-Detect from Manuscript</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {characters.map(char => {
+                const canModify = Boolean(user && story && (user.id === story.authorId || user.username?.toLowerCase() === story.authorUsername?.toLowerCase() || user.role === 'ADMIN'));
+                return (
+                  <div
+                    key={char.id}
+                    className="glass-card rounded-3xl p-5 border border-pink-100 shadow-sm space-y-3 relative group transition-all hover:border-pink-200"
+                  >
+                    {canModify && (
+                      <div className="absolute top-4 right-4 flex items-center gap-1 bg-white/90 backdrop-blur-xs rounded-lg p-1 border border-pink-200/80 shadow-xs z-10">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCharacter(char);
+                            setIsCharacterModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-md hover:bg-pink-100 text-[#544246] hover:text-[#9e3b5f] transition-colors cursor-pointer"
+                          title="Edit Character"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCharacter(char.id, char.name)}
+                          className="p-1.5 rounded-md hover:bg-red-100 text-[#544246] hover:text-red-600 transition-colors cursor-pointer"
+                          title="Delete Character"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3.5 pr-14">
+                      <img
+                        src={char.portrait || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80'}
+                        alt={char.name}
+                        className="w-14 h-14 rounded-2xl object-cover border-2 border-pink-200 shadow-xs shrink-0"
+                      />
+                      <div>
+                        <div className="px-2 py-0.5 rounded-md bg-[#fee7ff] text-[#9e3b5f] text-[10px] font-bold uppercase inline-block">
+                          {char.role}
+                        </div>
+                        <h4 className="font-bold text-base text-[#26152b] font-display mt-0.5">
+                          {char.name}
+                        </h4>
+                        <span className="text-xs text-[#877276]">Age: {char.age || 'Unknown'}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs space-y-1.5 pt-2 border-t border-pink-100">
+                      {char.primaryPower && (
+                        <div className="text-[#9e3b5f] font-semibold">
+                          Power: {char.primaryPower}
+                        </div>
+                      )}
+                      {char.personality && (
+                        <div className="text-[#877276] italic text-[11px]">
+                          "{char.personality}"
+                        </div>
+                      )}
+                      <p className="text-[#544246] line-clamp-3 leading-relaxed">
+                        {char.biography}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -622,6 +787,26 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Modal for Character Building / Editing */}
+      {story && (
+        <CharacterBuilderModal
+          isOpen={isCharacterModalOpen}
+          onClose={() => {
+            setIsCharacterModalOpen(false);
+            setEditingCharacter(null);
+          }}
+          onCharacterCreated={() => {
+            loadStoryData();
+          }}
+          onCharacterDeleted={(id) => {
+            setCharacters(prev => prev.filter(c => c.id !== id));
+          }}
+          characterToEdit={editingCharacter}
+          defaultStoryId={story.id}
+          defaultStoryTitle={story.title}
+        />
       )}
 
     </div>

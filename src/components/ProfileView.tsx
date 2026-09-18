@@ -170,27 +170,36 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         } else if (requestedTab === 'journey') {
           setActiveTab('about');
         }
-      } else if (data.stories.length === 0) {
-        if (data.readingList.length > 0) {
-          setActiveTab('shelf');
-        } else if (data.posts.length > 0) {
-          setActiveTab('posts');
-        } else {
-          setActiveTab('about');
-        }
-      } else {
+      } else if (data.user.role === 'WRITER' || data.isSelf || data.stories.length > 0) {
         setActiveTab('stories');
+      } else if (data.readingList.length > 0) {
+        setActiveTab('shelf');
+      } else if (data.posts.length > 0) {
+        setActiveTab('posts');
+      } else {
+        setActiveTab('about');
       }
     } catch (err: any) {
       console.warn('[ProfileView] Unable to load profile directly, checking fallback/offline recovery:', err?.message || err);
       
       // If error occurred for current user, recover gracefully with their authenticated state
       if (currentUser && (targetId === 'me' || targetId === currentUser.username || targetId === currentUser.id)) {
+        let userStories: Story[] = [];
+        try {
+          const storiesRes = await api.getStories({ authorId: currentUser.id });
+          userStories = storiesRes.stories || [];
+        } catch {
+          const localCustom = (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('kairo_custom_stories') || '[]') : []) as Story[];
+          const filteredLocal = localCustom.filter(s => s.authorId === currentUser.id || s.authorUsername?.toLowerCase() === currentUser.username.toLowerCase());
+          const fallbackMatches = FALLBACK_STORIES.filter(s => s.authorId === currentUser.id || s.authorUsername?.toLowerCase() === currentUser.username.toLowerCase());
+          userStories = [...filteredLocal, ...fallbackMatches];
+        }
+
         setProfileData({
           user: currentUser,
           isFollowing: false,
           isSelf: true,
-          stories: [],
+          stories: userStories,
           posts: [],
           universes: [],
           theories: [],
@@ -198,17 +207,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           certificates: [],
           badges: currentUser.role === 'ADMIN' ? ['Platform Admin'] : currentUser.role === 'WRITER' ? ['Verified Author'] : ['Explorer'],
           stats: {
-            totalStories: 0,
-            totalReads: currentUser.totalReads || 0,
-            totalLikes: 0,
+            totalStories: userStories.length,
+            totalReads: userStories.reduce((acc, s) => acc + (s.views || 0), 0) || (currentUser.totalReads || 0),
+            totalLikes: userStories.reduce((acc, s) => acc + (s.likes || 0), 0),
             totalPosts: 0,
             totalTheories: 0,
-            totalUniverses: 0,
+            totalUniverses: userStories.some(s => s.universeId) ? 1 : 0,
             followersCount: currentUser.followersCount || 0,
             followingCount: currentUser.followingCount || 0,
-            chaptersCount: 0,
+            chaptersCount: userStories.reduce((acc, s) => acc + (s.chaptersCount || 0), 0),
           }
         });
+        setActiveTab(userStories.length > 0 || currentUser.role === 'WRITER' ? 'stories' : 'about');
         setError(null);
       } else {
         // Check if requested user exists in fallback users

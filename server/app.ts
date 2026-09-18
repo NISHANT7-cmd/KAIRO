@@ -308,7 +308,11 @@ app.patch('/api/auth/profile', requireAuth, (req: Request, res: Response) => {
 
 app.get('/api/users/profile/:idOrUsername', (req: Request, res: Response) => {
   const viewer = getUserFromReq(req);
-  const target = req.params.idOrUsername;
+  let rawTarget = req.params.idOrUsername;
+  let target = rawTarget;
+  try {
+    target = decodeURIComponent(rawTarget);
+  } catch {}
   let targetIdOrUsername = target === 'me' ? (viewer?.id || '') : target;
   
   if (!targetIdOrUsername || targetIdOrUsername === '[object Object]' || targetIdOrUsername === 'undefined' || targetIdOrUsername === 'null') {
@@ -320,7 +324,7 @@ app.get('/api/users/profile/:idOrUsername', (req: Request, res: Response) => {
   }
 
   let profile = dbService.getPublicUserProfile(targetIdOrUsername, viewer?.id);
-  if (!profile && viewer && (targetIdOrUsername.toLowerCase() === 'me' || targetIdOrUsername === viewer.username || targetIdOrUsername === viewer.id)) {
+  if (!profile && viewer && (targetIdOrUsername.toLowerCase() === 'me' || targetIdOrUsername.toLowerCase() === viewer.username.toLowerCase() || targetIdOrUsername === viewer.id)) {
     profile = dbService.getPublicUserProfile(viewer.id, viewer.id);
   }
 
@@ -347,7 +351,11 @@ app.get('/api/stories', (req: Request, res: Response) => {
   }
 
   if (authorId) {
-    list = list.filter(s => s.authorId === String(authorId));
+    const aid = String(authorId).trim().toLowerCase();
+    list = list.filter(s => 
+      (s.authorId && s.authorId.toLowerCase() === aid) ||
+      (s.authorUsername && s.authorUsername.toLowerCase() === aid)
+    );
   }
 
   if (universeId) {
@@ -396,9 +404,11 @@ app.post('/api/stories', requireAuth, (req: Request, res: Response) => {
 
 app.patch('/api/stories/:id', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
-  const story = dbService.findStoryByIdOrSlug(req.params.id);
+  let rawId = req.params.id;
+  try { rawId = decodeURIComponent(rawId); } catch {}
+  const story = dbService.findStoryByIdOrSlug(rawId);
   if (!story) return res.status(404).json({ error: 'Story not found' });
-  if (story.authorId !== user.id && user.role !== 'ADMIN') {
+  if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Forbidden: You do not own this story' });
   }
 
@@ -408,9 +418,11 @@ app.patch('/api/stories/:id', requireAuth, (req: Request, res: Response) => {
 
 app.delete('/api/stories/:id', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
-  const story = dbService.findStoryByIdOrSlug(req.params.id);
+  let rawId = req.params.id;
+  try { rawId = decodeURIComponent(rawId); } catch {}
+  const story = dbService.findStoryByIdOrSlug(rawId);
   if (!story) return res.status(404).json({ error: 'Story not found' });
-  if (story.authorId !== user.id && user.role !== 'ADMIN') {
+  if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Forbidden: You do not own this story' });
   }
 
@@ -964,16 +976,72 @@ app.post('/api/theories/:id/vote', requireAuth, (req: Request, res: Response) =>
 // CHARACTERS, WORLDS, UNIVERSES
 // ----------------------------------------------------
 app.get('/api/characters', (req: Request, res: Response) => {
-  const { authorId } = req.query;
-  const characters = dbService.getCharacters(authorId ? String(authorId) : undefined);
+  const { authorId, storyId } = req.query;
+  const characters = dbService.getCharacters(
+    authorId ? String(authorId) : undefined,
+    storyId ? String(storyId) : undefined
+  );
   const relationships = dbService.getCharacterRelationships();
   return res.json({ characters, relationships });
+});
+
+app.get('/api/stories/:id/characters', (req: Request, res: Response) => {
+  let rawId = req.params.id;
+  try { rawId = decodeURIComponent(rawId); } catch {}
+  const characters = dbService.getStoryCharacters(rawId);
+  return res.json({ characters });
 });
 
 app.post('/api/characters', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const character = dbService.createCharacter(req.body, user);
   return res.json({ character });
+});
+
+app.patch('/api/characters/:id', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  let charId = req.params.id;
+  try { charId = decodeURIComponent(charId); } catch {}
+  const updated = dbService.updateCharacter(charId, req.body, user);
+  if (!updated) {
+    return res.status(404).json({ error: 'Character not found or you lack permission to edit it' });
+  }
+  return res.json({ character: updated });
+});
+
+app.put('/api/characters/:id', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  let charId = req.params.id;
+  try { charId = decodeURIComponent(charId); } catch {}
+  const updated = dbService.updateCharacter(charId, req.body, user);
+  if (!updated) {
+    return res.status(404).json({ error: 'Character not found or you lack permission to edit it' });
+  }
+  return res.json({ character: updated });
+});
+
+app.delete('/api/characters/:id', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  let charId = req.params.id;
+  try { charId = decodeURIComponent(charId); } catch {}
+  const success = dbService.deleteCharacter(charId, user);
+  if (!success) {
+    return res.status(404).json({ error: 'Character not found or you lack permission to delete it' });
+  }
+  return res.json({ success: true });
+});
+
+app.post('/api/stories/:id/characters/extract', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  let storyId = req.params.id;
+  try { storyId = decodeURIComponent(storyId); } catch {}
+  const story = dbService.findStoryByIdOrSlug(storyId);
+  if (!story) return res.status(404).json({ error: 'Story not found' });
+  if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Forbidden: You do not own this story' });
+  }
+  const characters = dbService.extractCharactersFromStory(story.id, user);
+  return res.json({ characters });
 });
 
 app.post('/api/character-relationships', requireAuth, (req: Request, res: Response) => {

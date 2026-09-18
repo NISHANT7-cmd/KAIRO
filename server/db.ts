@@ -1890,14 +1890,16 @@ class DatabaseService {
 
     // 3. Fallback client token format: kairo_tok_<userId>_<timestamp>
     if (cleanToken.startsWith('kairo_tok_')) {
-      const parts = cleanToken.split('_');
-      if (parts.length >= 3) {
-        const userId = parts[2];
-        const user = this.findUserById(userId);
-        if (user) {
-          if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
-          return { user, status: 'OK' };
-        }
+      const remainder = cleanToken.replace(/^kairo_tok_/, '');
+      const lastUnderscore = remainder.lastIndexOf('_');
+      const userId = lastUnderscore !== -1 ? remainder.substring(0, lastUnderscore) : remainder;
+      let user = this.findUserById(userId) || (this.db.users || []).find(u => u.username.toLowerCase() === userId.toLowerCase());
+      if (!user) {
+        user = this.findUserById(remainder);
+      }
+      if (user) {
+        if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
+        return { user, status: 'OK' };
       }
     }
 
@@ -2009,7 +2011,10 @@ class DatabaseService {
   public getUserEnriched(user: User): User {
     const readingProgressList = this.db.readingProgress ? this.db.readingProgress.filter(rp => rp.userId === user.id) : [];
     const chaptersReadCount = readingProgressList.length;
-    const authoredStories = this.db.stories ? this.db.stories.filter(s => s.authorId === user.id) : [];
+    const authoredStories = this.db.stories ? this.db.stories.filter(s => 
+      s.authorId === user.id || 
+      (s.authorUsername && user.username && s.authorUsername.toLowerCase() === user.username.toLowerCase())
+    ) : [];
     
     let streak = user.readingStreak ?? 0;
     if (readingProgressList.length === 0) {
@@ -2096,7 +2101,15 @@ class DatabaseService {
     enrichedUser.followingCount = Math.max(user.followingCount || 0, followingCount);
 
     // Stories authored by user
-    const stories = (this.db.stories || []).filter(s => s.authorId === userId);
+    const allAuthoredStories = (this.db.stories || []).filter(s => 
+      s.authorId === userId || 
+      (s.authorUsername && user.username && s.authorUsername.toLowerCase() === user.username.toLowerCase())
+    );
+
+    // Self or admin sees all stories (including Drafts); others only see published/ongoing/completed
+    const stories = isSelf || (viewerId && this.findUserById(viewerId)?.role === 'ADMIN')
+      ? allAuthoredStories
+      : allAuthoredStories.filter(s => s.status !== 'Draft');
     
     // Community posts authored by user
     const posts = (this.db.communityPosts || []).filter(p => p.authorId === userId);
@@ -2247,7 +2260,10 @@ class DatabaseService {
     const idx = this.db.stories.findIndex(s => s.id === storyId);
     if (idx === -1) return false;
     this.db.stories.splice(idx, 1);
-    this.db.chapters = this.db.chapters.filter(c => c.storyId !== storyId);
+    this.db.chapters = (this.db.chapters || []).filter(c => c.storyId !== storyId);
+    if (this.db.characters) {
+      this.db.characters = this.db.characters.filter(c => c.storyId !== storyId);
+    }
     this.commit();
     return true;
   }
@@ -3462,18 +3478,57 @@ class DatabaseService {
   }
 
   // Characters & Worlds & Universes
-  public getCharacters(authorId?: string): Character[] {
-    if (authorId) return this.db.characters.filter(c => c.authorId === authorId);
-    return this.db.characters;
+  public getCharacters(authorId?: string, storyId?: string): Character[] {
+    let list = this.db.characters || [];
+    if (authorId) {
+      const aid = authorId.toLowerCase();
+      list = list.filter(c => c.authorId && c.authorId.toLowerCase() === aid);
+    }
+    if (storyId) {
+      const sid = storyId.toLowerCase();
+      const story = this.findStoryByIdOrSlug(storyId);
+      const targetId = story ? story.id.toLowerCase() : sid;
+      const targetTitle = story ? story.title.toLowerCase() : '';
+      list = list.filter(c => 
+        (c.storyId && c.storyId.toLowerCase() === targetId) ||
+        (c.storyTitle && targetTitle && c.storyTitle.toLowerCase() === targetTitle)
+      );
+    }
+    return list;
+  }
+
+  public getStoryCharacters(storyIdOrSlug: string): Character[] {
+    const story = this.findStoryByIdOrSlug(storyIdOrSlug);
+    const targetId = story ? story.id.toLowerCase() : storyIdOrSlug.toLowerCase();
+    const targetTitle = story ? story.title.toLowerCase() : '';
+    const universeId = story?.universeId?.toLowerCase();
+
+    return (this.db.characters || []).filter(c => {
+      if (c.storyId && c.storyId.toLowerCase() === targetId) return true;
+      if (c.storyTitle && targetTitle && c.storyTitle.toLowerCase() === targetTitle) return true;
+      if (universeId && ((c.worldId && c.worldId.toLowerCase() === universeId) || ((c as any).universeId && (c as any).universeId.toLowerCase() === universeId))) {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  public getCharacterById(id: string): Character | undefined {
+    return (this.db.characters || []).find(c => c.id === id);
   }
 
   public createCharacter(character: Partial<Character>, author: User): Character {
     const id = 'char_' + Date.now();
+    let storyTitle = character.storyTitle;
+    if (character.storyId && !storyTitle) {
+      const s = this.findStoryByIdOrSlug(character.storyId);
+      if (s) storyTitle = s.title;
+    }
     const newChar: Character = {
       id,
       authorId: author.id,
       storyId: character.storyId,
-      storyTitle: character.storyTitle,
+      storyTitle,
       worldId: character.worldId,
       name: character.name || 'Unnamed Character',
       portrait: character.portrait || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
@@ -3484,12 +3539,114 @@ class DatabaseService {
       abilities: character.abilities || [],
       biography: character.biography || '',
       arc: character.arc || [],
+      status: character.status || 'Active',
       createdAt: new Date().toISOString()
     };
 
+    if (!this.db.characters) this.db.characters = [];
     this.db.characters.push(newChar);
     this.commit();
     return newChar;
+  }
+
+  public updateCharacter(id: string, updates: Partial<Character>, user: User): Character | undefined {
+    if (!this.db.characters) this.db.characters = [];
+    const idx = this.db.characters.findIndex(c => c.id === id);
+    if (idx === -1) return undefined;
+    const existing = this.db.characters[idx];
+    if (existing.authorId && existing.authorId !== user.id && user.role !== 'ADMIN') {
+      return undefined;
+    }
+    this.db.characters[idx] = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      authorId: existing.authorId || user.id,
+    };
+    this.commit();
+    return this.db.characters[idx];
+  }
+
+  public deleteCharacter(id: string, user: User): boolean {
+    if (!this.db.characters) return false;
+    const idx = this.db.characters.findIndex(c => c.id === id);
+    if (idx === -1) return false;
+    const existing = this.db.characters[idx];
+    if (existing.authorId && existing.authorId !== user.id && user.role !== 'ADMIN') {
+      return false;
+    }
+    this.db.characters.splice(idx, 1);
+    if (this.db.characterRelationships) {
+      this.db.characterRelationships = this.db.characterRelationships.filter(
+        r => r.sourceCharacterId !== id && r.targetCharacterId !== id
+      );
+    }
+    this.commit();
+    return true;
+  }
+
+  public extractCharactersFromStory(storyId: string, author: User): Character[] {
+    const story = this.findStoryByIdOrSlug(storyId);
+    if (!story) return [];
+
+    const existing = this.getStoryCharacters(story.id);
+    if (existing.length > 0) {
+      return existing;
+    }
+
+    const chapters = this.getStoryChapters(story.id);
+    const extractedList: Character[] = [];
+    const roles: ('Protagonist' | 'Companion' | 'Rival' | 'Antagonist' | 'Supporting')[] = [
+      'Protagonist', 'Companion', 'Rival'
+    ];
+
+    const defaultAvatars = [
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80'
+    ];
+
+    const combinedText = [
+      story.title,
+      story.description || '',
+      ...chapters.map(c => `${c.title}. ${c.content || ''}`)
+    ].join('\n\n');
+
+    const words = (combinedText).match(/[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?/g) || [];
+    const blacklist = new Set(['The', 'When', 'After', 'With', 'From', 'Into', 'Through', 'Original', 'Universe', 'Chapter', 'Prologue', 'Draft', 'Ongoing', 'Completed', 'Light', 'Novel', 'Fantasy', 'Romance', 'Action', 'Sci', 'Where', 'Then', 'They', 'This', 'That', 'Once', 'Upon', 'What', 'There']);
+    const uniqueNames = Array.from(new Set(words.filter(w => !blacklist.has(w)))).slice(0, 3);
+
+    if (uniqueNames.length === 0) {
+      const firstWord = story.title.split(/[^a-zA-Z]/)[0] || 'Aether';
+      uniqueNames.push(`${firstWord} Vanguard`);
+    }
+
+    uniqueNames.forEach((name, i) => {
+      const role = roles[i % roles.length];
+      const charId = `char_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 5)}`;
+      const newChar: Character = {
+        id: charId,
+        authorId: author.id,
+        storyId: story.id,
+        storyTitle: story.title,
+        name,
+        portrait: defaultAvatars[i % defaultAvatars.length],
+        age: 18 + i * 2,
+        role,
+        primaryPower: story.genre === 'Fantasy' || story.genre === 'Sci-Fi' ? `${story.genre} Affinity` : 'Tactical Keenness',
+        biography: `Key character introduced in ${story.title}. Central to the manuscript arc.`,
+        personality: role === 'Protagonist' ? 'Resolute, curious, and protective' : role === 'Companion' ? 'Loyal, observant, and resourceful' : 'Ambitious and calculated',
+        abilities: ['Tactical Insight', 'Resonance Surge'],
+        status: 'Active',
+        createdAt: new Date().toISOString()
+      };
+      extractedList.push(newChar);
+      if (!this.db.characters) this.db.characters = [];
+      this.db.characters.push(newChar);
+    });
+
+    this.commit();
+    return extractedList;
   }
 
   public getCharacterRelationships(): CharacterRelationship[] {
