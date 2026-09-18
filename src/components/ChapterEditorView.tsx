@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Story, Chapter } from '../types';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { ImageUploader } from './ImageUploader';
 
 interface ChapterEditorViewProps {
@@ -61,6 +62,7 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
   onBack,
   onSaved,
 }) => {
+  const { user } = useAuth();
   const [story, setStory] = useState<Story | null>(null);
   const [chapterNumber, setChapterNumber] = useState(1);
   const [title, setTitle] = useState('');
@@ -106,7 +108,8 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
   };
 
   // Storage key for autosave
-  const storageKey = `kairo_draft_${storyId}_${chapterId || 'new'}`;
+  const effectiveStoryId = story?.id || storyId || 'current';
+  const storageKey = `kairo_draft_${effectiveStoryId}_${chapterId || 'new'}`;
 
   useEffect(() => {
     loadEditorData();
@@ -114,10 +117,81 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
 
   const loadEditorData = async () => {
     setLoading(true);
+    setErrorMessage(null);
+
+    let targetStoryKey = storyId;
+    if (!targetStoryKey) {
+      try {
+        targetStoryKey = sessionStorage.getItem('kairo_last_editor_story_id') || localStorage.getItem('kairo_last_created_story_id') || '';
+      } catch {}
+    }
+
     try {
-      const res = await api.getStory(storyId);
-      setStory(res.story);
-      const chaps = res.chapters || [];
+      let resolvedStory: Story | null = null;
+      let chaps: Chapter[] = [];
+
+      // 1. Direct fetch if key exists
+      if (targetStoryKey) {
+        try {
+          const res = await api.getStory(targetStoryKey);
+          if (res?.story) {
+            resolvedStory = res.story;
+            chaps = res.chapters || [];
+          }
+        } catch (err) {
+          console.warn('[ChapterEditorView] Direct getStory fetch failed, falling back to list lookup:', err);
+        }
+      }
+
+      // 2. Fallback to list search if direct fetch failed or targetStoryKey was missing
+      if (!resolvedStory) {
+        try {
+          const listRes = await api.getStories();
+          const allStories = listRes?.stories || [];
+
+          if (targetStoryKey) {
+            const clean = targetStoryKey.trim().toLowerCase();
+            resolvedStory = allStories.find(s => 
+              s.id === targetStoryKey || 
+              s.id.toLowerCase() === clean || 
+              s.slug === targetStoryKey || 
+              s.slug.toLowerCase() === clean ||
+              (s.title && s.title.toLowerCase() === clean)
+            ) || null;
+          }
+
+          // Fallback to user's most recent authored story
+          if (!resolvedStory && user) {
+            const userStories = allStories.filter(s => s.authorId === user.id || s.authorUsername === user.username);
+            if (userStories.length > 0) {
+              resolvedStory = userStories[0];
+            }
+          }
+
+          // Ultimate fallback to first available story
+          if (!resolvedStory && allStories.length > 0) {
+            resolvedStory = allStories[0];
+          }
+
+          if (resolvedStory) {
+            const chapRes = await api.getStoryChapters(resolvedStory.id);
+            chaps = chapRes?.chapters || [];
+          }
+        } catch (listErr) {
+          console.error('[ChapterEditorView] List fallback error:', listErr);
+        }
+      }
+
+      if (!resolvedStory) {
+        setStory(null);
+        setLoading(false);
+        return;
+      }
+
+      setStory(resolvedStory);
+      try {
+        sessionStorage.setItem('kairo_last_editor_story_id', resolvedStory.id);
+      } catch {}
 
       let initialTitle = '';
       let initialSubtitle = '';
@@ -140,12 +214,12 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
         }
       } else {
         initialNum = chaps.length + 1;
-        initialTitle = `Chapter ${initialNum}: The Journey Continues`;
-        initialContent = `The wind howled through the crystal spires of the celestial city, carrying whispers of ancient forgotten mana...\n\nStep by step, the journey unfolded into the unknown.`;
+        initialTitle = `Chapter ${initialNum}: The Journey Begins`;
+        initialContent = `The wind whispered softly across the celestial horizon, bearing the scent of rain and starlight.\n\nEvery great legend begins with a single step into the unknown.`;
       }
 
       // Check if there is a local autosaved backup that has more content
-      const cached = localStorage.getItem(storageKey);
+      const cached = localStorage.getItem(`kairo_draft_${resolvedStory.id}_${chapterId || 'new'}`);
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
@@ -168,8 +242,9 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
       setAuthorNote(initialNote);
       setStatus(initialStatus);
 
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('[ChapterEditorView] Error loading editor data:', err);
+      setErrorMessage(err?.message || 'Failed to prepare editor workspace.');
     } finally {
       setLoading(false);
     }
@@ -217,19 +292,27 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
   };
 
   const handleSave = async (publishStatus: 'Published' | 'Draft') => {
-    if (!story || !title.trim()) return;
+    if (!story) {
+      setErrorMessage('No active story found. Please choose or create a story first.');
+      return;
+    }
+    if (!title.trim()) {
+      setErrorMessage('Please provide a chapter title before publishing.');
+      return;
+    }
     setSaving(true);
+    setErrorMessage(null);
     try {
       const res = await api.saveChapter({
         id: chapterId,
         storyId: story.id,
         chapterNumber,
-        title,
-        subtitle: subtitle || undefined,
+        title: title.trim(),
+        subtitle: subtitle.trim() || undefined,
         content,
-        authorNote: authorNote || undefined,
+        authorNote: authorNote.trim() || undefined,
         status: publishStatus,
-        ...({ volumeName, ambientAudio } as any),
+        ...({ volumeName, ambientAudio, storySlug: story.slug } as any),
       });
 
       // Clear local storage draft after successful save
@@ -241,7 +324,13 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
         onSaved(story.slug || story.id, chapterNumber);
       }, 800);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to save chapter. Please try again.');
+      console.error('[ChapterEditorView] Save error:', err);
+      const rawMsg = err.message || '';
+      if (rawMsg.includes('413') || rawMsg.includes('FUNCTION_PAYLOAD_TOO_LARGE') || rawMsg.includes('Too Large')) {
+        setErrorMessage('Chapter manuscript is too large for network limits. Try saving in smaller sections or reducing images.');
+      } else {
+        setErrorMessage(rawMsg || 'Failed to save chapter. Please try again.');
+      }
     } finally {
       setSaving(false);
     }
@@ -274,16 +363,32 @@ export const ChapterEditorView: React.FC<ChapterEditorViewProps> = ({
 
   if (!story) {
     return (
-      <div className="text-center py-28 max-w-md mx-auto px-4 space-y-4">
-        <h2 className="text-2xl font-bold font-display text-[#26152b]">Story Not Found</h2>
-        <p className="text-sm text-[#877276]">The story you are trying to draft chapters for could not be found or has been removed.</p>
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#9e3b5f] text-white text-xs font-bold shadow-md hover:bg-[#852e4e] transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Creator Studio</span>
-        </button>
+      <div className="text-center py-28 max-w-md mx-auto px-4 space-y-5">
+        <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto shadow-2xs">
+          <BookOpen className="w-7 h-7" />
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="text-2xl font-bold font-display text-[#26152b]">Story Not Found</h2>
+          <p className="text-sm text-[#877276]">
+            The manuscript workspace could not locate this story record. You can retry syncing or select an existing title.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => loadEditorData()}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#9e3b5f] text-white text-xs font-bold shadow-md hover:bg-[#852e4e] transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Retry Loading</span>
+          </button>
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white text-[#544246] border border-pink-200 text-xs font-bold hover:bg-pink-50 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Creator Studio</span>
+          </button>
+        </div>
       </div>
     );
   }

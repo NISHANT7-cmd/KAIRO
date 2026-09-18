@@ -273,11 +273,20 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
               id="upgrade-to-writer-btn"
               onClick={async () => {
                 await updateProfile({ role: 'WRITER', isVerifiedWriter: true });
+                onCreateStory();
               }}
               className="btn-gradient px-6 py-3.5 rounded-2xl font-bold text-sm flex items-center gap-2 shadow-md cursor-pointer hover:scale-102 transition-transform"
             >
               <Feather className="w-4 h-4" />
-              <span>Upgrade to Author / Writer Persona</span>
+              <span>Become a Writer & Start Writing</span>
+            </button>
+            <button
+              onClick={async () => {
+                await updateProfile({ role: 'WRITER', isVerifiedWriter: true });
+              }}
+              className="px-5 py-3.5 rounded-2xl font-bold text-sm bg-white text-[#544246] border border-pink-200 hover:bg-pink-50 flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <span>Explore Writer Studio</span>
             </button>
           </div>
         </div>

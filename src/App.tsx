@@ -82,6 +82,15 @@ export function KairoApp() {
             setSelectedUniverseSlug(parts[1]);
           } else if (view === 'community' && parts[1]) {
             setSelectedCommunitySlug(parts[1]);
+          } else if (view === 'editor') {
+            if (parts[1]) {
+              setEditorStoryId(parts[1]);
+              try { sessionStorage.setItem('kairo_last_editor_story_id', parts[1]); } catch {}
+            } else {
+              const saved = sessionStorage.getItem('kairo_last_editor_story_id');
+              if (saved) setEditorStoryId(saved);
+            }
+            if (parts[2]) setEditorChapterId(parts[2]);
           } else if (view === 'profile') {
             const rawSlug = parts[1];
             if (rawSlug && rawSlug !== '[object Object]' && rawSlug !== 'undefined' && rawSlug !== 'null') {
@@ -134,10 +143,16 @@ export function KairoApp() {
       setSelectedProfileIdOrUsername(targetUsername);
       setSelectedProfileTab(targetTab);
       window.location.hash = targetUsername ? `profile/${targetUsername}` : 'profile';
-    } else if (view === 'editor' && data) {
-      setEditorStoryId(data.storyId);
-      setEditorChapterId(data.chapterId);
-      window.location.hash = `editor`;
+    } else if (view === 'editor') {
+      const sId = typeof data === 'string' ? data : (data?.storyId || '');
+      const cId = typeof data === 'object' ? data?.chapterId : undefined;
+      if (sId) {
+        setEditorStoryId(sId);
+        try { sessionStorage.setItem('kairo_last_editor_story_id', sId); } catch {}
+      }
+      setEditorChapterId(cId);
+      const activeSId = sId || sessionStorage.getItem('kairo_last_editor_story_id') || '';
+      window.location.hash = activeSId ? (cId ? `editor/${activeSId}/${cId}` : `editor/${activeSId}`) : 'editor';
     } else {
       window.location.hash = view;
     }
@@ -247,7 +262,12 @@ export function KairoApp() {
         {currentView === 'create-story' && (
           <CreateStoryView
             onBack={() => navigateTo('studio')}
-            onStoryCreated={(storyId) => navigateTo('editor', { storyId })}
+            onStoryCreated={(storyId) => {
+              setEditorStoryId(storyId);
+              setEditorChapterId(undefined);
+              try { sessionStorage.setItem('kairo_last_editor_story_id', storyId); } catch {}
+              navigateTo('editor', { storyId });
+            }}
           />
         )}
 

@@ -693,10 +693,20 @@ export const api = {
         body: JSON.stringify(chapter),
       });
     } else if (chapter.storyId) {
-      return request<{ chapter: Chapter }>(`/api/stories/${chapter.storyId}/chapters`, {
-        method: 'POST',
-        body: JSON.stringify(chapter),
-      });
+      try {
+        return await request<{ chapter: Chapter }>(`/api/stories/${encodeURIComponent(chapter.storyId)}/chapters`, {
+          method: 'POST',
+          body: JSON.stringify(chapter),
+        });
+      } catch (err: any) {
+        if (err?.status === 404 || err?.message?.includes('not found')) {
+          return await request<{ chapter: Chapter }>(`/api/chapters`, {
+            method: 'POST',
+            body: JSON.stringify(chapter),
+          });
+        }
+        throw err;
+      }
     }
     throw new Error('storyId is required');
   },

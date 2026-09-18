@@ -206,7 +206,8 @@ app.post('/api/auth/signup', (req: Request, res: Response) => {
 
 app.post('/api/auth/login', (req: Request, res: Response) => {
   try {
-    const { login, password } = req.body || {};
+    const login = req.body?.login || req.body?.emailOrUsername || req.body?.username || req.body?.email;
+    const password = req.body?.password;
     logAuth('LOGIN_ATTEMPT', { login });
 
     if (!login || !password) {
@@ -426,9 +427,29 @@ app.get('/api/stories/:id/chapters', (req: Request, res: Response) => {
 
 app.post('/api/stories/:id/chapters', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user as User;
-  const story = dbService.findStoryByIdOrSlug(req.params.id);
+  let story = dbService.findStoryByIdOrSlug(req.params.id);
+  if (!story && req.body && req.body.storyId) {
+    story = dbService.findStoryByIdOrSlug(req.body.storyId);
+  }
+  if (!story && req.body && req.body.storySlug) {
+    story = dbService.findStoryByIdOrSlug(req.body.storySlug);
+  }
   if (!story) return res.status(404).json({ error: 'Story not found' });
-  if (story.authorId !== user.id && user.role !== 'ADMIN') {
+  if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Forbidden: You do not own this story' });
+  }
+
+  const chapter = dbService.createChapter(req.body, story.id);
+  return res.json({ chapter });
+});
+
+app.post('/api/chapters', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const targetStoryId = req.body?.storyId || req.body?.storySlug || (req.query?.storyId as string);
+  if (!targetStoryId) return res.status(400).json({ error: 'storyId is required' });
+  const story = dbService.findStoryByIdOrSlug(targetStoryId);
+  if (!story) return res.status(404).json({ error: 'Story not found' });
+  if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Forbidden: You do not own this story' });
   }
 
@@ -450,8 +471,7 @@ app.patch('/api/chapters/:chapterId', requireAuth, (req: Request, res: Response)
   if (!chapter) return res.status(404).json({ error: 'Chapter not found' });
 
   const story = dbService.findStoryByIdOrSlug(chapter.storyId);
-  if (!story) return res.status(404).json({ error: 'Story not found' });
-  if (story.authorId !== user.id && user.role !== 'ADMIN') {
+  if (story && story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Forbidden: You do not own this chapter' });
   }
 

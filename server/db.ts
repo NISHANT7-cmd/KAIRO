@@ -2168,7 +2168,30 @@ class DatabaseService {
   }
 
   public findStoryByIdOrSlug(idOrSlug: string): Story | undefined {
-    return this.db.stories.find(s => s.id === idOrSlug || s.slug === idOrSlug);
+    if (!idOrSlug || typeof idOrSlug !== 'string') return undefined;
+    const clean = idOrSlug.trim();
+    if (!clean || clean === 'undefined' || clean === 'null') return undefined;
+    const lower = clean.toLowerCase();
+    let decoded = lower;
+    try {
+      decoded = decodeURIComponent(clean).trim().toLowerCase();
+    } catch {}
+
+    // 1. Direct exact matches on ID or slug
+    const direct = this.db.stories.find(s => 
+      s.id === clean || 
+      s.id.toLowerCase() === lower || 
+      s.slug === clean || 
+      s.slug.toLowerCase() === lower ||
+      s.slug.toLowerCase() === decoded
+    );
+    if (direct) return direct;
+
+    // 2. Fuzzy / fallback match by title or slug prefix
+    return this.db.stories.find(s => 
+      (s.title && s.title.toLowerCase() === lower) ||
+      (s.slug && (s.slug.startsWith(lower) || lower.startsWith(s.slug)))
+    );
   }
 
   public createStory(story: Partial<Story>, author: User): Story {

@@ -76,6 +76,11 @@ export const CreateStoryView: React.FC<CreateStoryViewProps> = ({ onBack, onStor
         universeName: universeName.trim() || undefined,
       });
 
+      try {
+        sessionStorage.setItem('kairo_last_editor_story_id', res.story.id);
+        localStorage.setItem('kairo_last_created_story_id', res.story.id);
+      } catch {}
+
       onStoryCreated(res.story.id);
     } catch (err: any) {
       console.error('[CreateStoryView] error creating story:', err);
