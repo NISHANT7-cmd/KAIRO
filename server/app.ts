@@ -2,6 +2,9 @@ import express, { Request, Response, NextFunction } from 'express';
 import { dbService } from './db.js';
 import { recommendationService } from './recommendationService.js';
 import { User, UserInterestProfile } from '../src/types.js';
+import { isSupabaseConfigured, getSupabaseClient, runSupabaseDataMigration, loadFullStateFromSupabase, checkSupabaseSchemaReady } from './supabase.js';
+import fs from 'fs';
+import path from 'path';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -1727,6 +1730,134 @@ app.get('/api/admin/db/export', (req: Request, res: Response) => {
     health: dbService.getDatabaseHealth(),
     data: safeExport
   });
+});
+
+// Supabase Status & Production Health
+app.get('/api/admin/supabase/status', async (req: Request, res: Response) => {
+  const configured = isSupabaseConfigured();
+  const client = getSupabaseClient();
+  let connectionStatus = 'UNCONFIGURED';
+  let tablesDiscovered: Record<string, number> = {};
+  let remoteRecordsCount = 0;
+  let lastMigration: any = null;
+  let schemaReady = false;
+  let schemaReason: string | undefined;
+
+  if (configured && client) {
+    try {
+      const schemaCheck = await checkSupabaseSchemaReady(true);
+      schemaReady = schemaCheck.ready;
+      schemaReason = schemaCheck.reason;
+
+      if (schemaReady) {
+        connectionStatus = 'CONNECTED';
+        // Test connectivity by querying migration_status
+        const { data: migData } = await client
+          .from('migration_status')
+          .select('*')
+          .order('started_at', { ascending: false })
+          .limit(1);
+        lastMigration = migData?.[0] || null;
+
+        // Check key table counts
+        const checkTables = ['profiles', 'stories', 'chapters', 'programs'];
+        for (const t of checkTables) {
+          try {
+            const { count } = await client.from(t).select('*', { count: 'exact', head: true });
+            tablesDiscovered[t] = count || 0;
+            remoteRecordsCount += (count || 0);
+          } catch {
+            tablesDiscovered[t] = 0;
+          }
+        }
+      } else {
+        connectionStatus = 'CONNECTED_SCHEMA_PENDING';
+      }
+    } catch (err: any) {
+      connectionStatus = 'CONNECTION_ERROR';
+      schemaReason = err?.message || 'Connection error';
+    }
+  }
+
+  const localHealth = dbService.getDatabaseHealth();
+
+  return res.json({
+    configured,
+    connectionStatus,
+    schemaReady,
+    schemaReason,
+    target: 'Supabase PostgreSQL',
+    supabaseUrlConfigured: Boolean(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL),
+    anonKeyConfigured: Boolean(process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    serviceRoleConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    tablesDiscovered,
+    remoteRecordsCount,
+    lastMigration,
+    localData: {
+      status: localHealth.status,
+      storiesCount: localHealth.storiesCount,
+      chaptersCount: localHealth.chaptersCount,
+      charactersCount: localHealth.charactersCount,
+      usersCount: localHealth.usersCount,
+      reviewsCount: localHealth.reviewsCount,
+      readingProgressCount: localHealth.readingProgressCount,
+    },
+    message: configured 
+      ? (connectionStatus === 'CONNECTED' 
+          ? 'Supabase is fully connected and schema tables are verified.' 
+          : 'Supabase credentials are valid, but database tables need to be created in your Supabase SQL Editor.') 
+      : 'Supabase credentials not yet supplied in environment. System is safely persisting to local storage.'
+  });
+});
+
+// Provide full SQL Schema Migration for 1-Click Copy in Admin UI
+app.get('/api/admin/supabase/sql', async (req: Request, res: Response) => {
+  try {
+    const migrationPath = path.resolve(process.cwd(), 'supabase', 'migrations', '001_initial_schema.sql');
+    if (fs.existsSync(migrationPath)) {
+      const sqlContent = fs.readFileSync(migrationPath, 'utf-8');
+      return res.json({ success: true, sql: sqlContent, filename: '001_initial_schema.sql' });
+    }
+    return res.status(404).json({ success: false, error: 'Migration file not found.' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Failed to read SQL migration file' });
+  }
+});
+
+// Supabase Idempotent Migration Trigger
+app.post('/api/admin/supabase/migrate', requireAdmin, async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) {
+    return res.status(400).json({
+      success: false,
+      error: 'Supabase is not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY in environment variables.',
+    });
+  }
+
+  try {
+    const { ready, reason } = await checkSupabaseSchemaReady(true);
+    if (!ready) {
+      return res.status(400).json({
+        success: false,
+        schemaPending: true,
+        error: reason || 'Supabase tables have not been created yet. Please execute the SQL migration script in your Supabase SQL Editor.',
+      });
+    }
+
+    const raw = dbService.getRaw();
+    const result = await runSupabaseDataMigration(raw);
+    return res.json({
+      success: result.success,
+      migrationResult: result,
+      message: result.success 
+        ? `Successfully migrated ${result.recordsProcessed} records to Supabase with 0 data loss!`
+        : `Migration completed with warnings: ${result.recordsProcessed} processed, ${result.recordsFailed} failed.`
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err?.message || 'Migration failed',
+    });
+  }
 });
 
 // 404 Handler for all unmatched API routes (ensures JSON response instead of HTML)

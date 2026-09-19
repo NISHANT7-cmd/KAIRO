@@ -11,7 +11,7 @@
       "xp": 4850,
       "level": 14,
       "readingStreak": 12,
-      "lastActiveDate": "2026-09-03T09:14:35.498+00:00",
+      "lastActiveDate": "2026-09-03T09:14:35.498Z",
       "followersCount": 1420,
       "followingCount": 38,
       "totalReads": 38240,
@@ -25,8 +25,7 @@
         "Character Growth",
         "Space Opera"
       ],
-      "createdAt": "2025-01-10T10:00:00+00:00",
-      "isVerifiedWriter": false
+      "createdAt": "2025-01-10T10:00:00Z"
     },
     {
       "id": "usr_2",
@@ -39,7 +38,7 @@
       "xp": 6200,
       "level": 18,
       "readingStreak": 25,
-      "lastActiveDate": "2026-09-03T09:14:35.498+00:00",
+      "lastActiveDate": "2026-09-03T09:14:35.498Z",
       "followersCount": 2890,
       "followingCount": 45,
       "totalReads": 89400,
@@ -53,8 +52,7 @@
         "Political Intrigue",
         "Rivalries"
       ],
-      "createdAt": "2025-01-05T12:00:00+00:00",
-      "isVerifiedWriter": false
+      "createdAt": "2025-01-05T12:00:00Z"
     },
     {
       "id": "usr_3",
@@ -67,7 +65,7 @@
       "xp": 1850,
       "level": 7,
       "readingStreak": 5,
-      "lastActiveDate": "2026-09-03T09:14:35.498+00:00",
+      "lastActiveDate": "2026-09-03T09:14:35.498Z",
       "followersCount": 180,
       "followingCount": 64,
       "totalReads": 1420,
@@ -81,7 +79,7 @@
         "Slice of Life",
         "Magic Academia"
       ],
-      "createdAt": "2025-02-01T08:00:00+00:00",
+      "createdAt": "2025-02-01T08:00:00Z",
       "isVerifiedWriter": true
     },
     {
@@ -95,7 +93,7 @@
       "xp": 9999,
       "level": 50,
       "readingStreak": 120,
-      "lastActiveDate": "2026-09-03T09:14:35.498+00:00",
+      "lastActiveDate": "2026-09-03T09:14:35.498Z",
       "followersCount": 15400,
       "followingCount": 12,
       "totalReads": 250000,
@@ -105,8 +103,7 @@
       "favoriteThemes": [
         "All Themes"
       ],
-      "createdAt": "2024-12-01T00:00:00+00:00",
-      "isVerifiedWriter": false
+      "createdAt": "2024-12-01T00:00:00Z"
     },
     {
       "id": "usr_1788428969349_qlh8",
@@ -119,9 +116,11 @@
       "xp": 0,
       "level": 1,
       "readingStreak": 0,
-      "lastActiveDate": "2026-09-03T09:49:29.349+00:00",
+      "streakDays": 0,
+      "lastActiveDate": "2026-09-03T09:49:29.349Z",
       "followersCount": 0,
       "followingCount": 0,
+      "chaptersReadCount": 0,
       "totalReads": 0,
       "favoriteGenres": [
         "Fantasy",
@@ -130,8 +129,7 @@
       "favoriteThemes": [
         "World Building"
       ],
-      "createdAt": "2026-09-03T09:49:29.349+00:00",
-      "isVerifiedWriter": false
+      "createdAt": "2026-09-03T09:49:29.349Z"
     },
     {
       "id": "usr_1788429666059_gv3w",
@@ -144,9 +142,11 @@
       "xp": 0,
       "level": 1,
       "readingStreak": 0,
-      "lastActiveDate": "2026-09-03T10:01:06.059+00:00",
+      "streakDays": 0,
+      "lastActiveDate": "2026-09-03T10:01:06.059Z",
       "followersCount": 0,
       "followingCount": 0,
+      "chaptersReadCount": 0,
       "totalReads": 0,
       "favoriteGenres": [
         "Fantasy",
@@ -155,8 +155,7 @@
       "favoriteThemes": [
         "World Building"
       ],
-      "createdAt": "2026-09-03T10:01:06.059+00:00",
-      "isVerifiedWriter": false
+      "createdAt": "2026-09-03T10:01:06.059Z"
     },
     {
       "id": "usr_1789752540753_mavg",
@@ -169,9 +168,11 @@
       "xp": 0,
       "level": 1,
       "readingStreak": 0,
-      "lastActiveDate": "2026-09-18T17:29:00.753+00:00",
+      "streakDays": 0,
+      "lastActiveDate": "2026-09-18T17:29:00.753Z",
       "followersCount": 0,
       "followingCount": 0,
+      "chaptersReadCount": 0,
       "totalReads": 0,
       "favoriteGenres": [
         "Fantasy",
@@ -180,7 +181,7 @@
       "favoriteThemes": [
         "World Building"
       ],
-      "createdAt": "2026-09-18T17:29:00.753+00:00",
+      "createdAt": "2026-09-18T17:29:00.753Z",
       "isVerifiedWriter": true
     }
   ],
@@ -217,53 +218,38 @@
   "sessions": {
     "kairo_sig.usr_1.1791021675659.2a73179135677d555957f0a7450b9926a7c59801dd2f453bd300b46e4a887ed1": {
       "userId": "usr_1",
-      "createdAt": "2026-09-03T10:01:15.662+00:00",
-      "expiresAt": "2026-10-03T10:01:15.659+00:00"
+      "createdAt": "2026-09-03T10:01:15.662Z",
+      "expiresAt": "2026-10-03T10:01:15.659Z"
     },
     "kairo_sig.usr_3.1792344102060.9b3f46c721168174f4110ed92da1f99d4c13af309a647473b0014477202521f7": {
       "userId": "usr_3",
-      "createdAt": "2026-09-18T17:21:42.06+00:00",
-      "expiresAt": "2026-10-18T17:21:42.06+00:00"
+      "createdAt": "2026-09-18T17:21:42.060Z",
+      "expiresAt": "2026-10-18T17:21:42.060Z"
     },
     "kairo_sig.usr_1.1792344517322.00848fef106c69e806bb06580fd6ca3977e10dd617324da11bce08881f519162": {
       "userId": "usr_1",
-      "createdAt": "2026-09-18T17:28:37.322+00:00",
-      "expiresAt": "2026-10-18T17:28:37.322+00:00"
+      "createdAt": "2026-09-18T17:28:37.322Z",
+      "expiresAt": "2026-10-18T17:28:37.322Z"
     },
     "kairo_sig.usr_1.1792344521343.8add2bb45b2a02751afc0a7c5317f7c77c0c8f2783bbe4104a370fbeec98e142": {
       "userId": "usr_1",
-      "createdAt": "2026-09-18T17:28:41.343+00:00",
-      "expiresAt": "2026-10-18T17:28:41.343+00:00"
+      "createdAt": "2026-09-18T17:28:41.343Z",
+      "expiresAt": "2026-10-18T17:28:41.343Z"
     },
     "kairo_sig.usr_1.1792344531177.845bc04fb3178d2cdb1c8e026ce6c5e5909c1693d0b36cf84ba0d744db90f0fc": {
       "userId": "usr_1",
-      "createdAt": "2026-09-18T17:28:51.177+00:00",
-      "expiresAt": "2026-10-18T17:28:51.177+00:00"
+      "createdAt": "2026-09-18T17:28:51.177Z",
+      "expiresAt": "2026-10-18T17:28:51.177Z"
     },
     "kairo_sig.usr_1789752540753_mavg.1792344540797.6301ba964cb8774223e25e5ff4fb8e085a830471d6349e9bc4baa9ab092df7e4": {
       "userId": "usr_1789752540753_mavg",
-      "createdAt": "2026-09-18T17:29:00.797+00:00",
-      "expiresAt": "2026-10-18T17:29:00.797+00:00"
+      "createdAt": "2026-09-18T17:29:00.797Z",
+      "expiresAt": "2026-10-18T17:29:00.797Z"
     },
-    "kairo_sig.usr_admin.1792424716372.f1ecfd385a6b0f543e001a5e0f503a2d75c7a28a3d90fd3e777adde152fa420f": {
-      "userId": "usr_admin",
-      "createdAt": "2026-09-19T15:45:16.372+00:00",
-      "expiresAt": "2026-10-19T15:45:16.372+00:00"
-    },
-    "kairo_sig.usr_admin.1792424828490.883997345ce734012004cbd82e2b575dd66361e1c951a1ea24737b72a4c672bb": {
-      "userId": "usr_admin",
-      "createdAt": "2026-09-19T15:47:08.49+00:00",
-      "expiresAt": "2026-10-19T15:47:08.49+00:00"
-    },
-    "kairo_sig.usr_admin.1792424860907.04d50b9218a7d54166b2e52ca6a1a351804aaaa6429dcf4367210e722eb30662": {
-      "userId": "usr_admin",
-      "createdAt": "2026-09-19T15:47:40.907+00:00",
-      "expiresAt": "2026-10-19T15:47:40.907+00:00"
-    },
-    "kairo_sig.usr_admin.1792424875832.1124991a43dee5e217b1dd30ce5d92d09dbb8bbdd6194ac4f68e71aaf02275f4": {
-      "userId": "usr_admin",
-      "createdAt": "2026-09-19T15:47:55.832Z",
-      "expiresAt": "2026-10-19T15:47:55.832Z"
+    "kairo_sig.usr_1.1792421596793.f3ce8fcefc4610825b36b0c74d1c0a2061d54f72f5ad6691e01436f5a91071aa": {
+      "userId": "usr_1",
+      "createdAt": "2026-09-19T14:53:16.793Z",
+      "expiresAt": "2026-10-19T14:53:16.793Z"
     }
   },
   "stories": [
@@ -290,10 +276,10 @@
       "likes": 0,
       "rating": 5,
       "ratingCount": 0,
-      "universeId": null,
       "chaptersCount": 1,
-      "createdAt": "2026-09-18T17:29:00.813+00:00",
-      "updatedAt": "2026-09-18T17:29:00.821+00:00"
+      "liveReadersCount": 1,
+      "createdAt": "2026-09-18T17:29:00.813Z",
+      "updatedAt": "2026-09-18T17:29:00.821Z"
     },
     {
       "id": "story_1789752517337",
@@ -318,10 +304,10 @@
       "likes": 0,
       "rating": 5,
       "ratingCount": 0,
-      "universeId": null,
       "chaptersCount": 2,
-      "createdAt": "2026-09-18T17:28:37.337+00:00",
-      "updatedAt": "2026-09-18T17:28:51.197+00:00"
+      "liveReadersCount": 1,
+      "createdAt": "2026-09-18T17:28:37.337Z",
+      "updatedAt": "2026-09-18T17:28:51.197Z"
     },
     {
       "id": "story_1789752105122",
@@ -345,10 +331,10 @@
       "likes": 0,
       "rating": 5,
       "ratingCount": 0,
-      "universeId": null,
       "chaptersCount": 1,
-      "createdAt": "2026-09-18T17:21:45.122+00:00",
-      "updatedAt": "2026-09-18T17:21:47.787+00:00"
+      "liveReadersCount": 1,
+      "createdAt": "2026-09-18T17:21:45.122Z",
+      "updatedAt": "2026-09-18T17:21:47.787Z"
     },
     {
       "id": "story_1",
@@ -378,9 +364,12 @@
       "rating": 4.9,
       "ratingCount": 842,
       "universeId": "uni_1",
+      "universeName": "The Astral Universe",
       "chaptersCount": 4,
-      "createdAt": "2025-01-15T09:00:00+00:00",
-      "updatedAt": "2025-02-28T16:00:00+00:00"
+      "liveReadersCount": 142,
+      "featured": true,
+      "createdAt": "2025-01-15T09:00:00Z",
+      "updatedAt": "2025-02-28T16:00:00Z"
     },
     {
       "id": "story_2",
@@ -408,10 +397,11 @@
       "likes": 7120,
       "rating": 4.8,
       "ratingCount": 1250,
-      "universeId": null,
       "chaptersCount": 3,
-      "createdAt": "2025-01-10T08:00:00+00:00",
-      "updatedAt": "2025-02-25T14:30:00+00:00"
+      "liveReadersCount": 210,
+      "featured": true,
+      "createdAt": "2025-01-10T08:00:00Z",
+      "updatedAt": "2025-02-25T14:30:00Z"
     },
     {
       "id": "story_3",
@@ -439,10 +429,11 @@
       "likes": 2190,
       "rating": 4.7,
       "ratingCount": 420,
-      "universeId": null,
       "chaptersCount": 2,
-      "createdAt": "2025-01-20T11:00:00+00:00",
-      "updatedAt": "2025-02-10T12:00:00+00:00"
+      "liveReadersCount": 45,
+      "featured": false,
+      "createdAt": "2025-01-20T11:00:00Z",
+      "updatedAt": "2025-02-10T12:00:00Z"
     },
     {
       "id": "story_4",
@@ -470,10 +461,11 @@
       "likes": 1890,
       "rating": 4.95,
       "ratingCount": 310,
-      "universeId": null,
       "chaptersCount": 3,
-      "createdAt": "2025-02-01T15:00:00+00:00",
-      "updatedAt": "2025-02-27T10:00:00+00:00"
+      "liveReadersCount": 68,
+      "featured": false,
+      "createdAt": "2025-02-01T15:00:00Z",
+      "updatedAt": "2025-02-27T10:00:00Z"
     },
     {
       "id": "story_5",
@@ -501,10 +493,11 @@
       "likes": 3400,
       "rating": 4.85,
       "ratingCount": 590,
-      "universeId": null,
       "chaptersCount": 2,
-      "createdAt": "2025-02-05T07:00:00+00:00",
-      "updatedAt": "2025-02-26T18:00:00+00:00"
+      "liveReadersCount": 89,
+      "featured": false,
+      "createdAt": "2025-02-05T07:00:00Z",
+      "updatedAt": "2025-02-26T18:00:00Z"
     }
   ],
   "chapters": [
@@ -513,171 +506,228 @@
       "storyId": "story_1",
       "chapterNumber": 1,
       "title": "The Midnight Convergence",
+      "subtitle": "Where the stars weep liquid gold",
       "content": "The sky above Port Lunaris burned in hues of violet and shattered rose.\n\nAria Vance balanced on the rusted copper edge of Dock 9, the wind whipping strands of dark silver hair across her goggles. Far below, through the swirling vapor of the cloud sea, the glowing leviathan currents of mana hummed like a subterranean cello.\n\n\"Hold the stabilizer steady, Aria!\" Lyra's voice crackled through the comm-bead, tinged with static and nervous energy. \"If that ether-converter blows, we'll both be vaporized into sparkly purple dust!\"\n\n\"I've got it,\" Aria whispered, her gloved fingers tracing the ancient crystalline glyph on the intake valve. \n\nIt was warm. Too warm.\n\nNormally, dormant star-relics felt like ice against the skin. But this piece—pulled from the wreckage of a pre-Cleaving skiff—pulsed with a rhythm that matched the beat of her own pulse.\n\n*Thump. Thump. Thump.*\n\nThen, the sky cracked.\n\nThe twin moons of Aethelgard shifted in their orbital lock. A brilliant beam of silver light pierced through the cloud cover, striking the relic directly. \n\nPain—pure, blinding, celestial fire—surged through Aria's right forearm. She gasped as her glove disintegrated, revealing four glowing lines carving themselves into her skin like molten starlight. \n\nThe Starcrest of the First Dawn had chosen its bearer. And across the floating continent, every bell in the Grand Citadel of Zenith began to toll.",
       "wordCount": 1420,
-      "readingTime": 8,
-      "publishedAt": "2025-01-15T10:00:00+00:00",
-      "updatedAt": "2025-01-15T10:00:00+00:00",
+      "readingTime": 6,
       "status": "published",
-      "createdAt": "2025-01-15T09:30:00+00:00"
+      "publishedAt": "2025-01-15T10:00:00Z",
+      "createdAt": "2025-01-15T09:30:00Z",
+      "updatedAt": "2025-01-15T10:00:00Z"
     },
     {
       "id": "chap_1_2",
       "storyId": "story_1",
       "chapterNumber": 2,
       "title": "The Azure Blade of Voss",
+      "subtitle": "A duel beneath the glass dome",
       "content": "The Zenith Astral Academy sat atop Mount Caelum like a fortress carved from a single diamond.\n\nAria stood in the center of the Grand Duelling Arena, her borrowed combat tunic feeling three sizes too large. Thousands of students looked down from the floating tiered balconies, their murmurs like the rustle of dry leaves.\n\n\"You have ten seconds to yield, scavenger,\" Kaelen Voss said, stepping into the ring.\n\nHe wore the midnight-blue uniform of the Voss dynasty, his dark hair falling neatly over sharp, calculating eyes. In his right hand, the ancestral Moonshard blade hummed with a pure azure frequency that chilled the ambient air.\n\n\"I didn't climb eight thousand steps just to wave a white flag,\" Aria replied, tightening her stance.\n\nKaelen sighed. \"Pity.\"\n\nIn the blink of an eye, he was gone.\n\nAria felt the displacement of air before she saw the blade. She instinctively raised her right arm, the newly awakened Starcrest blazing through her bandages. A barrier of shimmering golden gravitons erupted between them with the force of a thunderclap.\n\nThe impact echoed across the arena. Kaelen was hurled back, landing cleanly on his feet with his eyes wide in sheer disbelief.\n\n\"That crest...\" Kaelen breathed, his blade trembling. \"That's impossible. That lineage died three centuries ago.\"",
       "wordCount": 1680,
-      "readingTime": 9,
-      "publishedAt": "2025-01-22T14:00:00+00:00",
-      "updatedAt": "2025-01-22T14:00:00+00:00",
+      "readingTime": 7,
       "status": "published",
-      "createdAt": "2025-01-22T12:00:00+00:00"
+      "publishedAt": "2025-01-22T14:00:00Z",
+      "createdAt": "2025-01-22T12:00:00Z",
+      "updatedAt": "2025-01-22T14:00:00Z"
     },
     {
       "id": "chap_1_3",
       "storyId": "story_1",
       "chapterNumber": 3,
       "title": "Whispers in the Starlight Archive",
+      "subtitle": "Secrets locked in crystal scrolls",
       "content": "The lower archives smelled of ozone, crushed star-dust, and old parchment that had survived the atmospheric transitions.\n\n\"If the Archon guards catch us down here,\" Lyra whispered, pointing her handheld scanner at the sealed vault door, \"we're not just getting expelled. We're getting sentenced to mana-harvesting duty in the lower trenches.\"\n\n\"They won't catch us,\" Aria murmured, placing her hand against the vault's central core.\n\nThe golden glyphs on her forearm flared. The heavy stone doors groans in harmonic resonance, slowly sliding open into an abyss of floating starlight prisms.\n\nInside, thousands of historical memories floated like glowing orbs.\n\n\"Look at this,\" Aria said, reaching toward a crimson orb at the center.\n\nAs her fingers brushed the sphere, a holographic vision burst to life: the seven floating isles were not created as a paradise. They were anchors—chains holding down an ancient celestial entity slumbering beneath the cloud sea.\n\nAnd the chains were beginning to crack.",
       "wordCount": 1550,
-      "readingTime": 8,
-      "publishedAt": "2025-02-05T16:00:00+00:00",
-      "updatedAt": "2025-02-05T16:00:00+00:00",
+      "readingTime": 6,
       "status": "published",
-      "createdAt": "2025-02-05T14:00:00+00:00"
+      "publishedAt": "2025-02-05T16:00:00Z",
+      "createdAt": "2025-02-05T14:00:00Z",
+      "updatedAt": "2025-02-05T16:00:00Z"
     },
     {
       "id": "chap_1_4",
       "storyId": "story_1",
       "chapterNumber": 4,
       "title": "The Void Breach at Dawn",
+      "subtitle": "When the sky bleeds black",
       "content": "The warning sirens wailed across the Seventh Isle just as the first rays of sunlight kissed the horizon.\n\nA tear in the fabric of space had opened above Port Lunaris. From the obsidian rift, winged void-beasts poured out like swarming locusts, their screeching shattering glass across the lower district.\n\n\"Cadets, form defensive positions!\" Commander Thorne's voice echoed through the telepathic broadcast network.\n\nAria sprinted toward the skiff docks, her heart pounding in her ears. Beside her, Kaelen drew his Azure Blade, the two rivals matching strides without a word spoken.\n\n\"Front flank is yours,\" Kaelen said curtly. \"Don't let them flank the civilians.\"\n\n\"Watch my back, Voss,\" Aria grinned, launching herself into the air with a Graviton burst. \"And try to keep up!\"",
       "wordCount": 1820,
-      "readingTime": 10,
-      "publishedAt": "2025-02-20T18:00:00+00:00",
-      "updatedAt": "2025-02-20T18:00:00+00:00",
+      "readingTime": 8,
       "status": "published",
-      "createdAt": "2025-02-20T16:00:00+00:00"
+      "publishedAt": "2025-02-20T18:00:00Z",
+      "createdAt": "2025-02-20T16:00:00Z",
+      "updatedAt": "2025-02-20T18:00:00Z"
     },
     {
       "id": "chap_2_1",
       "storyId": "story_2",
       "chapterNumber": 1,
       "title": "The Blood on the Marble",
+      "subtitle": "The night an empire fell",
       "content": "The throne of Valerius was forged from the petrified bones of seven fallen dragons.\n\nPrince Lucian stood before the severed body of his father, the blood soaking into the gold-threaded velvet of his boots. The shadow-guard stood around the corpse with drawn rapiers, their silver masks reflecting the guttering torches.\n\n\"Why?\" Lucian asked, his voice steady despite the cold rage freezing his veins.\n\n\"The Emperor grew weak, my Prince,\" Lord Commander Vane replied calmly. \"And weakness in the Iron Reign is an invitation to ruin.\"\n\nLucian did not argue. He drew his ceremonial dagger and sliced the palm of his left hand, smearing his blood across the ancient runic bracelet chained to his wrist.\n\nThe dead dragons in the walls began to scream.",
       "wordCount": 1950,
-      "readingTime": 10,
-      "publishedAt": "2025-01-10T12:00:00+00:00",
-      "updatedAt": "2025-01-10T12:00:00+00:00",
+      "readingTime": 8,
       "status": "published",
-      "createdAt": "2025-01-10T10:00:00+00:00"
+      "publishedAt": "2025-01-10T12:00:00Z",
+      "createdAt": "2025-01-10T10:00:00Z",
+      "updatedAt": "2025-01-10T12:00:00Z"
     },
     {
       "id": "chap_2_2",
       "storyId": "story_2",
       "chapterNumber": 2,
       "title": "Exile of the Crimson Raven",
+      "subtitle": "Walking the ash wastes",
       "content": "Beyond the Northern Wall lay the Obsidian Wastes—a barren graveyard where neither crops nor mercy grew.\n\nLucian pulled his tattered wolfskin cloak tighter against the stinging frost. Behind him, three loyal knights rode in silence, their armor stripped of all crests and insignia.\n\n\"We have food for five days, Sire,\" Sir Galahad reported. \"The mountain clans will not welcome us.\"\n\n\"They don't have to welcome us,\" Lucian said, his eyes glowing with dark crimson aether. \"They only need to fear what we bring.\"",
       "wordCount": 1720,
-      "readingTime": 9,
-      "publishedAt": "2025-01-28T14:00:00+00:00",
-      "updatedAt": "2025-01-28T14:00:00+00:00",
+      "readingTime": 7,
       "status": "published",
-      "createdAt": "2025-01-28T12:00:00+00:00"
+      "publishedAt": "2025-01-28T14:00:00Z",
+      "createdAt": "2025-01-28T12:00:00Z",
+      "updatedAt": "2025-01-28T14:00:00Z"
     },
     {
       "id": "chap_2_3",
       "storyId": "story_2",
       "chapterNumber": 3,
       "title": "The Siege of Ravenhold",
+      "subtitle": "First blood in the rebellion",
       "content": "The iron gates of Ravenhold Fortress had withstood three hundred years of tribal rebellions.\n\nThey did not withstand Lucian's blood-forged siege ram. With a deafening roar of splintering stone and magical wards collapsing, the vanguard breached the courtyard.\n\nBy nightfall, the black banner of the Crimson Raven fluttered over the highest keep. The civil war had officially begun.",
       "wordCount": 2100,
-      "readingTime": 11,
-      "publishedAt": "2025-02-15T15:00:00+00:00",
-      "updatedAt": "2025-02-15T15:00:00+00:00",
+      "readingTime": 9,
       "status": "published",
-      "createdAt": "2025-02-15T13:00:00+00:00"
+      "publishedAt": "2025-02-15T15:00:00Z",
+      "createdAt": "2025-02-15T13:00:00Z",
+      "updatedAt": "2025-02-15T15:00:00Z"
     },
     {
       "id": "chap_1789752107786",
       "storyId": "story_1789752105122",
       "chapterNumber": 1,
       "title": "Chapter 1: The Beginning",
+      "subtitle": "",
       "content": "Once upon a time in a fantasy realm...",
       "wordCount": 8,
       "readingTime": 1,
-      "publishedAt": "2026-09-18T17:21:47.787+00:00",
-      "updatedAt": "2026-09-18T17:21:47.787+00:00",
       "status": "published",
-      "createdAt": "2026-09-18T17:21:47.787+00:00"
+      "publishedAt": "2026-09-18T17:21:47.787Z",
+      "createdAt": "2026-09-18T17:21:47.787Z",
+      "updatedAt": "2026-09-18T17:21:47.787Z"
     },
     {
       "id": "chap_1789752517344",
       "storyId": "story_1789752517337",
       "chapterNumber": 1,
       "title": "Chapter 1: The Spheres Align",
+      "subtitle": "",
       "content": "The astral resonance intensified across the sky.",
       "wordCount": 7,
       "readingTime": 1,
-      "publishedAt": "2026-09-18T17:28:37.344+00:00",
-      "updatedAt": "2026-09-18T17:28:37.344+00:00",
       "status": "Published",
-      "createdAt": "2026-09-18T17:28:37.344+00:00"
+      "createdAt": "2026-09-18T17:28:37.344Z",
+      "updatedAt": "2026-09-18T17:28:37.344Z"
     },
     {
       "id": "chap_1789752531197",
       "storyId": "story_1789752517337",
       "chapterNumber": 2,
       "title": "Chapter 2: Celestial Echoes",
+      "subtitle": "",
       "content": "Whispers echoed from the crystal spires.",
       "wordCount": 6,
       "readingTime": 1,
-      "publishedAt": "2026-09-18T17:28:51.197+00:00",
-      "updatedAt": "2026-09-18T17:28:51.197+00:00",
       "status": "Published",
-      "createdAt": "2026-09-18T17:28:51.197+00:00"
+      "createdAt": "2026-09-18T17:28:51.197Z",
+      "updatedAt": "2026-09-18T17:28:51.197Z"
     },
     {
       "id": "chap_1789752540821",
       "storyId": "story_1789752540813",
       "chapterNumber": 1,
       "title": "Chapter 1: The Silver Dawn",
+      "subtitle": "",
       "content": "The dawn broke in shades of pearlescent silver.",
       "wordCount": 8,
       "readingTime": 1,
-      "publishedAt": "2026-09-18T17:29:00.821+00:00",
-      "updatedAt": "2026-09-18T17:29:00.821+00:00",
       "status": "Published",
-      "createdAt": "2026-09-18T17:29:00.821+00:00"
+      "createdAt": "2026-09-18T17:29:00.821Z",
+      "updatedAt": "2026-09-18T17:29:00.821Z"
     }
   ],
-  "readingProgress": [],
-  "library": [],
+  "readingProgress": [
+    {
+      "id": "rp_1",
+      "userId": "usr_3",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "storyCover": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80",
+      "chapterId": "chap_1_2",
+      "chapterNumber": 2,
+      "chapterTitle": "The Azure Blade of Voss",
+      "totalChapters": 4,
+      "progressPercent": 50,
+      "lastPosition": 1200,
+      "lastReadAt": "2026-09-03T08:14:35.498Z"
+    },
+    {
+      "id": "rp_2",
+      "userId": "usr_1",
+      "storyId": "story_2",
+      "storyTitle": "The Shattered Crown",
+      "storyCover": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+      "chapterId": "chap_2_1",
+      "chapterNumber": 1,
+      "chapterTitle": "The Blood on the Marble",
+      "totalChapters": 3,
+      "progressPercent": 33,
+      "lastPosition": 800,
+      "lastReadAt": "2026-09-02T09:14:35.498Z"
+    }
+  ],
+  "library": [
+    {
+      "id": "lib_1",
+      "userId": "usr_3",
+      "storyId": "story_1",
+      "listType": "reading",
+      "addedAt": "2025-02-01T10:00:00Z"
+    },
+    {
+      "id": "lib_2",
+      "userId": "usr_3",
+      "storyId": "story_4",
+      "listType": "saved",
+      "addedAt": "2025-02-10T12:00:00Z"
+    },
+    {
+      "id": "lib_3",
+      "userId": "usr_1",
+      "storyId": "story_2",
+      "listType": "reading",
+      "addedAt": "2025-01-20T10:00:00Z"
+    }
+  ],
   "reviews": [
     {
       "id": "rev_1",
       "userId": "usr_3",
-      "username": "Reader",
-      "userAvatar": "",
+      "username": "sakura_dreamer",
+      "userAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
       "storyId": "story_1",
       "rating": 5,
       "reviewText": "The world-building of Aethelgard is peak light novel material! Aria and Kaelen's dynamic has that classic rivals-to-allies tension that makes every chapter an adrenaline rush.",
-      "likes": 0,
-      "createdAt": "2025-02-10T18:00:00+00:00",
-      "updatedAt": "2025-02-10T18:00:00+00:00"
+      "createdAt": "2025-02-10T18:00:00Z",
+      "updatedAt": "2025-02-10T18:00:00Z"
     },
     {
       "id": "rev_2",
       "userId": "usr_2",
-      "username": "Reader",
-      "userAvatar": "",
+      "username": "voidknight",
+      "userAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
       "storyId": "story_1",
       "rating": 5,
       "reviewText": "Pacing in Chapter 2 during the arena duel was immaculate. The magic system has genuine weight and consequences.",
-      "likes": 0,
-      "createdAt": "2025-02-12T12:00:00+00:00",
-      "updatedAt": "2025-02-12T12:00:00+00:00"
+      "createdAt": "2025-02-12T12:00:00Z",
+      "updatedAt": "2025-02-12T12:00:00Z"
     }
   ],
   "comments": [
@@ -686,31 +736,47 @@
       "chapterId": "chap_1_1",
       "storyId": "story_1",
       "userId": "usr_3",
-      "username": "User",
-      "userAvatar": "",
+      "username": "sakura_dreamer",
+      "userAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
       "content": "THAT ENDING! When the crest awakened and the bells started tolling in the Grand Citadel... literal goosebumps!",
-      "parentId": null,
       "likes": 28,
       "likedByUsers": [
         "usr_1",
         "usr_2"
       ],
-      "createdAt": "2025-01-16T12:00:00+00:00"
+      "createdAt": "2025-01-16T12:00:00Z",
+      "replies": [
+        {
+          "id": "com_1_rep_1",
+          "chapterId": "chap_1_1",
+          "storyId": "story_1",
+          "userId": "usr_1",
+          "username": "althea_v",
+          "userAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+          "content": "Thank you! Chapter 2 is where the real rivalry begins with Kaelen!",
+          "likes": 14,
+          "likedByUsers": [
+            "usr_3"
+          ],
+          "parentId": "com_1",
+          "createdAt": "2025-01-16T14:30:00Z"
+        }
+      ]
     },
     {
       "id": "com_2",
       "chapterId": "chap_1_2",
       "storyId": "story_1",
       "userId": "usr_2",
-      "username": "User",
-      "userAvatar": "",
+      "username": "voidknight",
+      "userAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
       "content": "Kaelen’s zero-point slash technique being repelled by sheer primal Aether gravitons is such a great setup for their power dynamic.",
-      "parentId": null,
       "likes": 19,
       "likedByUsers": [
         "usr_3"
       ],
-      "createdAt": "2025-01-23T10:00:00+00:00"
+      "createdAt": "2025-01-23T10:00:00Z",
+      "replies": []
     }
   ],
   "communities": [
@@ -1131,42 +1197,107 @@
   "characters": [
     {
       "id": "char_1",
-      "storyId": "story_1",
       "authorId": "usr_1",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "worldId": "world_1",
       "name": "Aria Vance",
-      "role": "Protagonist",
-      "age": "19",
       "portrait": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
-      "primaryPower": "",
-      "biography": "Born in the outer rim of Port Lunaris, Aria discovered her latent crest during the midnight eclipse. Now enrolled in the Zenith Astral Academy, she seeks the truth behind her lost lineage.",
+      "age": 19,
+      "role": "Protagonist",
       "personality": "Fiercely determined, compassionate, with an unquenchable curiosity for forbidden ancient ruins.",
-      "createdAt": "2025-01-12T10:00:00+00:00"
+      "primaryPower": "Stellar Aether Weaver (Light & Gravity manipulation)",
+      "abilities": [
+        "Prism Dash",
+        "Graviton Seal",
+        "Nova Flare Strike",
+        "Astral Perception"
+      ],
+      "biography": "Born in the outer rim of Port Lunaris, Aria discovered her latent crest during the midnight eclipse. Now enrolled in the Zenith Astral Academy, she seeks the truth behind her lost lineage.",
+      "arc": [
+        {
+          "id": "arc_1",
+          "phase": "Beginning",
+          "title": "The Unmarked Drifter",
+          "description": "Struggling as an orphan scavver on the low docks."
+        },
+        {
+          "id": "arc_2",
+          "phase": "Rising Action",
+          "title": "Awakening of the Starcrest",
+          "description": "Accidentally manifests dual elemental affinities during a void beast raid."
+        },
+        {
+          "id": "arc_3",
+          "phase": "Climax",
+          "title": "Defender of the Floating Isles",
+          "description": "Stands against the Syndicate alongside her rival turned sworn ally."
+        }
+      ],
+      "createdAt": "2025-01-12T10:00:00Z"
     },
     {
       "id": "char_2",
-      "storyId": "story_1",
       "authorId": "usr_1",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "worldId": "world_1",
       "name": "Kaelen Voss",
-      "role": "Rival",
-      "age": "21",
       "portrait": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80",
-      "primaryPower": "",
-      "biography": "Heir to the illustrious Voss Noble House. Trained since childhood to wield the ancestral Moonshard blade, he finds himself constantly challenged by Aria's unconventional battle instincts.",
+      "age": 21,
+      "role": "Rival",
       "personality": "Stoic, mathematically precise, bound by family honor but harboring deep doubts about the Archon Council.",
-      "createdAt": "2025-01-12T10:15:00+00:00"
+      "primaryPower": "Blade of the Azure Eclipse (Kinetic resonance)",
+      "abilities": [
+        "Zero-Point Slash",
+        "Sonic Barrier",
+        "Flash Step",
+        "Phantom Echo"
+      ],
+      "biography": "Heir to the illustrious Voss Noble House. Trained since childhood to wield the ancestral Moonshard blade, he finds himself constantly challenged by Aria's unconventional battle instincts.",
+      "arc": [
+        {
+          "id": "arc_4",
+          "phase": "Beginning",
+          "title": "The Golden Prodigy",
+          "description": "Unbeaten student duelist adhering strictly to academy dogma."
+        },
+        {
+          "id": "arc_5",
+          "phase": "Turning Point",
+          "title": "Cracks in the Dynasty",
+          "description": "Discovers his father’s complicity with the forbidden void trade."
+        }
+      ],
+      "createdAt": "2025-01-12T10:15:00Z"
     },
     {
       "id": "char_3",
-      "storyId": "story_1",
       "authorId": "usr_1",
+      "storyId": "story_1",
+      "storyTitle": "Celestial Drifters: Awakening",
+      "worldId": "world_1",
       "name": "Lyra Vane",
-      "role": "Supporting",
-      "age": "18",
       "portrait": "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&auto=format&fit=crop&q=80",
-      "primaryPower": "",
-      "biography": "A genius tinkerer who built her own hover-board at age 12. Provides technical firepower and endless witty commentary for Aria’s squadron.",
+      "age": 18,
+      "role": "Supporting",
       "personality": "Eccentric technomancer, caffeine enthusiast, loyal sister-figure and tactical genius.",
-      "createdAt": "2025-01-12T10:30:00+00:00"
+      "primaryPower": "Magitech Artificer & Glyph Hacker",
+      "abilities": [
+        "Sentry Drones",
+        "Energy Shield Matrix",
+        "Overclock Burst"
+      ],
+      "biography": "A genius tinkerer who built her own hover-board at age 12. Provides technical firepower and endless witty commentary for Aria’s squadron.",
+      "arc": [
+        {
+          "id": "arc_6",
+          "phase": "Allied",
+          "title": "The Tech Alchemist",
+          "description": "Transforms junk scraps into world-class defensive gear."
+        }
+      ],
+      "createdAt": "2025-01-12T10:30:00Z"
     }
   ],
   "characterRelationships": [
@@ -3299,8 +3430,7 @@
     "updatedBy": "system"
   },
   "revokedTokens": {
-    "kairo_sig.usr_3.1791980255800.b4cc07dcbc55cb97bbd2f2f699205e39905661677e34e41cbe3964b9496d76f0": true,
-    "kairo_sig.usr_1.1792421596793.f3ce8fcefc4610825b36b0c74d1c0a2061d54f72f5ad6691e01436f5a91071aa": true
+    "kairo_sig.usr_3.1791980255800.b4cc07dcbc55cb97bbd2f2f699205e39905661677e34e41cbe3964b9496d76f0": true
   },
   "recentlyDeletedStories": []
 }

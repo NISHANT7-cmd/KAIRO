@@ -21,6 +21,9 @@ import {
   initialPrograms, initialParticipants, initialSubmissions, initialVotes,
   initialAnnouncements, initialAuditLogs, initialCertificates
 } from './programs-seed.js';
+import {
+  isSupabaseConfigured, checkSupabaseSchemaReady, loadFullStateFromSupabase, runSupabaseDataMigration, syncEntityToSupabase
+} from './supabase.js';
 
 function resolveDataPaths() {
   const isServerless = process.env.VERCEL === '1' || 
@@ -1610,6 +1613,72 @@ class DatabaseService {
 
     this.ensureDataDir();
     this.db = this.loadDatabase();
+    this.initSupabaseSync();
+  }
+
+  private async initSupabaseSync() {
+    if (!isSupabaseConfigured()) {
+      return;
+    }
+    try {
+      const { ready, reason } = await checkSupabaseSchemaReady();
+      if (!ready) {
+        console.info(`[Supabase Init] Supabase credentials detected, but schema tables are not yet initialized: ${reason}`);
+        return;
+      }
+      console.info('[Supabase Init] Detected Supabase credentials & valid schema, syncing with permanent PostgreSQL storage...');
+      const remoteState = await loadFullStateFromSupabase();
+      if (remoteState && remoteState.users && remoteState.users.length > 0) {
+        console.info(`[Supabase Init] Loaded ${remoteState.stories?.length || 0} stories and ${remoteState.users.length} users from Supabase.`);
+        // Merge remote state safely into current active database
+        if (remoteState.stories && remoteState.stories.length > 0) {
+          const localStoryMap = new Map((this.db.stories || []).map(s => [s.id, s]));
+          remoteState.stories.forEach(rs => localStoryMap.set(rs.id, rs));
+          this.db.stories = Array.from(localStoryMap.values());
+        }
+        if (remoteState.chapters && remoteState.chapters.length > 0) {
+          const localChapMap = new Map((this.db.chapters || []).map(c => [c.id, c]));
+          remoteState.chapters.forEach(rc => localChapMap.set(rc.id, rc));
+          this.db.chapters = Array.from(localChapMap.values());
+        }
+        if (remoteState.users && remoteState.users.length > 0) {
+          const localUserMap = new Map((this.db.users || []).map(u => [u.id, u]));
+          remoteState.users.forEach(ru => localUserMap.set(ru.id, ru));
+          this.db.users = Array.from(localUserMap.values());
+        }
+        if (remoteState.passwords) {
+          this.db.passwords = { ...(this.db.passwords || {}), ...remoteState.passwords };
+        }
+        if (remoteState.sessions) {
+          this.db.sessions = { ...(this.db.sessions || {}), ...remoteState.sessions };
+        }
+        if (remoteState.readingProgress) {
+          this.db.readingProgress = remoteState.readingProgress as any;
+        }
+        if (remoteState.library) {
+          this.db.library = remoteState.library as any;
+        }
+        if (remoteState.reviews) {
+          this.db.reviews = remoteState.reviews as any;
+        }
+        if (remoteState.comments) {
+          this.db.comments = remoteState.comments as any;
+        }
+        if (remoteState.characters) {
+          this.db.characters = remoteState.characters as any;
+        }
+        if (remoteState.recentlyDeletedStories) {
+          this.db.recentlyDeletedStories = remoteState.recentlyDeletedStories as any;
+        }
+        this.saveDatabase();
+      } else {
+        console.info('[Supabase Init] Remote database is empty or new. Performing safe initial migration from verified production baseline...');
+        const migResult = await runSupabaseDataMigration(this.db);
+        console.info(`[Supabase Init] Auto-migration complete: ${migResult.recordsProcessed} records transferred.`);
+      }
+    } catch (err: any) {
+      console.warn('[Supabase Init Warning] Non-blocking initial sync issue:', err?.message);
+    }
   }
 
   private ensureDataDir() {
@@ -1930,8 +1999,24 @@ class DatabaseService {
     return this.db;
   }
 
+  private supabaseSyncTimeout: any = null;
+  private queueSupabaseSync() {
+    if (!isSupabaseConfigured()) return;
+    if (this.supabaseSyncTimeout) clearTimeout(this.supabaseSyncTimeout);
+    this.supabaseSyncTimeout = setTimeout(async () => {
+      try {
+        const { ready } = await checkSupabaseSchemaReady();
+        if (!ready) return;
+        await runSupabaseDataMigration(this.db);
+      } catch (err: any) {
+        console.warn('[Supabase Debounced Sync Warning]:', err?.message);
+      }
+    }, 2000);
+  }
+
   public commit() {
     this.saveDatabase();
+    this.queueSupabaseSync();
   }
 
   public getDatabaseHealth() {

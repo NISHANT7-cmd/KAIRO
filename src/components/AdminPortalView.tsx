@@ -3,13 +3,14 @@ import {
   Shield, Users, BookOpen, Feather, Search, 
   Trash2, AlertTriangle, RefreshCw, Star, 
   Globe, MessageSquare, Flame, CheckCircle, Ban, 
-  Sparkles, ExternalLink, Trophy
+  Sparkles, ExternalLink, Trophy, Database
 } from 'lucide-react';
 import { User, Story, AdminPlatformStats, CommunityPost, Theory } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { AdminProgramsView } from './admin/AdminProgramsView';
 import { AdminRecommendationControls } from './admin/AdminRecommendationControls';
+import { AdminDatabaseView } from './admin/AdminDatabaseView';
 import { Sliders } from 'lucide-react';
 
 interface AdminPortalViewProps {
@@ -30,7 +31,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [theories, setTheories] = useState<Theory[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'programs' | 'users' | 'stories' | 'moderation' | 'recommendations' | 'overview'>('programs');
+  const [activeTab, setActiveTab] = useState<'programs' | 'database' | 'users' | 'stories' | 'moderation' | 'recommendations' | 'overview'>('programs');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -469,7 +470,24 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
           <Sliders className="w-4 h-4 text-amber-300" />
           <span>Recommendation Engine</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('database')}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
+            activeTab === 'database'
+              ? 'bg-[#9e3b5f] text-white shadow-md'
+              : 'text-[#544246] hover:bg-pink-50'
+          }`}
+        >
+          <Database className="w-4 h-4 text-emerald-300" />
+          <span>Database & Supabase</span>
+        </button>
       </div>
+
+      {/* TAB: DATABASE & SUPABASE */}
+      {activeTab === 'database' && (
+        <AdminDatabaseView />
+      )}
 
       {/* TAB: RECOMMENDATION ENGINE */}
       {activeTab === 'recommendations' && (
