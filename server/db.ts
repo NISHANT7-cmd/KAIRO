@@ -103,6 +103,18 @@ export interface DatabaseSchema {
   userInterestProfiles: Record<string, UserInterestProfile>;
   userBehaviorEvents: UserBehaviorEvent[];
   adminRecommendationSettings: AdminRecommendationSettings;
+  recentlyDeletedStories?: DeletedStoryRecord[];
+}
+
+export interface DeletedStoryRecord {
+  id: string; // story ID
+  story: Story;
+  chapters: Chapter[];
+  characters: Character[];
+  deletedAt: string; // ISO timestamp
+  expiresAt: string; // ISO timestamp (30 days from deletion)
+  deletedByUserId: string;
+  deletedByUsername: string;
 }
 
 function hashPassword(password: string, salt: string): string {
@@ -1661,6 +1673,7 @@ class DatabaseService {
     parsed.programCertificates = parsed.programCertificates || [];
     parsed.userInterestProfiles = parsed.userInterestProfiles || {};
     parsed.userBehaviorEvents = parsed.userBehaviorEvents || [];
+    parsed.recentlyDeletedStories = parsed.recentlyDeletedStories || [];
 
     // Auto migrate any legacy plain passwords to salted hashes
     if (parsed.passwords) {
@@ -1938,14 +1951,21 @@ class DatabaseService {
     stories?: Story[];
     chapters?: Chapter[];
     characters?: Character[];
+    deletedStoryIds?: string[];
   }): { addedStories: number; addedChapters: number; addedCharacters: number } {
     let addedStories = 0;
     let addedChapters = 0;
     let addedCharacters = 0;
 
+    const deletedIds = new Set<string>([
+      ...(payload.deletedStoryIds || []),
+      ...((this.db.recentlyDeletedStories || []).map(r => r.id))
+    ]);
+
     if (Array.isArray(payload.stories)) {
       for (const s of payload.stories) {
         if (!s || !s.id) continue;
+        if (deletedIds.has(s.id)) continue;
         const exists = (this.db.stories || []).some(ex => ex.id === s.id);
         if (!exists) {
           this.db.stories.unshift(s);
@@ -1957,6 +1977,7 @@ class DatabaseService {
     if (Array.isArray(payload.chapters)) {
       for (const ch of payload.chapters) {
         if (!ch || !ch.id) continue;
+        if (ch.storyId && deletedIds.has(ch.storyId)) continue;
         const exists = (this.db.chapters || []).some(ex => ex.id === ch.id);
         if (!exists) {
           this.db.chapters.push(ch);
@@ -1968,6 +1989,7 @@ class DatabaseService {
     if (Array.isArray(payload.characters)) {
       for (const c of payload.characters) {
         if (!c || !c.id) continue;
+        if (c.storyId && deletedIds.has(c.storyId)) continue;
         const exists = (this.db.characters || []).some(ex => ex.id === c.id);
         if (!exists) {
           this.db.characters.push(c);
@@ -2455,6 +2477,149 @@ class DatabaseService {
     if (this.db.characters) {
       this.db.characters = this.db.characters.filter(c => c.storyId !== storyId);
     }
+    this.commit();
+    return true;
+  }
+
+  public cleanupExpiredTrash(): void {
+    if (!this.db.recentlyDeletedStories) {
+      this.db.recentlyDeletedStories = [];
+      return;
+    }
+    const now = Date.now();
+    const initialLen = this.db.recentlyDeletedStories.length;
+    this.db.recentlyDeletedStories = this.db.recentlyDeletedStories.filter(record => {
+      const exp = new Date(record.expiresAt).getTime();
+      return !isNaN(exp) && exp > now;
+    });
+    if (this.db.recentlyDeletedStories.length !== initialLen) {
+      this.commit();
+    }
+  }
+
+  public moveToRecentlyDeleted(storyId: string, user: User): { success: boolean; record?: DeletedStoryRecord } {
+    const story = this.findStoryByIdOrSlug(storyId);
+    if (!story) return { success: false };
+
+    // Find all chapters and characters associated with this story
+    const chapters = (this.db.chapters || []).filter(c => c.storyId === story.id);
+    const characters = (this.db.characters || []).filter(c => c.storyId === story.id);
+
+    // Remove from active database collections
+    this.db.stories = (this.db.stories || []).filter(s => s.id !== story.id);
+    this.db.chapters = (this.db.chapters || []).filter(c => c.storyId !== story.id);
+    if (this.db.characters) {
+      this.db.characters = this.db.characters.filter(c => c.storyId !== story.id);
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30-day retention window
+
+    const record: DeletedStoryRecord = {
+      id: story.id,
+      story,
+      chapters,
+      characters,
+      deletedAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      deletedByUserId: user.id,
+      deletedByUsername: user.username || user.displayName || 'Author'
+    };
+
+    if (!this.db.recentlyDeletedStories) {
+      this.db.recentlyDeletedStories = [];
+    }
+    this.db.recentlyDeletedStories = this.db.recentlyDeletedStories.filter(r => r.id !== story.id);
+    this.db.recentlyDeletedStories.unshift(record);
+
+    this.cleanupExpiredTrash();
+    this.commit();
+    return { success: true, record };
+  }
+
+  public getRecentlyDeleted(userId?: string): (DeletedStoryRecord & { daysLeft: number })[] {
+    this.cleanupExpiredTrash();
+    const list = this.db.recentlyDeletedStories || [];
+    const now = Date.now();
+
+    const filtered = userId ? list.filter(r => 
+      r.deletedByUserId === userId || 
+      r.story.authorId === userId || 
+      (r.story.authorUsername && r.deletedByUsername && r.story.authorUsername.toLowerCase() === r.deletedByUsername.toLowerCase())
+    ) : list;
+
+    return filtered.map(item => {
+      const exp = new Date(item.expiresAt).getTime();
+      const daysLeft = Math.max(0, Math.ceil((exp - now) / (1000 * 60 * 60 * 24)));
+      return { ...item, daysLeft };
+    });
+  }
+
+  public restoreRecentlyDeleted(storyId: string, user: User): { success: boolean; story?: Story; message?: string } {
+    this.cleanupExpiredTrash();
+    if (!this.db.recentlyDeletedStories) {
+      return { success: false, message: 'Story not found in recently deleted' };
+    }
+
+    const idx = this.db.recentlyDeletedStories.findIndex(r => r.id === storyId || r.story.id === storyId || r.story.slug === storyId);
+    if (idx === -1) {
+      return { success: false, message: 'Story not found in recently deleted' };
+    }
+
+    const record = this.db.recentlyDeletedStories[idx];
+    const isOwner = user.role === 'ADMIN' || 
+      record.deletedByUserId === user.id || 
+      record.story.authorId === user.id || 
+      (record.story.authorUsername && user.username && record.story.authorUsername.toLowerCase() === user.username.toLowerCase());
+
+    if (!isOwner) {
+      return { success: false, message: 'Forbidden: You do not own this story' };
+    }
+
+    // Remove from recently deleted
+    this.db.recentlyDeletedStories.splice(idx, 1);
+
+    // Restore story into active database
+    this.db.stories = (this.db.stories || []).filter(s => s.id !== record.story.id);
+    const restoredStory = { ...record.story, updatedAt: new Date().toISOString() };
+    this.db.stories.unshift(restoredStory);
+
+    // Restore chapters
+    const existingChapterIds = new Set((this.db.chapters || []).map(c => c.id));
+    for (const ch of record.chapters) {
+      if (!existingChapterIds.has(ch.id)) {
+        this.db.chapters.push(ch);
+      }
+    }
+
+    // Restore characters
+    if (this.db.characters) {
+      const existingCharIds = new Set(this.db.characters.map(c => c.id));
+      for (const char of record.characters) {
+        if (!existingCharIds.has(char.id)) {
+          this.db.characters.push(char);
+        }
+      }
+    }
+
+    this.commit();
+    return { success: true, story: restoredStory };
+  }
+
+  public permanentlyDeleteTrashStory(storyId: string, user: User): boolean {
+    if (!this.db.recentlyDeletedStories) return false;
+    const idx = this.db.recentlyDeletedStories.findIndex(r => r.id === storyId || r.story.id === storyId);
+    if (idx === -1) return false;
+
+    const record = this.db.recentlyDeletedStories[idx];
+    const isOwner = user.role === 'ADMIN' || 
+      record.deletedByUserId === user.id || 
+      record.story.authorId === user.id || 
+      (record.story.authorUsername && user.username && record.story.authorUsername.toLowerCase() === user.username.toLowerCase());
+
+    if (!isOwner) return false;
+
+    this.db.recentlyDeletedStories.splice(idx, 1);
     this.commit();
     return true;
   }

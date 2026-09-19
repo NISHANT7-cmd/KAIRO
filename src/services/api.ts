@@ -7,7 +7,8 @@ import {
   ProgramAnnouncement, ProgramAuditLog, ProgramCertificate,
   AdminProgramsSummary, ProgramStatus,
   UserInterestProfile, PersonalizedHomeFeed, PersonalizedDiscoverFeed, StoryDna,
-  AdminRecommendationSettings
+  AdminRecommendationSettings,
+  DeletedStoryRecord
 } from '../types';
 import { getStaticFallback, FALLBACK_STORIES, FALLBACK_UNIVERSES, FALLBACK_USERS } from './fallbackData';
 import { ensureSafePayloadImage } from '../utils/imageOptimizer';
@@ -151,11 +152,41 @@ export function setActiveLocalUser(user: User | null) {
   } catch {}
 }
 
+export function getDeletedStoryIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('kairo_deleted_story_ids');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addDeletedStoryId(storyId: string) {
+  if (typeof window === 'undefined' || !storyId) return;
+  try {
+    const existing = new Set(getDeletedStoryIds());
+    existing.add(storyId);
+    localStorage.setItem('kairo_deleted_story_ids', JSON.stringify(Array.from(existing)));
+  } catch {}
+}
+
+export function removeDeletedStoryId(storyId: string) {
+  if (typeof window === 'undefined' || !storyId) return;
+  try {
+    const existing = new Set(getDeletedStoryIds());
+    existing.delete(storyId);
+    localStorage.setItem('kairo_deleted_story_ids', JSON.stringify(Array.from(existing)));
+  } catch {}
+}
+
 export function getLocalCustomStories(): Story[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem('kairo_custom_stories');
-    return raw ? JSON.parse(raw) : [];
+    const list: Story[] = raw ? JSON.parse(raw) : [];
+    const deleted = new Set(getDeletedStoryIds());
+    return list.filter(s => s && s.id && !deleted.has(s.id));
   } catch {
     return [];
   }
@@ -164,6 +195,7 @@ export function getLocalCustomStories(): Story[] {
 export function saveLocalCustomStory(story: Story) {
   if (typeof window === 'undefined' || !story || !story.id) return;
   try {
+    removeDeletedStoryId(story.id);
     const existing = getLocalCustomStories();
     const idx = existing.findIndex(s => s.id === story.id);
     if (idx >= 0) {
@@ -178,6 +210,7 @@ export function saveLocalCustomStory(story: Story) {
 export function removeLocalCustomStory(storyId: string) {
   if (typeof window === 'undefined') return;
   try {
+    addDeletedStoryId(storyId);
     const existing = getLocalCustomStories();
     const filtered = existing.filter(s => s.id !== storyId);
     localStorage.setItem('kairo_custom_stories', JSON.stringify(filtered));
@@ -868,10 +901,39 @@ export const api = {
   },
 
   async deleteStory(id: string) {
+    addDeletedStoryId(id);
     removeLocalCustomStory(id);
     invalidateApiCache('/api/stories');
     invalidateApiCache('/api/users/profile');
-    return request<{ success: boolean }>(`/api/stories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    invalidateApiCache('/api/stories-trash');
+    return request<{ success: boolean; movedToTrash?: boolean }>(`/api/stories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  async getRecentlyDeletedStories() {
+    return request<{ trash: (DeletedStoryRecord & { daysLeft: number })[] }>('/api/stories-trash');
+  },
+
+  async restoreRecentlyDeletedStory(id: string) {
+    removeDeletedStoryId(id);
+    invalidateApiCache('/api/stories');
+    invalidateApiCache('/api/users/profile');
+    invalidateApiCache('/api/stories-trash');
+    const res = await request<{ success: boolean; story: Story }>(`/api/stories-trash/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
+    });
+    if (res.story) {
+      saveLocalCustomStory(res.story);
+    }
+    return res;
+  },
+
+  async permanentlyDeleteTrashStory(id: string) {
+    addDeletedStoryId(id);
+    removeLocalCustomStory(id);
+    invalidateApiCache('/api/stories-trash');
+    return request<{ success: boolean }>(`/api/stories-trash/${encodeURIComponent(id)}/permanent`, {
+      method: 'DELETE',
+    });
   },
 
   async getStoryChapters(storyId: string) {
@@ -1798,7 +1860,8 @@ export const api = {
       const stories = getLocalCustomStories();
       const chapters = getLocalCustomChapters();
       const characters = getLocalCustomCharacters();
-      if (stories.length === 0 && chapters.length === 0 && characters.length === 0) {
+      const deletedStoryIds = getDeletedStoryIds();
+      if (stories.length === 0 && chapters.length === 0 && characters.length === 0 && deletedStoryIds.length === 0) {
         return { success: true, addedStories: 0, addedChapters: 0, addedCharacters: 0 };
       }
       return await request<{
@@ -1809,7 +1872,7 @@ export const api = {
         currentHealth?: any;
       }>('/api/sync/hydrate', {
         method: 'POST',
-        body: JSON.stringify({ stories, chapters, characters }),
+        body: JSON.stringify({ stories, chapters, characters, deletedStoryIds }),
       });
     } catch (err) {
       console.warn('[Hydration] Background client sync deferred:', err);

@@ -3,9 +3,9 @@ import {
   Feather, BookOpen, Plus, Globe, Sparkles, TrendingUp, 
   Users, Star, Eye, Clock, Edit3, Trash2, ArrowRight, BarChart3,
   Download, ChevronDown, ChevronUp, Check, Search, Filter,
-  Settings, X, Shield, RefreshCw, AlertCircle
+  Settings, X, Shield, RefreshCw, AlertCircle, RotateCcw, Archive, History
 } from 'lucide-react';
-import { Story, Chapter, CreatorStats, StoryStatus, StoryType, AgeRating } from '../types';
+import { Story, Chapter, CreatorStats, StoryStatus, StoryType, AgeRating, DeletedStoryRecord } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ImageUploader } from './ImageUploader';
@@ -42,7 +42,14 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
 
   // Search & Filtering
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Ongoing' | 'Completed'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Ongoing' | 'Completed' | 'Trash'>('All');
+
+  // Recently Deleted (30-day Trash Bin)
+  const [trashList, setTrashList] = useState<(DeletedStoryRecord & { daysLeft: number })[]>([]);
+  const [loadingTrash, setLoadingTrash] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
+  const [restoringStoryId, setRestoringStoryId] = useState<string | null>(null);
 
   // Expanded Chapters Accordion
   const [expandedStoryId, setExpandedStoryId] = useState<string | null>(null);
@@ -76,16 +83,30 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
   const loadStudioData = async () => {
     setLoading(true);
     try {
-      const [storyRes, statsRes] = await Promise.all([
+      const [storyRes, statsRes, trashRes] = await Promise.all([
         api.getStories({ authorId: user?.id }),
         api.getCreatorAnalytics().catch(() => ({ stats: null })),
+        api.getRecentlyDeletedStories().catch(() => ({ trash: [] })),
       ]);
       setStories(storyRes.stories || []);
       setStats(statsRes.stats);
+      setTrashList(trashRes.trash || []);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTrashData = async () => {
+    setLoadingTrash(true);
+    try {
+      const res = await api.getRecentlyDeletedStories();
+      setTrashList(res.trash || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingTrash(false);
     }
   };
 
@@ -132,17 +153,58 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
     }
   };
 
-  // Delete an entire story
+  // Delete an entire story (Moves to 30-day Recently Deleted folder)
   const handleDeleteStory = async () => {
     if (!deletingStoryId) return;
     setIsDeleting(true);
     setActionError(null);
     try {
+      const targetStory = stories.find(s => s.id === deletingStoryId);
       await api.deleteStory(deletingStoryId);
       setStories(prev => prev.filter(s => s.id !== deletingStoryId));
       setDeletingStoryId(null);
+      await loadTrashData();
+      setToastMessage(`"${targetStory?.title || 'Story'}" moved to Recently Deleted folder. Recoverable for 30 days.`);
+      setTimeout(() => setToastMessage(null), 6000);
     } catch (err: any) {
       setActionError(err.message || 'Failed to delete story');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Restore story from 30-day Recently Deleted folder
+  const handleRestoreStory = async (storyId: string) => {
+    setRestoringStoryId(storyId);
+    setActionError(null);
+    try {
+      const res = await api.restoreRecentlyDeletedStory(storyId);
+      if (res.story) {
+        setStories(prev => [res.story, ...prev.filter(s => s.id !== res.story.id)]);
+        setTrashList(prev => prev.filter(t => t.id !== storyId));
+        setToastMessage(`"${res.story.title}" and its chapters successfully restored!`);
+        setTimeout(() => setToastMessage(null), 6000);
+      }
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to restore story');
+    } finally {
+      setRestoringStoryId(null);
+    }
+  };
+
+  // Permanently delete a story from Trash
+  const handlePermanentDelete = async () => {
+    if (!permanentDeleteId) return;
+    setIsDeleting(true);
+    setActionError(null);
+    try {
+      await api.permanentlyDeleteTrashStory(permanentDeleteId);
+      setTrashList(prev => prev.filter(t => t.id !== permanentDeleteId));
+      setPermanentDeleteId(null);
+      setToastMessage('Story permanently removed from database.');
+      setTimeout(() => setToastMessage(null), 5000);
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to permanently delete story');
     } finally {
       setIsDeleting(false);
     }
@@ -408,6 +470,21 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
         </div>
       )}
 
+      {toastMessage && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            onClick={() => setToastMessage(null)}
+            className="text-emerald-500 hover:text-emerald-800 font-bold p-1 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Studio Header Banner */}
       <section className="glass-card rounded-3xl p-6 sm:p-10 border border-pink-200/90 shadow-sm relative overflow-hidden bg-gradient-to-br from-[#fee7ff] via-white to-[#ffeffe]">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -567,6 +644,23 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
                   {tab}
                 </button>
               ))}
+              <button
+                id="studio-recently-deleted-tab"
+                onClick={() => setStatusFilter('Trash')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  statusFilter === 'Trash' 
+                    ? 'bg-amber-100 text-amber-900 shadow-2xs' 
+                    : 'text-[#544246] hover:text-amber-800'
+                }`}
+              >
+                <Trash2 className="w-3.5 h-3.5 text-amber-600" />
+                <span>Recently Deleted</span>
+                {trashList.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-950 text-[10px] font-black">
+                    {trashList.length}
+                  </span>
+                )}
+              </button>
             </div>
 
             <button
@@ -579,8 +673,123 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Stories List */}
-        {filteredStories.length === 0 ? (
+        {/* Stories List or Recently Deleted Trash Bin */}
+        {statusFilter === 'Trash' ? (
+          <div className="space-y-4">
+            {/* Trash Bin Header Notice */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-amber-50/90 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                  <Archive className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-amber-950 font-display flex items-center gap-2">
+                    <span>30-Day Story Recovery Vault</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-bold">
+                      {trashList.length} {trashList.length === 1 ? 'item' : 'items'}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-amber-800/90 leading-relaxed mt-0.5">
+                    Stories you delete from Creator Studio are safely archived here for <strong>30 days</strong>. If deleted mistakenly, you can restore them with a single click. All manuscript chapters, drafts, and characters will be completely restored to your active database.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={loadTrashData}
+                disabled={loadingTrash}
+                className="px-3.5 py-2 rounded-xl bg-white border border-amber-200 text-xs font-bold text-amber-900 hover:bg-amber-100/50 flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingTrash ? 'animate-spin' : ''}`} />
+                <span>Refresh Vault</span>
+              </button>
+            </div>
+
+            {trashList.length === 0 ? (
+              <div className="text-center py-16 glass-card rounded-3xl p-8 border border-amber-200/50 bg-amber-50/20 space-y-3">
+                <Archive className="w-12 h-12 mx-auto text-amber-400 opacity-60" />
+                <h3 className="font-bold text-lg text-[#26152b]">Recently Deleted is empty</h3>
+                <p className="text-xs text-[#877276] max-w-sm mx-auto">
+                  You have no deleted stories in the 30-day recovery window. Whenever you delete a story, it will be safely kept here for 30 days before permanent cleanup.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {trashList.map(item => (
+                  <div
+                    key={item.id}
+                    className="glass-card rounded-3xl border border-amber-200/90 bg-gradient-to-r from-amber-50/40 via-white to-pink-50/20 shadow-xs hover:shadow-md transition-all overflow-hidden p-5 sm:p-6"
+                  >
+                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+                      <div className="flex items-start gap-4">
+                        <img
+                          src={item.story.coverImage}
+                          alt={item.story.title}
+                          className="w-16 h-22 sm:w-20 sm:h-28 object-cover rounded-2xl shadow-xs shrink-0 opacity-80"
+                        />
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                              <History className="w-3 h-3 text-amber-700" />
+                              <span>{item.daysLeft ?? 30} days left to recover</span>
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-pink-100/80 text-[#9e3b5f] text-[10px] font-bold">
+                              {item.story.genre}
+                            </span>
+                            <span className="text-[10px] text-[#877276]">
+                              Deleted on {new Date(item.deletedAt).toLocaleDateString()}
+                            </span>
+                          </div>
+
+                          <h3 className="text-lg sm:text-xl font-black font-display text-[#26152b]">
+                            {item.story.title}
+                          </h3>
+
+                          <p className="text-xs text-[#544246] line-clamp-2 max-w-2xl leading-relaxed">
+                            {item.story.description}
+                          </p>
+
+                          <div className="flex items-center gap-3 pt-1 text-xs text-[#877276]">
+                            <span className="font-semibold text-[#544246]">
+                              {item.chapters?.length ?? 0} preserved {item.chapters?.length === 1 ? 'chapter' : 'chapters'}
+                            </span>
+                            {(item.characters?.length ?? 0) > 0 && (
+                              <>
+                                <span>•</span>
+                                <span className="font-semibold text-[#544246]">
+                                  {item.characters.length} characters
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex flex-wrap items-center gap-2.5 self-end lg:self-center shrink-0">
+                        <button
+                          onClick={() => handleRestoreStory(item.id)}
+                          disabled={restoringStoryId === item.id}
+                          className="px-4 py-2.5 rounded-2xl btn-gradient text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs hover:scale-102 transition-transform"
+                        >
+                          <RotateCcw className={`w-3.5 h-3.5 ${restoringStoryId === item.id ? 'animate-spin' : ''}`} />
+                          <span>{restoringStoryId === item.id ? 'Restoring...' : 'Recover Story'}</span>
+                        </button>
+                        <button
+                          onClick={() => setPermanentDeleteId(item.id)}
+                          className="p-2.5 rounded-2xl text-rose-600 hover:bg-rose-50 border border-rose-200 hover:border-rose-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                          title="Permanently erase from database"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete Forever</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : filteredStories.length === 0 ? (
           <div className="text-center py-16 glass-card rounded-3xl p-8 border border-pink-100 space-y-4">
             <BookOpen className="w-12 h-12 mx-auto text-[#877276] opacity-40" />
             <h3 className="font-bold text-lg text-[#26152b]">No stories found</h3>
@@ -980,14 +1189,14 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
       {/* Delete Story Confirmation Modal */}
       {deletingStoryId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm glass-card rounded-3xl p-6 border border-pink-200 shadow-2xl space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-              <Trash2 className="w-6 h-6" />
+          <div className="w-full max-w-sm glass-card rounded-3xl p-6 border border-amber-200 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+              <Archive className="w-6 h-6" />
             </div>
-            <div className="text-center space-y-1">
-              <h3 className="font-black text-lg text-[#26152b] font-display">Delete this Story?</h3>
-              <p className="text-xs text-[#877276]">
-                This will permanently delete the entire story and all associated chapters. This action cannot be undone.
+            <div className="text-center space-y-1.5">
+              <h3 className="font-black text-lg text-[#26152b] font-display">Move Story to Trash?</h3>
+              <p className="text-xs text-[#877276] leading-relaxed">
+                This story and its chapters will be removed from public view and saved in your <strong>Recently Deleted folder</strong>. You can restore it anytime within <strong>30 days</strong>.
               </p>
             </div>
             <div className="flex gap-2.5 pt-2">
@@ -1000,9 +1209,41 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
               <button
                 onClick={handleDeleteStory}
                 disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold cursor-pointer shadow-sm"
+              >
+                {isDeleting ? 'Moving...' : 'Move to Trash'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent Delete Confirmation Modal */}
+      {permanentDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-sm glass-card rounded-3xl p-6 border border-rose-200 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="font-black text-lg text-[#26152b] font-display">Permanently Erase Story?</h3>
+              <p className="text-xs text-[#877276] leading-relaxed">
+                This will immediately delete this story, all chapters, and manuscript drafts forever from the database. <strong>This action cannot be undone.</strong>
+              </p>
+            </div>
+            <div className="flex gap-2.5 pt-2">
+              <button
+                onClick={() => setPermanentDeleteId(null)}
+                className="flex-1 py-2.5 rounded-xl bg-white border border-pink-200 text-xs font-bold text-[#544246] hover:bg-pink-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePermanentDelete}
+                disabled={isDeleting}
                 className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer shadow-sm"
               >
-                {isDeleting ? 'Deleting...' : 'Yes, Delete Story'}
+                {isDeleting ? 'Erasing...' : 'Yes, Delete Forever'}
               </button>
             </div>
           </div>

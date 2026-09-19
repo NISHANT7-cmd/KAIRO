@@ -421,12 +421,53 @@ app.delete('/api/stories/:id', requireAuth, (req: Request, res: Response) => {
   let rawId = req.params.id;
   try { rawId = decodeURIComponent(rawId); } catch {}
   const story = dbService.findStoryByIdOrSlug(rawId);
-  if (!story) return res.status(404).json({ error: 'Story not found' });
-  if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
+  if (!story) {
+    const inTrash = (dbService.getRaw().recentlyDeletedStories || []).find(r => r.id === rawId || r.story.id === rawId || r.story.slug === rawId);
+    if (inTrash) {
+      return res.json({ success: true, movedToTrash: true, alreadyInTrash: true });
+    }
+    return res.status(404).json({ error: 'Story not found' });
+  }
+
+  const isOwner = user.role === 'ADMIN' || 
+    story.authorId === user.id || 
+    (story.authorUsername && user.username && story.authorUsername.toLowerCase() === user.username.toLowerCase()) ||
+    (story.authorDisplayName && user.displayName && story.authorDisplayName.toLowerCase() === user.displayName.toLowerCase());
+
+  if (!isOwner) {
     return res.status(403).json({ error: 'Forbidden: You do not own this story' });
   }
 
-  dbService.deleteStory(story.id);
+  const result = dbService.moveToRecentlyDeleted(story.id, user);
+  return res.json({ success: true, movedToTrash: true, record: result.record });
+});
+
+// Recently Deleted (Trash Bin) Endpoints
+app.get('/api/stories-trash', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const list = dbService.getRecentlyDeleted(user.role === 'ADMIN' ? undefined : user.id);
+  return res.json({ trash: list });
+});
+
+app.post('/api/stories-trash/:id/restore', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  let rawId = req.params.id;
+  try { rawId = decodeURIComponent(rawId); } catch {}
+  const result = dbService.restoreRecentlyDeleted(rawId, user);
+  if (!result.success) {
+    return res.status(400).json({ error: result.message || 'Failed to restore story' });
+  }
+  return res.json({ success: true, story: result.story });
+});
+
+app.delete('/api/stories-trash/:id/permanent', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  let rawId = req.params.id;
+  try { rawId = decodeURIComponent(rawId); } catch {}
+  const success = dbService.permanentlyDeleteTrashStory(rawId, user);
+  if (!success) {
+    return res.status(400).json({ error: 'Story not found in recently deleted or not authorized' });
+  }
   return res.json({ success: true });
 });
 
@@ -1664,8 +1705,8 @@ app.get('/api/health/db', (req: Request, res: Response) => {
 // Guarantees newly created stories, chapters, and characters survive container redeployments and restarts
 app.post('/api/sync/hydrate', (req: Request, res: Response) => {
   try {
-    const { stories, chapters, characters } = req.body || {};
-    const result = dbService.hydrateFromClient({ stories, chapters, characters });
+    const { stories, chapters, characters, deletedStoryIds } = req.body || {};
+    const result = dbService.hydrateFromClient({ stories, chapters, characters, deletedStoryIds });
     return res.json({ success: true, ...result, currentHealth: dbService.getDatabaseHealth() });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Hydration failed' });

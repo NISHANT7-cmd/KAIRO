@@ -1281,3 +1281,15 @@ export interface AdminRecommendationSettings {
   updatedBy: string;
 }
 
+export interface DeletedStoryRecord {
+  id: string;
+  story: Story;
+  chapters: Chapter[];
+  characters: Character[];
+  deletedAt: string;
+  expiresAt: string;
+  deletedByUserId: string;
+  deletedByUsername: string;
+  daysLeft?: number;
+}
+
