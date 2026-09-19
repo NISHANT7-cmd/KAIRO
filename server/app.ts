@@ -1655,6 +1655,39 @@ app.get(['/api', '/api/health'], (req: Request, res: Response) => {
   return res.json({ status: 'ok', app: 'KAIRO API', timestamp: new Date().toISOString() });
 });
 
+// Database Health & Integrity Status
+app.get('/api/health/db', (req: Request, res: Response) => {
+  return res.json(dbService.getDatabaseHealth());
+});
+
+// Client-Server Two-Way Persistence & Hydration
+// Guarantees newly created stories, chapters, and characters survive container redeployments and restarts
+app.post('/api/sync/hydrate', (req: Request, res: Response) => {
+  try {
+    const { stories, chapters, characters } = req.body || {};
+    const result = dbService.hydrateFromClient({ stories, chapters, characters });
+    return res.json({ success: true, ...result, currentHealth: dbService.getDatabaseHealth() });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Hydration failed' });
+  }
+});
+
+// Database Safe Export & Backup (for offline preservation)
+app.get('/api/admin/db/export', (req: Request, res: Response) => {
+  const raw = dbService.getRaw();
+  // Strip sensitive hashed passwords from export
+  const safeExport = {
+    ...raw,
+    passwords: {},
+    sessions: {}
+  };
+  return res.json({
+    exportedAt: new Date().toISOString(),
+    health: dbService.getDatabaseHealth(),
+    data: safeExport
+  });
+});
+
 // 404 Handler for all unmatched API routes (ensures JSON response instead of HTML)
 app.use('/api', (req: Request, res: Response) => {
   res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });

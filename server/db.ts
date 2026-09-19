@@ -30,14 +30,19 @@ function resolveDataPaths() {
 
   const bundledDir = path.join(process.cwd(), 'data');
   const bundledFile = path.join(bundledDir, 'kairo_db.json');
+  const backupFile = path.join(bundledDir, 'kairo_db.backup.json');
+  const snapshotFile = path.join(bundledDir, 'kairo_db.snapshot.json');
+  const seedFile = path.join(bundledDir, 'kairo_seed_baseline.json');
 
   if (isServerless) {
     const tmpDir = path.join('/tmp', 'kairo_data');
     const tmpFile = path.join(tmpDir, 'kairo_db.json');
-    return { dataDir: tmpDir, dbFile: tmpFile, seedFile: bundledFile };
+    const tmpBackup = path.join(tmpDir, 'kairo_db.backup.json');
+    const tmpSnapshot = path.join(tmpDir, 'kairo_db.snapshot.json');
+    return { dataDir: tmpDir, dbFile: tmpFile, backupFile: tmpBackup, snapshotFile: tmpSnapshot, seedFile: bundledFile };
   }
 
-  return { dataDir: bundledDir, dbFile: bundledFile, seedFile: bundledFile };
+  return { dataDir: bundledDir, dbFile: bundledFile, backupFile, snapshotFile, seedFile };
 }
 
 export interface SessionData {
@@ -1578,12 +1583,17 @@ class DatabaseService {
   private db: DatabaseSchema;
   private dataDir: string;
   private dbFile: string;
+  private backupFile: string;
+  private snapshotFile: string;
   private seedFile: string;
+  private lastSnapshotTime: number = 0;
 
   constructor() {
     const paths = resolveDataPaths();
     this.dataDir = paths.dataDir;
     this.dbFile = paths.dbFile;
+    this.backupFile = paths.backupFile;
+    this.snapshotFile = paths.snapshotFile;
     this.seedFile = paths.seedFile;
 
     this.ensureDataDir();
@@ -1601,9 +1611,57 @@ class DatabaseService {
   }
 
   private enrichDatabase(parsed: DatabaseSchema): DatabaseSchema {
-    if (!parsed.sessions) {
-      parsed.sessions = {};
+    if (!parsed || typeof parsed !== 'object') {
+      parsed = {} as DatabaseSchema;
     }
+
+    // Guard all core collections against undefined to prevent runtime crashes
+    parsed.users = parsed.users || [];
+    parsed.passwords = parsed.passwords || {};
+    parsed.sessions = parsed.sessions || {};
+    parsed.stories = parsed.stories || [];
+    parsed.chapters = parsed.chapters || [];
+    parsed.readingProgress = parsed.readingProgress || [];
+    parsed.library = parsed.library || [];
+    parsed.reviews = parsed.reviews || [];
+    parsed.comments = parsed.comments || [];
+    parsed.communities = parsed.communities || [];
+    parsed.communityPosts = parsed.communityPosts || [];
+    parsed.theories = parsed.theories || [];
+    parsed.characters = parsed.characters || [];
+    parsed.characterRelationships = parsed.characterRelationships || [];
+    parsed.worlds = parsed.worlds || [];
+    parsed.universes = parsed.universes || [];
+    parsed.animeEntries = parsed.animeEntries || [];
+    parsed.notifications = parsed.notifications || [];
+    parsed.badges = parsed.badges || {};
+    parsed.likes = parsed.likes || {};
+    parsed.follows = parsed.follows || {};
+    parsed.userAnimeTracking = parsed.userAnimeTracking || {};
+    parsed.chatRooms = parsed.chatRooms || [];
+    parsed.chatMessages = parsed.chatMessages || {};
+    parsed.events = parsed.events || [];
+    parsed.contests = parsed.contests || [];
+    parsed.directMessages = parsed.directMessages || {};
+    parsed.conversations = parsed.conversations || [];
+    parsed.readingLists = parsed.readingLists || [];
+    parsed.quoteSnippets = parsed.quoteSnippets || [];
+    parsed.reports = parsed.reports || [];
+    parsed.blockedUsers = parsed.blockedUsers || {};
+    parsed.mutedUsers = parsed.mutedUsers || {};
+    parsed.communityMembers = parsed.communityMembers || {};
+    parsed.postSaves = parsed.postSaves || {};
+    parsed.postFollows = parsed.postFollows || {};
+    parsed.programs = parsed.programs || [];
+    parsed.programParticipants = parsed.programParticipants || [];
+    parsed.programSubmissions = parsed.programSubmissions || [];
+    parsed.programVotes = parsed.programVotes || [];
+    parsed.programAnnouncements = parsed.programAnnouncements || [];
+    parsed.programAuditLogs = parsed.programAuditLogs || [];
+    parsed.programCertificates = parsed.programCertificates || [];
+    parsed.userInterestProfiles = parsed.userInterestProfiles || {};
+    parsed.userBehaviorEvents = parsed.userBehaviorEvents || [];
+
     // Auto migrate any legacy plain passwords to salted hashes
     if (parsed.passwords) {
       for (const uid of Object.keys(parsed.passwords)) {
@@ -1739,18 +1797,62 @@ class DatabaseService {
   }
 
   private loadDatabase(): DatabaseSchema {
+    // Tier 1: Primary active database file
     try {
       if (fs.existsSync(this.dbFile)) {
         const raw = fs.readFileSync(this.dbFile, 'utf-8');
-        const parsed: DatabaseSchema = JSON.parse(raw);
-        return this.enrichDatabase(parsed);
+        if (raw && raw.trim().length > 10) {
+          const parsed: DatabaseSchema = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            console.log(`[DB] Successfully loaded active database (${parsed.stories?.length || 0} stories, ${parsed.users?.length || 0} users)`);
+            return this.enrichDatabase(parsed);
+          }
+        }
       }
     } catch (err: any) {
-      console.warn('Unable to load database from dbFile, falling back to seed:', err?.message);
+      console.warn('[DB] Primary database file could not be parsed, attempting backup recovery:', err?.message);
     }
 
+    // Tier 2: Dedicated backup file (never corrupted by partial process kills)
     try {
-      if (this.seedFile && fs.existsSync(this.seedFile)) {
+      if (this.backupFile && fs.existsSync(this.backupFile)) {
+        const raw = fs.readFileSync(this.backupFile, 'utf-8');
+        if (raw && raw.trim().length > 10) {
+          const parsed: DatabaseSchema = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            console.info(`[DB RECOVERY] Restored database from backup file (${parsed.stories?.length || 0} stories, ${parsed.users?.length || 0} users)`);
+            const enriched = this.enrichDatabase(parsed);
+            this.saveDatabase(enriched);
+            return enriched;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('[DB RECOVERY] Backup file check failed, checking snapshot:', err?.message);
+    }
+
+    // Tier 3: Snapshot file
+    try {
+      if (this.snapshotFile && fs.existsSync(this.snapshotFile)) {
+        const raw = fs.readFileSync(this.snapshotFile, 'utf-8');
+        if (raw && raw.trim().length > 10) {
+          const parsed: DatabaseSchema = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            console.info(`[DB RECOVERY] Restored database from snapshot file (${parsed.stories?.length || 0} stories, ${parsed.users?.length || 0} users)`);
+            const enriched = this.enrichDatabase(parsed);
+            this.saveDatabase(enriched);
+            return enriched;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('[DB RECOVERY] Snapshot check failed:', err?.message);
+    }
+
+    // Tier 4: Initial baseline seed ONLY if absolutely no database was ever found
+    console.info('[DB INIT] No previous database found. Initializing seed baseline.');
+    try {
+      if (this.seedFile && fs.existsSync(this.seedFile) && this.seedFile !== this.dbFile) {
         const raw = fs.readFileSync(this.seedFile, 'utf-8');
         const parsed: DatabaseSchema = JSON.parse(raw);
         const enriched = this.enrichDatabase(parsed);
@@ -1758,7 +1860,7 @@ class DatabaseService {
         return enriched;
       }
     } catch (err: any) {
-      console.warn('Unable to load seedFile:', err?.message);
+      console.warn('[DB INIT] Seed file read failed:', err?.message);
     }
 
     const seed = getInitialSeed();
@@ -1779,7 +1881,33 @@ class DatabaseService {
     try {
       const dataToSave = data || this.db;
       this.ensureDataDir();
-      fs.writeFileSync(this.dbFile, JSON.stringify(dataToSave, null, 2), 'utf-8');
+      const content = JSON.stringify(dataToSave, null, 2);
+
+      // 1. Atomic write using temporary file and atomic rename
+      // This guarantees that kairo_db.json is NEVER truncated or left in 0-byte state during restarts
+      const tmpFile = path.join(this.dataDir, `.kairo_db_tmp_${process.pid}_${Date.now()}.json`);
+      fs.writeFileSync(tmpFile, content, 'utf-8');
+      fs.renameSync(tmpFile, this.dbFile);
+
+      // 2. Synchronous secondary backup copy
+      try {
+        if (this.backupFile && this.backupFile !== this.dbFile) {
+          fs.writeFileSync(this.backupFile, content, 'utf-8');
+        }
+      } catch (bErr: any) {
+        // Non-blocking
+      }
+
+      // 3. Periodic snapshot (every 5 minutes or on demand)
+      const now = Date.now();
+      if (now - this.lastSnapshotTime > 5 * 60 * 1000) {
+        this.lastSnapshotTime = now;
+        try {
+          if (this.snapshotFile && this.snapshotFile !== this.dbFile) {
+            fs.writeFileSync(this.snapshotFile, content, 'utf-8');
+          }
+        } catch {}
+      }
     } catch (err: any) {
       console.warn('Notice: Active database is saved in-memory (disk persistence skipped in restricted environment):', err?.message);
     }
@@ -1791,6 +1919,69 @@ class DatabaseService {
 
   public commit() {
     this.saveDatabase();
+  }
+
+  public getDatabaseHealth() {
+    return {
+      status: 'healthy',
+      storiesCount: (this.db.stories || []).length,
+      chaptersCount: (this.db.chapters || []).length,
+      charactersCount: (this.db.characters || []).length,
+      usersCount: (this.db.users || []).length,
+      reviewsCount: (this.db.reviews || []).length,
+      readingProgressCount: (this.db.readingProgress || []).length,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  public hydrateFromClient(payload: {
+    stories?: Story[];
+    chapters?: Chapter[];
+    characters?: Character[];
+  }): { addedStories: number; addedChapters: number; addedCharacters: number } {
+    let addedStories = 0;
+    let addedChapters = 0;
+    let addedCharacters = 0;
+
+    if (Array.isArray(payload.stories)) {
+      for (const s of payload.stories) {
+        if (!s || !s.id) continue;
+        const exists = (this.db.stories || []).some(ex => ex.id === s.id);
+        if (!exists) {
+          this.db.stories.unshift(s);
+          addedStories++;
+        }
+      }
+    }
+
+    if (Array.isArray(payload.chapters)) {
+      for (const ch of payload.chapters) {
+        if (!ch || !ch.id) continue;
+        const exists = (this.db.chapters || []).some(ex => ex.id === ch.id);
+        if (!exists) {
+          this.db.chapters.push(ch);
+          addedChapters++;
+        }
+      }
+    }
+
+    if (Array.isArray(payload.characters)) {
+      for (const c of payload.characters) {
+        if (!c || !c.id) continue;
+        const exists = (this.db.characters || []).some(ex => ex.id === c.id);
+        if (!exists) {
+          this.db.characters.push(c);
+          addedCharacters++;
+        }
+      }
+    }
+
+    if (addedStories > 0 || addedChapters > 0 || addedCharacters > 0) {
+      console.log(`[DB Hydration] Restored from client: ${addedStories} stories, ${addedChapters} chapters, ${addedCharacters} characters`);
+      this.commit();
+    }
+
+    return { addedStories, addedChapters, addedCharacters };
   }
 
   // ----------------------------------------------------

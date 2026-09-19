@@ -184,6 +184,72 @@ export function removeLocalCustomStory(storyId: string) {
   } catch {}
 }
 
+export function getLocalCustomChapters(): Chapter[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('kairo_custom_chapters');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveLocalCustomChapter(chapter: Chapter) {
+  if (typeof window === 'undefined' || !chapter || !chapter.id) return;
+  try {
+    const existing = getLocalCustomChapters();
+    const idx = existing.findIndex(c => c.id === chapter.id);
+    if (idx >= 0) {
+      existing[idx] = { ...existing[idx], ...chapter };
+    } else {
+      existing.unshift(chapter);
+    }
+    localStorage.setItem('kairo_custom_chapters', JSON.stringify(existing));
+  } catch {}
+}
+
+export function removeLocalCustomChapter(chapterId: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getLocalCustomChapters();
+    const filtered = existing.filter(c => c.id !== chapterId);
+    localStorage.setItem('kairo_custom_chapters', JSON.stringify(filtered));
+  } catch {}
+}
+
+export function getLocalCustomCharacters(): Character[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('kairo_custom_characters');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveLocalCustomCharacter(character: Character) {
+  if (typeof window === 'undefined' || !character || !character.id) return;
+  try {
+    const existing = getLocalCustomCharacters();
+    const idx = existing.findIndex(c => c.id === character.id);
+    if (idx >= 0) {
+      existing[idx] = { ...existing[idx], ...character };
+    } else {
+      existing.unshift(character);
+    }
+    localStorage.setItem('kairo_custom_characters', JSON.stringify(existing));
+  } catch {}
+}
+
+export function removeLocalCustomCharacter(characterId: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getLocalCustomCharacters();
+    const filtered = existing.filter(c => c.id !== characterId);
+    localStorage.setItem('kairo_custom_characters', JSON.stringify(filtered));
+  } catch {}
+}
+
 export function invalidateApiCache(pattern?: string) {
   if (typeof window === 'undefined') return;
   try {
@@ -579,6 +645,17 @@ export const api = {
     const clean = encodeURIComponent(resolvedId);
     try {
       const res = await request<PublicUserProfile>(`/api/users/profile/${clean}`);
+      if (res && res.stories) {
+        const localCustom = getLocalCustomStories().filter(s => 
+          s.authorId === res.user?.id || 
+          (s.authorUsername && res.user?.username && s.authorUsername.toLowerCase() === res.user.username.toLowerCase())
+        );
+        for (const ls of localCustom) {
+          if (!res.stories.some(ex => ex.id === ls.id)) {
+            res.stories.unshift(ls);
+          }
+        }
+      }
       return res;
     } catch (err: any) {
       if (!isServerFailure(err)) {
@@ -703,11 +780,54 @@ export const api = {
     if (params.featured !== undefined) q.set('featured', String(params.featured));
     if (params.sort) q.set('sort', params.sort);
     if (params.status) q.set('status', params.status);
-    return request<{ stories: Story[] }>(`/api/stories?${q.toString()}`);
+
+    try {
+      const res = await request<{ stories: Story[] }>(`/api/stories?${q.toString()}`);
+      if (res && Array.isArray(res.stories)) {
+        const localCustom = getLocalCustomStories();
+        for (const ls of localCustom) {
+          if (!res.stories.some(s => s.id === ls.id)) {
+            if (params.authorId && ls.authorId !== params.authorId) continue;
+            if (params.universeId && ls.universeId !== params.universeId) continue;
+            if (params.genre && ls.genre !== params.genre && !(ls.tags || []).includes(params.genre)) continue;
+            res.stories.unshift(ls);
+          }
+        }
+      }
+      return res;
+    } catch (err) {
+      const localCustom = getLocalCustomStories();
+      const filtered = localCustom.filter(ls => {
+        if (params.authorId && ls.authorId !== params.authorId) return false;
+        if (params.universeId && ls.universeId !== params.universeId) return false;
+        if (params.genre && ls.genre !== params.genre && !(ls.tags || []).includes(params.genre)) return false;
+        return true;
+      });
+      return { stories: filtered };
+    }
   },
 
   async getStory(idOrSlug: string) {
-    return request<{ story: Story; chapters: Chapter[]; reviews: Review[] }>(`/api/stories/${idOrSlug}`);
+    try {
+      const res = await request<{ story: Story; chapters: Chapter[]; reviews: Review[] }>(`/api/stories/${idOrSlug}`);
+      // Also ensure any newly drafted local custom chapters appear seamlessly
+      if (res && res.story && Array.isArray(res.chapters)) {
+        const localChapters = getLocalCustomChapters().filter(c => c.storyId === res.story.id);
+        for (const lc of localChapters) {
+          if (!res.chapters.some(c => c.id === lc.id)) {
+            res.chapters.push(lc);
+          }
+        }
+      }
+      return res;
+    } catch (err) {
+      const localStory = getLocalCustomStories().find(s => s.id === idOrSlug || s.slug === idOrSlug);
+      if (localStory) {
+        const localChapters = getLocalCustomChapters().filter(c => c.storyId === localStory.id);
+        return { story: localStory, chapters: localChapters, reviews: [] };
+      }
+      throw err;
+    }
   },
 
   async createStory(story: Partial<Story>) {
@@ -759,35 +879,49 @@ export const api = {
   },
 
   async createChapter(storyId: string, chapter: Partial<Chapter>) {
-    return request<{ chapter: Chapter }>(`/api/stories/${storyId}/chapters`, {
+    const res = await request<{ chapter: Chapter }>(`/api/stories/${storyId}/chapters`, {
       method: 'POST',
       body: JSON.stringify(chapter),
     });
+    if (res.chapter) {
+      saveLocalCustomChapter(res.chapter);
+    }
+    invalidateApiCache('/api/stories');
+    invalidateApiCache(`/api/stories/${storyId}`);
+    return res;
   },
 
   async saveChapter(chapter: Partial<Chapter>) {
+    let res: { chapter: Chapter };
     if (chapter.id) {
-      return request<{ chapter: Chapter }>(`/api/chapters/${chapter.id}`, {
+      res = await request<{ chapter: Chapter }>(`/api/chapters/${chapter.id}`, {
         method: 'PATCH',
         body: JSON.stringify(chapter),
       });
     } else if (chapter.storyId) {
       try {
-        return await request<{ chapter: Chapter }>(`/api/stories/${encodeURIComponent(chapter.storyId)}/chapters`, {
+        res = await request<{ chapter: Chapter }>(`/api/stories/${encodeURIComponent(chapter.storyId)}/chapters`, {
           method: 'POST',
           body: JSON.stringify(chapter),
         });
       } catch (err: any) {
         if (err?.status === 404 || err?.message?.includes('not found')) {
-          return await request<{ chapter: Chapter }>(`/api/chapters`, {
+          res = await request<{ chapter: Chapter }>(`/api/chapters`, {
             method: 'POST',
             body: JSON.stringify(chapter),
           });
+        } else {
+          throw err;
         }
-        throw err;
       }
+    } else {
+      throw new Error('storyId is required');
     }
-    throw new Error('storyId is required');
+    if (res.chapter) {
+      saveLocalCustomChapter(res.chapter);
+    }
+    invalidateApiCache('/api/stories');
+    return res;
   },
 
   async getChapter(chapterId: string) {
@@ -795,13 +929,20 @@ export const api = {
   },
 
   async updateChapter(chapterId: string, updates: Partial<Chapter>) {
-    return request<{ chapter: Chapter }>(`/api/chapters/${chapterId}`, {
+    const res = await request<{ chapter: Chapter }>(`/api/chapters/${chapterId}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
     });
+    if (res.chapter) {
+      saveLocalCustomChapter(res.chapter);
+    }
+    invalidateApiCache('/api/stories');
+    return res;
   },
 
   async deleteChapter(chapterId: string) {
+    removeLocalCustomChapter(chapterId);
+    invalidateApiCache('/api/stories');
     return request<{ success: boolean }>(`/api/chapters/${chapterId}`, {
       method: 'DELETE',
     });
@@ -1176,22 +1317,31 @@ export const api = {
   async createCharacter(character: Partial<Character>) {
     invalidateApiCache('/api/characters');
     invalidateApiCache('/api/stories');
-    return request<{ character: Character }>('/api/characters', {
+    const res = await request<{ character: Character }>('/api/characters', {
       method: 'POST',
       body: JSON.stringify(character),
     });
+    if (res.character) {
+      saveLocalCustomCharacter(res.character);
+    }
+    return res;
   },
 
   async updateCharacter(id: string, updates: Partial<Character>) {
     invalidateApiCache('/api/characters');
     invalidateApiCache('/api/stories');
-    return request<{ character: Character }>(`/api/characters/${encodeURIComponent(id)}`, {
+    const res = await request<{ character: Character }>(`/api/characters/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
     });
+    if (res.character) {
+      saveLocalCustomCharacter(res.character);
+    }
+    return res;
   },
 
   async deleteCharacter(id: string) {
+    removeLocalCustomCharacter(id);
     invalidateApiCache('/api/characters');
     invalidateApiCache('/api/stories');
     return request<{ success: boolean }>(`/api/characters/${encodeURIComponent(id)}`, {
@@ -1640,5 +1790,51 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(settings),
     });
+  },
+
+  // Database Persistence, Health & Two-Way Sync
+  async syncClientHydration() {
+    try {
+      const stories = getLocalCustomStories();
+      const chapters = getLocalCustomChapters();
+      const characters = getLocalCustomCharacters();
+      if (stories.length === 0 && chapters.length === 0 && characters.length === 0) {
+        return { success: true, addedStories: 0, addedChapters: 0, addedCharacters: 0 };
+      }
+      return await request<{
+        success: boolean;
+        addedStories: number;
+        addedChapters: number;
+        addedCharacters: number;
+        currentHealth?: any;
+      }>('/api/sync/hydrate', {
+        method: 'POST',
+        body: JSON.stringify({ stories, chapters, characters }),
+      });
+    } catch (err) {
+      console.warn('[Hydration] Background client sync deferred:', err);
+      return { success: false, addedStories: 0, addedChapters: 0, addedCharacters: 0 };
+    }
+  },
+
+  async getDatabaseHealth() {
+    return request<{
+      status: string;
+      storiesCount: number;
+      chaptersCount: number;
+      charactersCount: number;
+      usersCount: number;
+      reviewsCount: number;
+      readingProgressCount: number;
+      timestamp: string;
+    }>('/api/health/db');
+  },
+
+  async exportDatabaseBackup() {
+    return request<{
+      exportedAt: string;
+      health: any;
+      data: any;
+    }>('/api/admin/db/export');
   },
 };

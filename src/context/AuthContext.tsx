@@ -107,6 +107,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser();
   }, []);
 
+  useEffect(() => {
+    // Automatically synchronize and restore any client-side created stories/chapters/characters
+    // so that redeployments, updates or server restarts never lose writer/reader activity.
+    api.syncClientHydration().catch(() => {});
+  }, [user?.id]);
+
   const login = async (loginId: string, password: string) => {
     const res = await api.login(loginId, password);
     setUser(res.user);
