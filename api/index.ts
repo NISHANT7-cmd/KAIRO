@@ -1,6 +1,14 @@
 import app from '../server/app.js';
+import { dbService } from '../server/db.js';
 
-export default function handler(req: any, res: any) {
+export default async function handler(req: any, res: any) {
+  // Await Supabase authoritative database hydration before handling any serverless request
+  try {
+    await dbService.ensureReady();
+  } catch (err: any) {
+    console.error('[Vercel Handler Readiness Error]:', err?.message || err);
+  }
+
   // Normalize request URLs so that on Vercel Serverless Functions, requests without /api prefix
   // or with ?0= rewrite parameters match the Express /api routes properly
   if (req.url && !req.url.startsWith('/api')) {

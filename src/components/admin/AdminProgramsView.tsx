@@ -583,8 +583,8 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
                           <div className="text-[11px] text-[#877276] mt-0.5 flex items-center gap-3">
                             <span>Type: {prog.type}</span>
                             <span>Theme: {prog.theme}</span>
-                            <span>Submissions: {prog.analytics.submissionsCount}</span>
-                            <span>Votes: {prog.analytics.totalVotes}</span>
+                            <span>Submissions: {prog.analytics?.submissionsCount ?? 0}</span>
+                            <span>Votes: {prog.analytics?.totalVotes ?? 0}</span>
                           </div>
                         </div>
                       </div>
@@ -667,15 +667,15 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
                       
                       <div className="grid grid-cols-3 gap-2 py-2 border-y border-pink-50 text-center text-xs">
                         <div>
-                          <div className="font-bold text-[#26152b]">{prog.analytics.registrationsCount}</div>
+                          <div className="font-bold text-[#26152b]">{prog.analytics?.registrationsCount ?? 0}</div>
                           <div className="text-[10px] text-gray-500">Participants</div>
                         </div>
                         <div>
-                          <div className="font-bold text-[#26152b]">{prog.analytics.submissionsCount}</div>
+                          <div className="font-bold text-[#26152b]">{prog.analytics?.submissionsCount ?? 0}</div>
                           <div className="text-[10px] text-gray-500">Entries</div>
                         </div>
                         <div>
-                          <div className="font-bold text-[#26152b]">{prog.analytics.totalVotes}</div>
+                          <div className="font-bold text-[#26152b]">{prog.analytics?.totalVotes ?? 0}</div>
                           <div className="text-[10px] text-gray-500">Votes</div>
                         </div>
                       </div>
@@ -820,16 +820,16 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center font-bold text-gray-900">
-                            {prog.analytics.registrationsCount} / {prog.maxParticipants}
+                            {prog.analytics?.registrationsCount ?? 0} / {prog.maxParticipants ?? 500}
                           </td>
                           <td className="py-3 px-4 text-center font-bold text-gray-900">
-                            {prog.analytics.submissionsCount}
+                            {prog.analytics?.submissionsCount ?? 0}
                           </td>
                           <td className="py-3 px-4 text-center font-bold text-gray-900">
-                            {prog.analytics.totalVotes}
+                            {prog.analytics?.totalVotes ?? 0}
                           </td>
                           <td className="py-3 px-4 text-[11px] text-gray-600">
-                            {new Date(prog.timeline.submissionDeadline).toLocaleDateString()}
+                            {prog.timeline?.submissionDeadline ? new Date(prog.timeline.submissionDeadline).toLocaleDateString() : 'N/A'}
                           </td>
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
@@ -1016,16 +1016,16 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
 
               <div className="space-y-3 text-xs">
                 {[
-                  { label: 'Registration Window', start: selectedProgram.timeline.registrationOpens, end: selectedProgram.timeline.registrationCloses },
-                  { label: 'Submission Window', start: selectedProgram.timeline.submissionOpens, end: selectedProgram.timeline.submissionDeadline },
-                  { label: 'Community Voting', start: selectedProgram.timeline.votingStarts, end: selectedProgram.timeline.votingEnds },
-                  { label: 'Judging & Evaluation', start: selectedProgram.timeline.judgingStarts, end: selectedProgram.timeline.judgingEnds },
-                  { label: 'Result Declaration', start: selectedProgram.timeline.resultDeclarationDate, end: selectedProgram.timeline.programEndDate }
+                  { label: 'Registration Window', start: selectedProgram.timeline?.registrationOpens, end: selectedProgram.timeline?.registrationCloses },
+                  { label: 'Submission Window', start: selectedProgram.timeline?.submissionOpens, end: selectedProgram.timeline?.submissionDeadline },
+                  { label: 'Community Voting', start: selectedProgram.timeline?.votingStarts, end: selectedProgram.timeline?.votingEnds },
+                  { label: 'Judging & Evaluation', start: selectedProgram.timeline?.judgingStarts, end: selectedProgram.timeline?.judgingEnds },
+                  { label: 'Result Declaration', start: selectedProgram.timeline?.resultDeclarationDate, end: selectedProgram.timeline?.programEndDate }
                 ].map((item, idx) => (
                   <div key={idx} className="p-3 rounded-xl bg-pink-50/40 border border-pink-100/60 space-y-1">
                     <div className="font-bold text-[#26152b]">{item.label}</div>
                     <div className="text-[11px] text-gray-500">
-                      {new Date(item.start).toLocaleDateString()} — {new Date(item.end).toLocaleDateString()}
+                      {item.start ? new Date(item.start).toLocaleDateString() : 'N/A'} — {item.end ? new Date(item.end).toLocaleDateString() : 'N/A'}
                     </div>
                   </div>
                 ))}
@@ -1535,7 +1535,7 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
                 <div className="font-bold">Official Grand Council Remarks:</div>
                 <p className="italic">{selectedProgram.results.remarks}</p>
                 <div className="text-[10px] text-amber-700 pt-1">
-                  Declared on {new Date(selectedProgram.results.publishedAt || '').toLocaleString()}
+                  Declared on {selectedProgram.results.publishedAt ? new Date(selectedProgram.results.publishedAt).toLocaleString() : 'N/A'}
                 </div>
               </div>
 

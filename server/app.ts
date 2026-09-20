@@ -52,6 +52,43 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Database Readiness Guard: Ensure Supabase-authoritative state is fully loaded before routing any request
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await dbService.ensureReady();
+  } catch (err: any) {
+    console.error('[DB Readiness Middleware Error]:', err?.message || err);
+  }
+  next();
+});
+
+// Early Session Hydration Middleware: populates req.user if valid bearer token is provided
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    const token = authHeader.substring(7).trim();
+    if (token) {
+      try {
+        const result = await dbService.validateSessionDetails(token);
+        if (result.status === 'OK' && result.user) {
+          (req as any).user = result.user;
+          (req as any).authResult = { user: result.user, status: 200, code: 'OK', message: 'Session verified successfully.' };
+        } else {
+          (req as any).authResult = {
+            user: result.user || null,
+            status: result.status === 'SUSPENDED' ? 403 : 401,
+            code: result.status === 'SUSPENDED' ? 'SUSPENDED' : result.status === 'EXPIRED' ? 'EXPIRED_TOKEN' : 'INVALID_TOKEN',
+            message: result.status === 'SUSPENDED' ? 'Access denied: Account suspended.' : 'Session expired or invalid.'
+          };
+        }
+      } catch (err) {
+        // non-blocking for unauthenticated endpoints
+      }
+    }
+  }
+  next();
+});
+
 // Dedicated Upload endpoint for gallery/internal storage uploads
 app.post('/api/upload', (req: Request, res: Response) => {
   const { image, name } = req.body || {};
@@ -73,7 +110,11 @@ interface AuthVerificationResult {
 }
 
 // Strict Token Authentication Helper with Detailed Verification
-function verifyAuthToken(req: Request): AuthVerificationResult {
+async function verifyAuthToken(req: Request): Promise<AuthVerificationResult> {
+  if ((req as any).authResult) {
+    return (req as any).authResult as AuthVerificationResult;
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return { user: null, status: 401, code: 'MISSING_TOKEN', message: 'No authorization header provided.' };
@@ -88,7 +129,7 @@ function verifyAuthToken(req: Request): AuthVerificationResult {
     return { user: null, status: 401, code: 'MISSING_TOKEN', message: 'Bearer token string is empty.' };
   }
 
-  const result = dbService.validateSessionDetails(token);
+  const result = await dbService.validateSessionDetails(token);
 
   if (result.status === 'EXPIRED') {
     return { user: null, status: 401, code: 'EXPIRED_TOKEN', message: 'Session has expired. Please sign in again.' };
@@ -103,16 +144,20 @@ function verifyAuthToken(req: Request): AuthVerificationResult {
     return { user: result.user, status: 403, code: 'SUSPENDED', message: 'Access denied: Your account has been suspended by administration.' };
   }
 
-  return { user: result.user, status: 200, code: 'OK', message: 'Session verified successfully.' };
+  const verified: AuthVerificationResult = { user: result.user, status: 200, code: 'OK', message: 'Session verified successfully.' };
+  (req as any).authResult = verified;
+  (req as any).user = result.user;
+  return verified;
 }
 
 function getUserFromReq(req: Request): User | null {
-  const res = verifyAuthToken(req);
-  return res.status === 200 ? res.user : null;
+  if ((req as any).user) return (req as any).user;
+  if ((req as any).authResult?.user) return (req as any).authResult.user;
+  return null;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const auth = verifyAuthToken(req);
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const auth = await verifyAuthToken(req);
   if (auth.status !== 200 || !auth.user) {
     logAuth('REQUIRE_AUTH_REJECTED', {
       path: req.originalUrl || req.url,
@@ -128,8 +173,8 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  const auth = verifyAuthToken(req);
+async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const auth = await verifyAuthToken(req);
   if (auth.status !== 200 || !auth.user) {
     logAuth('REQUIRE_ADMIN_UNAUTHORIZED', {
       path: req.originalUrl || req.url,
@@ -155,7 +200,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 // ----------------------------------------------------
 // AUTH ENDPOINTS
 // ----------------------------------------------------
-app.post('/api/auth/signup', (req: Request, res: Response) => {
+app.post('/api/auth/signup', async (req: Request, res: Response) => {
   try {
     const { username, email, password, displayName, favoriteGenres, favoriteThemes, role, bio, avatar } = req.body || {};
     logAuth('SIGNUP_ATTEMPT', { username, email, role });
@@ -172,7 +217,8 @@ app.post('/api/auth/signup', (req: Request, res: Response) => {
     const cleanUsername = username.trim().toLowerCase();
     const cleanEmail = email.trim().toLowerCase();
 
-    const existing = dbService.findUserByEmailOrUsername(cleanUsername) || dbService.findUserByEmailOrUsername(cleanEmail);
+    // Check database for existing account (both in-memory cache and Supabase)
+    const existing = (await dbService.findUserByEmailOrUsernameAsync(cleanUsername)) || (await dbService.findUserByEmailOrUsernameAsync(cleanEmail));
     if (existing) {
       logAuth('SIGNUP_FAILED_DUPLICATE', { username: cleanUsername, email: cleanEmail });
       return res.status(400).json({ error: 'A user with this username or email already exists', code: 'USER_EXISTS' });
@@ -181,7 +227,8 @@ app.post('/api/auth/signup', (req: Request, res: Response) => {
     // Standard registration can be USER or WRITER. Only ADMIN portal can grant ADMIN role.
     const assignedRole = role === 'WRITER' ? 'WRITER' : 'USER';
 
-    const user = dbService.createUser({
+    // Await authoritative persistence to Supabase profiles and user_credentials tables
+    const user = await dbService.createUser({
       username: cleanUsername,
       email: cleanEmail,
       displayName: displayName?.trim() || username.trim(),
@@ -196,7 +243,8 @@ app.post('/api/auth/signup', (req: Request, res: Response) => {
       isVerifiedWriter: assignedRole === 'WRITER',
     }, password);
 
-    const session = dbService.createSession(user.id);
+    // Await authoritative session creation in Supabase user_sessions table
+    const session = await dbService.createSession(user.id);
     const enrichedUser = dbService.getUserEnriched(user);
 
     logAuth('SIGNUP_SUCCESS', { userId: user.id, username: user.username, role: user.role });
@@ -207,7 +255,7 @@ app.post('/api/auth/signup', (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/auth/login', (req: Request, res: Response) => {
+app.post('/api/auth/login', async (req: Request, res: Response) => {
   try {
     const login = req.body?.login || req.body?.emailOrUsername || req.body?.username || req.body?.email;
     const password = req.body?.password;
@@ -218,7 +266,7 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Login identifier and password are required', code: 'MISSING_CREDENTIALS' });
     }
 
-    const user = dbService.findUserByEmailOrUsername(login);
+    const user = await dbService.findUserByEmailOrUsernameAsync(login);
     if (!user) {
       logAuth('LOGIN_FAILED_USER_NOT_FOUND', { login });
       return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
@@ -229,13 +277,13 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Account suspended: Please contact platform administration.', code: 'ACCOUNT_SUSPENDED' });
     }
 
-    const valid = dbService.verifyPassword(user.id, password);
+    const valid = await dbService.verifyPassword(user.id, password);
     if (!valid) {
       logAuth('LOGIN_FAILED_INVALID_PASSWORD', { userId: user.id, username: user.username });
       return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
     }
 
-    const session = dbService.createSession(user.id);
+    const session = await dbService.createSession(user.id);
     const enrichedUser = dbService.getUserEnriched(user);
 
     logAuth('LOGIN_SUCCESS', { userId: user.id, username: user.username, role: user.role });
@@ -246,20 +294,20 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/auth/logout', (req: Request, res: Response) => {
+app.post('/api/auth/logout', async (req: Request, res: Response) => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
     const token = authHeader.substring(7).trim();
     if (token) {
-      dbService.destroySession(token);
+      await dbService.destroySession(token);
       logAuth('LOGOUT_SUCCESS', { tokenLength: token.length });
     }
   }
   return res.json({ success: true, message: 'Signed out successfully' });
 });
 
-app.get('/api/auth/me', (req: Request, res: Response) => {
-  const auth = verifyAuthToken(req);
+app.get('/api/auth/me', async (req: Request, res: Response) => {
+  const auth = await verifyAuthToken(req);
   if (auth.status !== 200 || !auth.user) {
     logAuth('GET_ME_UNAUTHORIZED', {
       code: auth.code,

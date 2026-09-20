@@ -22,7 +22,10 @@ import {
   initialAnnouncements, initialAuditLogs, initialCertificates
 } from './programs-seed.js';
 import {
-  isSupabaseConfigured, checkSupabaseSchemaReady, loadFullStateFromSupabase, runSupabaseDataMigration, syncEntityToSupabase, syncActivityImmediately
+  isSupabaseConfigured, checkSupabaseSchemaReady, loadFullStateFromSupabase, runSupabaseDataMigration, syncEntityToSupabase, syncActivityImmediately,
+  supabaseCreateUserWithCredentials, supabaseGetCredentials, supabaseSetCredentials,
+  supabaseCreateSessionRecord, supabaseValidateSessionRecord, supabaseDeleteSessionRecord,
+  supabaseFindUserById, supabaseFindUserByUsernameOrEmail
 } from './supabase.js';
 
 function resolveDataPaths() {
@@ -1602,6 +1605,8 @@ class DatabaseService {
   private snapshotFile: string;
   private seedFile: string;
   private lastSnapshotTime: number = 0;
+  private readyPromise: Promise<void> | null = null;
+  private isReady: boolean = false;
 
   constructor() {
     const paths = resolveDataPaths();
@@ -1613,71 +1618,164 @@ class DatabaseService {
 
     this.ensureDataDir();
     this.db = this.loadDatabase();
-    this.initSupabaseSync();
+    this.readyPromise = this.performSafeHydration();
   }
 
-  private async initSupabaseSync() {
+  public async ensureReady(): Promise<void> {
+    if (this.isReady) {
+      return;
+    }
+    if (!this.readyPromise) {
+      this.readyPromise = this.performSafeHydration();
+    }
+    return this.readyPromise;
+  }
+
+  private async performSafeHydration(): Promise<void> {
     if (!isSupabaseConfigured()) {
+      this.isReady = true;
       return;
     }
     try {
       const { ready, reason } = await checkSupabaseSchemaReady();
       if (!ready) {
-        console.info(`[Supabase Init] Supabase credentials detected, but schema tables are not yet initialized: ${reason}`);
+        console.info(`[Supabase Readiness] Supabase schema not yet ready: ${reason}. Retaining local memory cache without writing to Supabase.`);
+        this.isReady = true;
         return;
       }
-      console.info('[Supabase Init] Detected Supabase credentials & valid schema, syncing with permanent PostgreSQL storage...');
+      console.info('[Supabase Readiness] Supabase reachable & schema ready. Hydrating authoritative production data from Supabase...');
       const remoteState = await loadFullStateFromSupabase();
-      if (remoteState && remoteState.users && remoteState.users.length > 0) {
-        console.info(`[Supabase Init] Loaded ${remoteState.stories?.length || 0} stories and ${remoteState.users.length} users from Supabase.`);
-        // Merge remote state safely into current active database
-        if (remoteState.stories && remoteState.stories.length > 0) {
-          const localStoryMap = new Map((this.db.stories || []).map(s => [s.id, s]));
-          remoteState.stories.forEach(rs => localStoryMap.set(rs.id, rs));
-          this.db.stories = Array.from(localStoryMap.values());
-        }
-        if (remoteState.chapters && remoteState.chapters.length > 0) {
-          const localChapMap = new Map((this.db.chapters || []).map(c => [c.id, c]));
-          remoteState.chapters.forEach(rc => localChapMap.set(rc.id, rc));
-          this.db.chapters = Array.from(localChapMap.values());
-        }
-        if (remoteState.users && remoteState.users.length > 0) {
-          const localUserMap = new Map((this.db.users || []).map(u => [u.id, u]));
-          remoteState.users.forEach(ru => localUserMap.set(ru.id, ru));
-          this.db.users = Array.from(localUserMap.values());
-        }
-        if (remoteState.passwords) {
-          this.db.passwords = { ...(this.db.passwords || {}), ...remoteState.passwords };
-        }
-        if (remoteState.sessions) {
-          this.db.sessions = { ...(this.db.sessions || {}), ...remoteState.sessions };
-        }
-        if (remoteState.readingProgress) {
-          this.db.readingProgress = remoteState.readingProgress as any;
-        }
-        if (remoteState.library) {
-          this.db.library = remoteState.library as any;
-        }
-        if (remoteState.reviews) {
-          this.db.reviews = remoteState.reviews as any;
-        }
-        if (remoteState.comments) {
-          this.db.comments = remoteState.comments as any;
-        }
-        if (remoteState.characters) {
-          this.db.characters = remoteState.characters as any;
-        }
-        if (remoteState.recentlyDeletedStories) {
-          this.db.recentlyDeletedStories = remoteState.recentlyDeletedStories as any;
-        }
-        this.saveDatabase();
-      } else {
-        console.info('[Supabase Init] Remote database is empty or new. Performing safe initial migration from verified production baseline...');
-        const migResult = await runSupabaseDataMigration(this.db);
-        console.info(`[Supabase Init] Auto-migration complete: ${migResult.recordsProcessed} records transferred.`);
+
+      if (!remoteState) {
+        console.warn('[Supabase Readiness Safeguard] Supabase returned null or failed query. Keeping existing memory state WITHOUT writing to Supabase.');
+        this.isReady = true;
+        return;
       }
+
+      console.info(`[Supabase Readiness] Authoritative Supabase state received (${remoteState.stories?.length || 0} stories, ${remoteState.users?.length || 0} users). Updating runtime cache...`);
+
+      // Supabase is the AUTHORITATIVE source of truth.
+      // Merge remote state with priority to Supabase records:
+      if (remoteState.users && remoteState.users.length > 0) {
+        const userMap = new Map((remoteState.users).map(u => [u.id, u]));
+        (this.db.users || []).forEach(localUser => {
+          if (!userMap.has(localUser.id)) {
+            userMap.set(localUser.id, localUser);
+          }
+        });
+        this.db.users = Array.from(userMap.values());
+      }
+
+      if (remoteState.stories && remoteState.stories.length > 0) {
+        const storyMap = new Map((remoteState.stories).map(s => [s.id, s]));
+        (this.db.stories || []).forEach(localStory => {
+          if (!storyMap.has(localStory.id)) {
+            storyMap.set(localStory.id, localStory);
+          }
+        });
+        this.db.stories = Array.from(storyMap.values());
+      }
+
+      if (remoteState.chapters && remoteState.chapters.length > 0) {
+        const chapMap = new Map((remoteState.chapters).map(c => [c.id, c]));
+        (this.db.chapters || []).forEach(localChap => {
+          if (!chapMap.has(localChap.id)) {
+            chapMap.set(localChap.id, localChap);
+          }
+        });
+        this.db.chapters = Array.from(chapMap.values());
+      }
+
+      if (remoteState.passwords && Object.keys(remoteState.passwords).length > 0) {
+        this.db.passwords = { ...(this.db.passwords || {}), ...remoteState.passwords };
+      }
+
+      if (remoteState.sessions && Object.keys(remoteState.sessions).length > 0) {
+        this.db.sessions = { ...(this.db.sessions || {}), ...remoteState.sessions };
+      }
+
+      if (remoteState.readingProgress) {
+        this.db.readingProgress = remoteState.readingProgress as any;
+      }
+      if (remoteState.library) {
+        this.db.library = remoteState.library as any;
+      }
+      if (remoteState.reviews) {
+        this.db.reviews = remoteState.reviews as any;
+      }
+      if (remoteState.comments) {
+        this.db.comments = remoteState.comments as any;
+      }
+      if (remoteState.characters) {
+        this.db.characters = remoteState.characters as any;
+      }
+      if (remoteState.recentlyDeletedStories) {
+        this.db.recentlyDeletedStories = remoteState.recentlyDeletedStories as any;
+      }
+      if (remoteState.likes) {
+        this.db.likes = { ...(this.db.likes || {}), ...remoteState.likes };
+      }
+      if (remoteState.follows) {
+        this.db.follows = { ...(this.db.follows || {}), ...remoteState.follows };
+      }
+      if (remoteState.worlds && remoteState.worlds.length > 0) {
+        this.db.worlds = remoteState.worlds as any;
+      }
+      if (remoteState.universes && remoteState.universes.length > 0) {
+        this.db.universes = remoteState.universes as any;
+      }
+      if (remoteState.programs && remoteState.programs.length > 0) {
+        this.db.programs = (remoteState.programs as any[]).map(p => {
+          const seed = initialPrograms.find(ip => ip.id === p.id || ip.slug === p.slug);
+          return {
+            ...seed,
+            ...p,
+            name: p.name || p.title || seed?.name || 'Untitled Program',
+            tagline: p.tagline || p.subtitle || seed?.tagline || '',
+            coverImage: p.coverImage || seed?.coverImage || p.bannerImage || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
+            thumbnail: p.thumbnail || seed?.thumbnail || p.coverImage || 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400&auto=format&fit=crop&q=80',
+            timeline: p.timeline || seed?.timeline || {
+              registrationOpens: p.start_date || new Date().toISOString(),
+              registrationCloses: p.end_date || new Date(Date.now() + 14 * 86400000).toISOString(),
+              submissionOpens: p.start_date || new Date().toISOString(),
+              submissionDeadline: p.end_date || new Date(Date.now() + 30 * 86400000).toISOString(),
+              votingStarts: new Date(Date.now() + 31 * 86400000).toISOString(),
+              votingEnds: new Date(Date.now() + 45 * 86400000).toISOString(),
+              judgingStarts: new Date(Date.now() + 31 * 86400000).toISOString(),
+              judgingEnds: new Date(Date.now() + 50 * 86400000).toISOString(),
+              finalistAnnouncementDate: new Date(Date.now() + 46 * 86400000).toISOString(),
+              resultDeclarationDate: new Date(Date.now() + 55 * 86400000).toISOString(),
+              winnerAnnouncementTime: '12:00 UTC',
+              programEndDate: new Date(Date.now() + 60 * 86400000).toISOString()
+            },
+            analytics: p.analytics || seed?.analytics || {
+              views: 0,
+              uniqueVisitors: 0,
+              registrationsCount: 0,
+              submissionsCount: 0,
+              totalVotes: 0,
+              completionRate: 0,
+              sharesCount: 0
+            }
+          };
+        }) as any;
+      }
+      if (remoteState.programParticipants && remoteState.programParticipants.length > 0) {
+        this.db.programParticipants = remoteState.programParticipants as any;
+      }
+      if (remoteState.programSubmissions && remoteState.programSubmissions.length > 0) {
+        this.db.programSubmissions = remoteState.programSubmissions as any;
+      }
+      if (remoteState.programVotes && remoteState.programVotes.length > 0) {
+        this.db.programVotes = remoteState.programVotes as any;
+      }
+
+      this.saveDatabase();
+      console.info(`[Supabase Readiness] Hydration complete. Active state contains ${this.db.stories?.length || 0} stories and ${this.db.users?.length || 0} users.`);
     } catch (err: any) {
-      console.warn('[Supabase Init Warning] Non-blocking initial sync issue:', err?.message);
+      console.warn('[Supabase Readiness Warning] Non-blocking initial sync issue:', err?.message || err);
+    } finally {
+      this.isReady = true;
     }
   }
 
@@ -1813,6 +1911,41 @@ class DatabaseService {
 
     if (!parsed.programs || parsed.programs.length === 0) {
       parsed.programs = initialPrograms;
+    } else {
+      parsed.programs = parsed.programs.map((p: any) => {
+        const seed = initialPrograms.find(ip => ip.id === p.id || ip.slug === p.slug);
+        return {
+          ...seed,
+          ...p,
+          name: p.name || p.title || seed?.name || 'Untitled Program',
+          tagline: p.tagline || p.subtitle || seed?.tagline || '',
+          coverImage: p.coverImage || seed?.coverImage || p.bannerImage || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
+          thumbnail: p.thumbnail || seed?.thumbnail || p.coverImage || 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400&auto=format&fit=crop&q=80',
+          timeline: p.timeline || seed?.timeline || {
+            registrationOpens: p.start_date || new Date().toISOString(),
+            registrationCloses: p.end_date || new Date(Date.now() + 14 * 86400000).toISOString(),
+            submissionOpens: p.start_date || new Date().toISOString(),
+            submissionDeadline: p.end_date || new Date(Date.now() + 30 * 86400000).toISOString(),
+            votingStarts: new Date(Date.now() + 31 * 86400000).toISOString(),
+            votingEnds: new Date(Date.now() + 45 * 86400000).toISOString(),
+            judgingStarts: new Date(Date.now() + 31 * 86400000).toISOString(),
+            judgingEnds: new Date(Date.now() + 50 * 86400000).toISOString(),
+            finalistAnnouncementDate: new Date(Date.now() + 46 * 86400000).toISOString(),
+            resultDeclarationDate: new Date(Date.now() + 55 * 86400000).toISOString(),
+            winnerAnnouncementTime: '12:00 UTC',
+            programEndDate: new Date(Date.now() + 60 * 86400000).toISOString()
+          },
+          analytics: p.analytics || seed?.analytics || {
+            views: 0,
+            uniqueVisitors: 0,
+            registrationsCount: 0,
+            submissionsCount: 0,
+            totalVotes: 0,
+            completionRate: 0,
+            sharesCount: 0
+          }
+        };
+      });
     }
     if (!parsed.programParticipants || parsed.programParticipants.length === 0) {
       parsed.programParticipants = initialParticipants;
@@ -2001,17 +2134,8 @@ class DatabaseService {
 
   private supabaseSyncTimeout: any = null;
   private queueSupabaseSync() {
-    if (!isSupabaseConfigured()) return;
-    if (this.supabaseSyncTimeout) clearTimeout(this.supabaseSyncTimeout);
-    this.supabaseSyncTimeout = setTimeout(async () => {
-      try {
-        const { ready } = await checkSupabaseSchemaReady();
-        if (!ready) return;
-        await runSupabaseDataMigration(this.db);
-      } catch (err: any) {
-        console.warn('[Supabase Debounced Sync Warning]:', err?.message);
-      }
-    }, 2000);
+    // Phase 1 Architecture: Supabase is authoritative.
+    // Prevent un-awaited background timers from pushing stale in-memory states to Supabase.
   }
 
   public commit() {
@@ -2098,10 +2222,11 @@ class DatabaseService {
     return process.env.SESSION_SECRET || process.env.JWT_SECRET || 'kairo_jwt_sec_2025_prod_v1_secure_sign_key_93a1f8';
   }
 
-  public createSession(userId: string): { token: string; expiresAt: string } {
+  public async createSession(userId: string): Promise<{ token: string; expiresAt: string }> {
     const now = new Date();
     const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
     const expiresAtMs = expires.getTime();
+    const expiresAtIso = expires.toISOString();
 
     // Create HMAC signed token for serverless cold start resilience
     const secret = this.getSessionSecret();
@@ -2109,19 +2234,28 @@ class DatabaseService {
     const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
     const token = `kairo_sig.${userId}.${expiresAtMs}.${signature}`;
 
+    // 1. Authoritative Supabase persistence
+    const sbRes = await supabaseCreateSessionRecord(token, userId, expiresAtIso);
+    if (!sbRes.success) {
+      console.error('[Session Creation Error] Failed to write session to Supabase:', sbRes.error);
+      throw new Error(sbRes.error || 'Failed to persist authentication session to database.');
+    }
+
+    // 2. Cache in runtime memory
     if (!this.db.sessions) {
       this.db.sessions = {};
     }
     this.db.sessions[token] = {
       userId,
       createdAt: now.toISOString(),
-      expiresAt: expires.toISOString()
+      expiresAt: expiresAtIso
     };
     this.commit();
-    return { token, expiresAt: expires.toISOString() };
+
+    return { token, expiresAt: expiresAtIso };
   }
 
-  public validateSessionDetails(token: string): { user: User | null; status: 'OK' | 'EXPIRED' | 'INVALID' | 'NOT_FOUND' | 'SUSPENDED' } {
+  public async validateSessionDetails(token: string): Promise<{ user: User | null; status: 'OK' | 'EXPIRED' | 'INVALID' | 'NOT_FOUND' | 'SUSPENDED' }> {
     if (!token || typeof token !== 'string') {
       return { user: null, status: 'INVALID' };
     }
@@ -2133,21 +2267,51 @@ class DatabaseService {
       return { user: null, status: 'INVALID' };
     }
 
-    // 1. Direct session table lookup
+    // 1. In-memory quick hit
     if (this.db.sessions && this.db.sessions[cleanToken]) {
       const session = this.db.sessions[cleanToken];
       if (new Date(session.expiresAt).getTime() < Date.now()) {
         delete this.db.sessions[cleanToken];
         this.commit();
+        await supabaseDeleteSessionRecord(cleanToken).catch(() => {});
         return { user: null, status: 'EXPIRED' };
       }
-      const user = this.findUserById(session.userId);
+      let user = this.findUserById(session.userId);
+      if (!user) {
+        // Hydrate directly from Supabase if not in local memory
+        user = (await supabaseFindUserById(session.userId)) || undefined;
+        if (user) {
+          this.db.users.push(user);
+          this.commit();
+        }
+      }
       if (!user) return { user: null, status: 'NOT_FOUND' };
       if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
       return { user, status: 'OK' };
     }
 
-    // 2. Stateless HMAC token validation for serverless cold-starts
+    // 2. Check Supabase user_sessions directly (essential for fresh serverless cold starts)
+    const sbResult = await supabaseValidateSessionRecord(cleanToken);
+    if (sbResult.status === 'OK' && sbResult.user) {
+      const user = sbResult.user;
+      // Cache in memory
+      if (!this.db.sessions) this.db.sessions = {};
+      this.db.sessions[cleanToken] = {
+        userId: user.id,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      };
+      if (!this.db.users.some(u => u.id === user.id)) {
+        this.db.users.push(user);
+      }
+      this.commit();
+      if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
+      return { user, status: 'OK' };
+    } else if (sbResult.status === 'EXPIRED') {
+      return { user: null, status: 'EXPIRED' };
+    }
+
+    // 3. Fallback: HMAC token validation for serverless resilience
     if (cleanToken.startsWith('kairo_sig.')) {
       const parts = cleanToken.split('.');
       if (parts.length === 4) {
@@ -2162,20 +2326,28 @@ class DatabaseService {
         const payload = `${userId}:${expiresAtStr}`;
         const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
-        // Timing safe signature comparison
         const sigBuf = Buffer.from(signature, 'hex');
         const expBuf = Buffer.from(expectedSig, 'hex');
         if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) {
-          const user = this.findUserById(userId);
+          let user = this.findUserById(userId);
+          if (!user) {
+            user = (await supabaseFindUserById(userId)) || undefined;
+            if (user) {
+              this.db.users.push(user);
+              this.commit();
+            }
+          }
           if (!user) return { user: null, status: 'NOT_FOUND' };
           if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
 
-          // Cache verified session in memory for quick subsequent queries
+          // Persist back to Supabase and local cache
+          const expiresAtIso = new Date(expiresAtMs).toISOString();
+          await supabaseCreateSessionRecord(cleanToken, userId, expiresAtIso).catch(() => {});
           if (!this.db.sessions) this.db.sessions = {};
           this.db.sessions[cleanToken] = {
             userId,
             createdAt: new Date().toISOString(),
-            expiresAt: new Date(expiresAtMs).toISOString()
+            expiresAt: expiresAtIso
           };
           this.commit();
 
@@ -2186,14 +2358,14 @@ class DatabaseService {
       }
     }
 
-    // 3. Fallback client token format: kairo_tok_<userId>_<timestamp>
+    // 4. Fallback client token format: kairo_tok_<userId>_<timestamp>
     if (cleanToken.startsWith('kairo_tok_')) {
       const remainder = cleanToken.replace(/^kairo_tok_/, '');
       const lastUnderscore = remainder.lastIndexOf('_');
       const userId = lastUnderscore !== -1 ? remainder.substring(0, lastUnderscore) : remainder;
       let user = this.findUserById(userId) || (this.db.users || []).find(u => u.username.toLowerCase() === userId.toLowerCase());
       if (!user) {
-        user = this.findUserById(remainder);
+        user = this.findUserById(remainder) || (await supabaseFindUserById(userId)) || undefined;
       }
       if (user) {
         if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
@@ -2204,12 +2376,12 @@ class DatabaseService {
     return { user: null, status: 'INVALID' };
   }
 
-  public validateSession(token: string): User | null {
-    const res = this.validateSessionDetails(token);
+  public async validateSession(token: string): Promise<User | null> {
+    const res = await this.validateSessionDetails(token);
     return res.status === 'OK' ? res.user : null;
   }
 
-  public destroySession(token: string): boolean {
+  public async destroySession(token: string): Promise<boolean> {
     if (!token) return false;
     const cleanToken = token.trim();
     if (!this.db.sessions) this.db.sessions = {};
@@ -2219,9 +2391,10 @@ class DatabaseService {
     if (this.db.sessions[cleanToken]) {
       delete this.db.sessions[cleanToken];
       this.commit();
-      return true;
     }
-    this.commit();
+    
+    // Await deletion from Supabase
+    await supabaseDeleteSessionRecord(cleanToken);
     return true;
   }
 
@@ -2230,22 +2403,59 @@ class DatabaseService {
     return this.db.users.find(u => u.id === id);
   }
 
+  public async findUserByIdAsync(id: string): Promise<User | undefined> {
+    const cached = this.findUserById(id);
+    if (cached) return cached;
+    const fromSupabase = await supabaseFindUserById(id);
+    if (fromSupabase) {
+      this.db.users.push(fromSupabase);
+      this.commit();
+      return fromSupabase;
+    }
+    return undefined;
+  }
+
   public findUserByEmailOrUsername(query: string): User | undefined {
     const q = query.toLowerCase().trim();
     return this.db.users.find(u => u.email.toLowerCase() === q || u.username.toLowerCase() === q);
   }
 
-  public verifyPassword(userId: string, plain: string): boolean {
-    const stored = this.db.passwords[userId];
+  public async findUserByEmailOrUsernameAsync(query: string): Promise<User | undefined> {
+    const cached = this.findUserByEmailOrUsername(query);
+    if (cached) return cached;
+    const fromSupabase = await supabaseFindUserByUsernameOrEmail(query);
+    if (fromSupabase) {
+      if (!this.db.users.some(u => u.id === fromSupabase.id)) {
+        this.db.users.push(fromSupabase);
+        this.commit();
+      }
+      return fromSupabase;
+    }
+    return undefined;
+  }
+
+  public async verifyPassword(userId: string, plain: string): Promise<boolean> {
+    let stored = this.db.passwords[userId];
+    
+    if (!stored) {
+      // Query authoritative Supabase user_credentials
+      const fromSb = await supabaseGetCredentials(userId);
+      if (fromSb) {
+        stored = { salt: fromSb.salt, hash: fromSb.hash };
+        this.db.passwords[userId] = stored;
+        this.commit();
+      }
+    }
+
     if (!stored) return false;
 
     if (typeof stored === 'string') {
       if (stored === plain) {
-        // Upgrade to salted hash on first successful verification
         const salt = crypto.randomBytes(16).toString('hex');
         const hash = hashPassword(plain, salt);
         this.db.passwords[userId] = { salt, hash };
         this.commit();
+        await supabaseSetCredentials(userId, salt, hash);
         return true;
       }
       return false;
@@ -2262,20 +2472,27 @@ class DatabaseService {
     }
   }
 
-  public setUserPassword(userId: string, plain: string): void {
+  public async setUserPassword(userId: string, plain: string): Promise<void> {
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = hashPassword(plain, salt);
     this.db.passwords[userId] = { salt, hash };
     this.commit();
+    const saved = await supabaseSetCredentials(userId, salt, hash);
+    if (!saved) {
+      throw new Error('Failed to persist updated credentials to Supabase.');
+    }
   }
 
-  public createUser(userData: Partial<User>, password = 'password123'): User {
+  public async createUser(userData: Partial<User>, password = 'password123'): Promise<User> {
     const id = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
     const now = new Date().toISOString();
+    const cleanUsername = (userData.username || `wanderer_${id.slice(-4)}`).trim().toLowerCase();
+    const cleanEmail = (userData.email || `${id}@kairo.app`).trim().toLowerCase();
+
     const newUser: User = {
       id,
-      username: userData.username || `wanderer_${id.slice(-4)}`,
-      email: userData.email || `${id}@kairo.app`,
+      username: cleanUsername,
+      email: cleanEmail,
       displayName: userData.displayName || userData.username || 'New Wanderer',
       avatar: userData.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80',
       bio: userData.bio || 'Story explorer & avid reader on KAIRO.',
@@ -2294,15 +2511,23 @@ class DatabaseService {
       createdAt: now,
     };
 
-    this.db.users.push(newUser);
-    
-    // Store hashed password
+    // Calculate salt and scrypt hash
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = hashPassword(password, salt);
-    this.db.passwords[id] = { salt, hash };
 
+    // 1. Authoritative direct write to Supabase (profiles + user_credentials)
+    const sbRes = await supabaseCreateUserWithCredentials(newUser, salt, hash);
+    if (!sbRes.success) {
+      console.error('[User Creation Error] Supabase write failed:', sbRes.error);
+      throw new Error(sbRes.error || 'Failed to create user account in database.');
+    }
+
+    // 2. Cache in runtime memory
+    this.db.users.push(newUser);
+    this.db.passwords[id] = { salt, hash };
     this.db.badges[id] = [];
     this.commit();
+
     return newUser;
   }
 

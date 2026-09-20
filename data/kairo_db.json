@@ -57,34 +57,6 @@
       "isVerifiedWriter": false
     },
     {
-      "id": "usr_3",
-      "username": "sakura_dreamer",
-      "email": "sakura@kairo.app",
-      "displayName": "Sakura Dreamer",
-      "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
-      "bio": "Avid anime watcher, serialized light novel binge-reader, and passionate theory crafter.",
-      "role": "WRITER",
-      "xp": 1850,
-      "level": 7,
-      "readingStreak": 5,
-      "lastActiveDate": "2026-09-03T09:14:35.498+00:00",
-      "followersCount": 180,
-      "followingCount": 64,
-      "totalReads": 1420,
-      "favoriteGenres": [
-        "Romance",
-        "Fantasy",
-        "Isekai"
-      ],
-      "favoriteThemes": [
-        "Wholesome",
-        "Slice of Life",
-        "Magic Academia"
-      ],
-      "createdAt": "2025-02-01T08:00:00+00:00",
-      "isVerifiedWriter": true
-    },
-    {
       "id": "usr_admin",
       "username": "admin",
       "email": "admin@kairo.app",
@@ -132,6 +104,34 @@
       ],
       "createdAt": "2026-09-03T09:49:29.349+00:00",
       "isVerifiedWriter": false
+    },
+    {
+      "id": "usr_3",
+      "username": "sakura_dreamer",
+      "email": "sakura@kairo.app",
+      "displayName": "Sakura Dreamer",
+      "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "bio": "Avid anime watcher, serialized light novel binge-reader, and passionate theory crafter.",
+      "role": "WRITER",
+      "xp": 1850,
+      "level": 7,
+      "readingStreak": 5,
+      "lastActiveDate": "2026-09-03T09:14:35.498+00:00",
+      "followersCount": 180,
+      "followingCount": 64,
+      "totalReads": 1420,
+      "favoriteGenres": [
+        "Romance",
+        "Fantasy",
+        "Isekai"
+      ],
+      "favoriteThemes": [
+        "Wholesome",
+        "Slice of Life",
+        "Magic Academia"
+      ],
+      "createdAt": "2025-02-01T08:00:00+00:00",
+      "isVerifiedWriter": true
     },
     {
       "id": "usr_1788429666059_gv3w",
@@ -182,6 +182,32 @@
       ],
       "createdAt": "2026-09-18T17:29:00.753+00:00",
       "isVerifiedWriter": true
+    },
+    {
+      "id": "usr_1789917838449_bk6p",
+      "username": "ph2_test_wanderer",
+      "email": "ph2_test@kairo.app",
+      "displayName": "Phase 2 Test Wanderer",
+      "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
+      "bio": "Story explorer & avid reader on KAIRO.",
+      "role": "USER",
+      "xp": 0,
+      "level": 1,
+      "readingStreak": 0,
+      "streakDays": 0,
+      "lastActiveDate": "2026-09-20T15:23:58.449Z",
+      "followersCount": 0,
+      "followingCount": 0,
+      "chaptersReadCount": 0,
+      "totalReads": 0,
+      "favoriteGenres": [
+        "Fantasy",
+        "Anime-Inspired"
+      ],
+      "favoriteThemes": [
+        "Original Worlds"
+      ],
+      "createdAt": "2026-09-20T15:23:58.449Z"
     }
   ],
   "passwords": {
@@ -212,6 +238,10 @@
     "usr_1789752540753_mavg": {
       "salt": "69b96080e521d6bfab0b2cc0bdb0b7c5",
       "hash": "84b5a9f7c2c019299f8a50f7fa76fd4645dc5210be5bb7226298e9b41c912eb19142a29984fd899a7372a03c67f4415dcc1ed7fee7d3c17a6800d7b99d4da3da"
+    },
+    "usr_1789917838449_bk6p": {
+      "salt": "3f67f76119b2a3ff2155b3094ad51ae0",
+      "hash": "50c4ffb0b8024f4d5dd0efddd772f68ddab2432d7925799a3bbcf09add3021494f49cc166259aa2444301017ee48fdf288a8c3f9f0a4068079aa7ca8f0640219"
     }
   },
   "sessions": {
@@ -262,8 +292,23 @@
     },
     "kairo_sig.usr_admin.1792424875832.1124991a43dee5e217b1dd30ce5d92d09dbb8bbdd6194ac4f68e71aaf02275f4": {
       "userId": "usr_admin",
-      "createdAt": "2026-09-19T15:47:55.832Z",
-      "expiresAt": "2026-10-19T15:47:55.832Z"
+      "createdAt": "2026-09-19T15:47:55.832+00:00",
+      "expiresAt": "2026-10-19T15:47:55.832+00:00"
+    },
+    "kairo_sig.usr_admin.1791089162160.70b69b366e419d97966b450b99ed6553eb1f43cf560b928c80b7608a21eb1114": {
+      "userId": "usr_admin",
+      "createdAt": "2026-09-19T16:32:13.509+00:00",
+      "expiresAt": "2026-10-04T04:46:02.16+00:00"
+    },
+    "kairo_sig.usr_1.1792427635246.9cc2f65fbd77ff645ae610f0d854a0155e056425482747bb4819c0b702c146f5": {
+      "userId": "usr_1",
+      "createdAt": "2026-09-19T16:33:55.548+00:00",
+      "expiresAt": "2026-10-19T16:33:55.246+00:00"
+    },
+    "kairo_sig.usr_1789917838449_bk6p.1792509838635.c57a35645ea5022a7d85ff77fa836c9d9a671b253498ab4b130a5c5ba364a3c6": {
+      "userId": "usr_1789917838449_bk6p",
+      "createdAt": "2026-09-20T15:23:58.635Z",
+      "expiresAt": "2026-10-20T15:23:58.635Z"
     }
   },
   "stories": [
@@ -383,37 +428,6 @@
       "updatedAt": "2025-02-28T16:00:00+00:00"
     },
     {
-      "id": "story_2",
-      "authorId": "usr_2",
-      "authorUsername": "voidknight",
-      "authorDisplayName": "Void Knight",
-      "authorAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
-      "title": "The Shattered Crown",
-      "slug": "the-shattered-crown",
-      "description": "When the immortal Emperor is assassinated by his own shadow-sworn guard, eight fractured kingdoms plunge into brutal civil war. An exile prince wielding forbidden blood runes embarks on a bloody path to reclaim the throne.",
-      "coverImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
-      "genre": "Dark Fantasy",
-      "tags": [
-        "Grimdark",
-        "Serialized Novel",
-        "Political Intrigue",
-        "Anti-Hero",
-        "Epic Magic"
-      ],
-      "language": "English",
-      "ageRating": "Mature",
-      "storyType": "Serialized Novel",
-      "status": "Ongoing",
-      "views": 64100,
-      "likes": 7120,
-      "rating": 4.8,
-      "ratingCount": 1250,
-      "universeId": null,
-      "chaptersCount": 3,
-      "createdAt": "2025-01-10T08:00:00+00:00",
-      "updatedAt": "2025-02-25T14:30:00+00:00"
-    },
-    {
       "id": "story_3",
       "authorId": "usr_1",
       "authorUsername": "althea_v",
@@ -443,6 +457,37 @@
       "chaptersCount": 2,
       "createdAt": "2025-01-20T11:00:00+00:00",
       "updatedAt": "2025-02-10T12:00:00+00:00"
+    },
+    {
+      "id": "story_2",
+      "authorId": "usr_2",
+      "authorUsername": "voidknight",
+      "authorDisplayName": "Void Knight",
+      "authorAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
+      "title": "The Shattered Crown",
+      "slug": "the-shattered-crown",
+      "description": "When the immortal Emperor is assassinated by his own shadow-sworn guard, eight fractured kingdoms plunge into brutal civil war. An exile prince wielding forbidden blood runes embarks on a bloody path to reclaim the throne.",
+      "coverImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+      "genre": "Dark Fantasy",
+      "tags": [
+        "Grimdark",
+        "Serialized Novel",
+        "Political Intrigue",
+        "Anti-Hero",
+        "Epic Magic"
+      ],
+      "language": "English",
+      "ageRating": "Mature",
+      "storyType": "Serialized Novel",
+      "status": "Ongoing",
+      "views": 64100,
+      "likes": 7120,
+      "rating": 4.8,
+      "ratingCount": 1250,
+      "universeId": null,
+      "chaptersCount": 3,
+      "createdAt": "2025-01-10T08:00:00+00:00",
+      "updatedAt": "2025-02-25T14:30:00+00:00"
     },
     {
       "id": "story_4",
@@ -1202,128 +1247,30 @@
     {
       "id": "world_1",
       "authorId": "usr_1",
-      "universeId": "uni_1",
       "name": "Aethelgard",
-      "slug": "aethelgard",
-      "tagline": "The Floating Continent of Crystalized Starlight",
       "description": "Suspended above an endless tempest of cosmic clouds, Aethelgard is powered by subterranean Mana Core nodes and guarded by the Order of the Radiant Dawn.",
-      "globalScale": "Continental Array (7 Floating Isles)",
-      "techLevel": "Aether-Magitech (Stellar Crystal Infusion)",
-      "bannerImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
+      "rules": "",
       "magicTypes": [
-        "Stellar Resonance",
-        "Aether Alchemy",
-        "Gravity Weaver"
+        "Stellar Resonance, Aether Alchemy, Gravity Weaver"
       ],
-      "mainDocument": "# Lore of Aethelgard\n\nAethelgard was founded three millennia ago following the Great Celestial Cleaving. The seven archipelago sky-islands float due to inverted graviton lattices anchored inside the Great Spire of Zenith.\n\n### The Aether Currents\nEvery 12 days, the twin moons synchronize in orbital harmonic resonance, intensifying all spellcraft by tenfold. Those untrained in mind-shielding risk astral madness if exposed directly to the raw night sky.\n\n### Societal Hierarchy\n- **The Archons**: Custodians of the Celestial Engines.\n- **The Vanguard Knights**: Airborne combatants utilizing glyph-gliders and resonance blades.\n- **The Grounded**: Descendants of those who remained on the lower crust before elevation.",
-      "locations": [
-        {
-          "id": "loc_1",
-          "name": "The Grand Citadel of Zenith",
-          "description": "A crystalline palace soaring 8,000 meters into the stratosphere, housing the Harmonic Chamber.",
-          "tags": [
-            "Capital",
-            "Government",
-            "Holy Site"
-          ],
-          "imageUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=600&auto=format&fit=crop&q=80"
-        },
-        {
-          "id": "loc_2",
-          "name": "The Whispering Rift",
-          "description": "A subterranean chasm pulsing with violet astral energy where ancient spirits communicate.",
-          "tags": [
-            "Dangerous",
-            "Ruins",
-            "Energy Well"
-          ],
-          "imageUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80"
-        },
-        {
-          "id": "loc_3",
-          "name": "Port Lunaris",
-          "description": "The bustling sky-dock where ether-skiffs trade exotic star spices and forged runes.",
-          "tags": [
-            "Trade Hub",
-            "Seaport",
-            "Diverse"
-          ],
-          "imageUrl": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80"
-        }
-      ],
-      "factions": [
-        {
-          "id": "fac_1",
-          "name": "Order of the Radiant Dawn",
-          "description": "Elite knights sworn to preserve the stability of the Floating Isles and neutralize void breaches.",
-          "tags": [
-            "Military",
-            "Protectors",
-            "Honorable"
-          ],
-          "imageUrl": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=600&auto=format&fit=crop&q=80"
-        },
-        {
-          "id": "fac_2",
-          "name": "The Eclipse Syndicate",
-          "description": "An underground guild seeking to harvest raw void fragments to break the monopoly of the Archons.",
-          "tags": [
-            "Rebels",
-            "Black Market",
-            "Shadow"
-          ],
-          "imageUrl": "https://images.unsplash.com/photo-1563089145-599997674d42?w=600&auto=format&fit=crop&q=80"
-        }
-      ],
-      "chronology": [
-        {
-          "id": "chr_1",
-          "timeLabel": "Year 0 (First Dawn)",
-          "title": "The Great Cleaving & Ascension",
-          "description": "The continental crust is shattered by falling star shards; Archon Valerius anchors the floating continents.",
-          "isCurrentEra": false,
-          "sortOrder": 1
-        },
-        {
-          "id": "chr_2",
-          "timeLabel": "Year 1420",
-          "title": "The Eclipse War",
-          "description": "First void incursion repelled by the newly formed Order of the Radiant Dawn.",
-          "isCurrentEra": false,
-          "sortOrder": 2
-        },
-        {
-          "id": "chr_3",
-          "timeLabel": "Year 2840 (Present)",
-          "title": "The Awakening Era",
-          "description": "Stellar resonance frequencies begin fluctuating wildly across the archipelago.",
-          "isCurrentEra": true,
-          "sortOrder": 3
-        }
-      ],
-      "createdAt": "2025-01-11T12:30:00Z"
+      "techLevel": "Aether-Magitech (Stellar Crystal Infusion)",
+      "createdAt": "2025-01-11T12:30:00+00:00"
     }
   ],
   "universes": [
     {
       "id": "uni_1",
+      "slug": "the-astral-universe",
       "authorId": "usr_1",
       "name": "The Astral Universe",
-      "slug": "the-astral-universe",
-      "tagline": "Where ancient stellar resonance meets forgotten cosmic dynasties.",
+      "tagline": "",
       "description": "A sprawling multi-world continuity linked by ancient astral conduits and the resonant pulse of dead stars. Across five galaxies, wielders of Celestial Aether battle for the fate of reality.",
       "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
-      "storiesCount": 3,
-      "charactersCount": 12,
-      "readersCount": 42800,
-      "rating": 4.9,
-      "overviewDoc": "The Astral Realm exists parallel to mortal perception. Those born under convergence moons manifest Aetherial Crests, allowing manipulation of dimensional currents and cosmic energy.",
-      "featuredCharacterIds": [
-        "char_1",
-        "char_2",
-        "char_3"
-      ],
-      "createdAt": "2025-01-11T12:00:00Z"
+      "storiesCount": 0,
+      "charactersCount": 0,
+      "readersCount": 0,
+      "rating": 5,
+      "createdAt": "2025-01-11T12:00:00+00:00"
     }
   ],
   "animeEntries": [
@@ -1720,7 +1667,8 @@
     ],
     "usr_1788428969349_qlh8": [],
     "usr_1788429666059_gv3w": [],
-    "usr_1789752540753_mavg": []
+    "usr_1789752540753_mavg": [],
+    "usr_1789917838449_bk6p": []
   },
   "likes": {
     "story_1": [
@@ -2418,8 +2366,8 @@
           }
         ]
       },
-      "createdAt": "2026-07-20T10:00:00Z",
-      "updatedAt": "2026-09-14T00:00:00Z",
+      "createdAt": "2026-07-20T10:00:00+00:00",
+      "updatedAt": "2026-09-14T00:00:00+00:00",
       "createdByAdminId": "usr_admin"
     },
     {
@@ -2548,8 +2496,8 @@
         "completionRate": 65,
         "sharesCount": 88
       },
-      "createdAt": "2026-08-25T10:00:00Z",
-      "updatedAt": "2026-09-14T00:00:00Z",
+      "createdAt": "2026-08-25T10:00:00+00:00",
+      "updatedAt": "2026-09-14T00:00:00+00:00",
       "createdByAdminId": "usr_admin"
     },
     {
@@ -2665,8 +2613,8 @@
         "completionRate": 0,
         "sharesCount": 142
       },
-      "createdAt": "2026-09-01T10:00:00Z",
-      "updatedAt": "2026-09-14T00:00:00Z",
+      "createdAt": "2026-09-01T10:00:00+00:00",
+      "updatedAt": "2026-09-14T00:00:00+00:00",
       "createdByAdminId": "usr_admin"
     },
     {
@@ -2813,8 +2761,8 @@
         "completionRate": 92,
         "sharesCount": 940
       },
-      "createdAt": "2025-09-15T10:00:00Z",
-      "updatedAt": "2025-12-05T00:00:00Z",
+      "createdAt": "2025-09-15T10:00:00+00:00",
+      "updatedAt": "2025-12-05T00:00:00+00:00",
       "createdByAdminId": "usr_admin"
     }
   ],
@@ -2823,192 +2771,62 @@
       "id": "part_althea_s1",
       "programId": "prog_kairo_originals_s1",
       "userId": "usr_1",
-      "username": "althea_v",
-      "displayName": "Althea Vance",
-      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
-      "email": "althea@kairo.app",
-      "userType": "AUTHOR",
       "status": "APPROVED",
-      "submissionStatus": "APPROVED",
-      "registeredAt": "2026-08-05T14:20:00Z",
-      "rulesAgreedAt": "2026-08-05T14:20:00Z",
       "rulesAgreementCheckbox": true,
-      "voteCount": 420,
-      "finalScore": 94.5,
-      "isFinalist": true,
-      "adminNotes": "Master tier fantasy author, verified portfolio."
+      "registeredAt": "2026-08-05T14:20:00+00:00"
     },
     {
       "id": "part_ren_s1",
       "programId": "prog_kairo_originals_s1",
       "userId": "usr_2",
-      "username": "ren_takahashi",
-      "displayName": "Ren Takahashi",
-      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
-      "email": "ren@kairo.app",
-      "userType": "AUTHOR",
       "status": "APPROVED",
-      "submissionStatus": "APPROVED",
-      "registeredAt": "2026-08-08T09:15:00Z",
-      "rulesAgreedAt": "2026-08-08T09:15:00Z",
       "rulesAgreementCheckbox": true,
-      "voteCount": 312,
-      "finalScore": 89.2,
-      "isFinalist": true,
-      "adminNotes": "Cyberpunk fantasy specialist."
+      "registeredAt": "2026-08-08T09:15:00+00:00"
     },
     {
       "id": "part_sakura_s1",
       "programId": "prog_kairo_originals_s1",
       "userId": "usr_3",
-      "username": "sakura_dreamer",
-      "displayName": "Sakura Dreamer",
-      "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
-      "email": "sakura@kairo.app",
-      "userType": "BOTH",
       "status": "APPROVED",
-      "submissionStatus": "SUBMITTED",
-      "registeredAt": "2026-08-12T11:45:00Z",
-      "rulesAgreedAt": "2026-08-12T11:45:00Z",
       "rulesAgreementCheckbox": true,
-      "voteCount": 162,
-      "finalScore": 83,
-      "isFinalist": false
+      "registeredAt": "2026-08-12T11:45:00+00:00"
     }
   ],
   "programSubmissions": [
     {
       "id": "sub_astral_weaver",
       "programId": "prog_kairo_originals_s1",
-      "participantId": "part_althea_s1",
       "userId": "usr_1",
-      "username": "althea_v",
-      "displayName": "Althea Vance",
-      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
-      "title": "The Astral Weaver: Celestial Resonance",
-      "tagline": "When the twin moons synchronize, an apprentice glyph-weaver uncovers the fracture in the firmament.",
-      "summary": "A complete serialized chapter arc following Lyra as she navigates the Floating Isles of Aethelgard and taps into the forbidden resonance of the Whispering Rift.",
-      "submissionType": "STORY",
       "storyId": "story_1",
-      "storySlug": "the-astral-weaver",
-      "content": "The twin moons of Aethelgard hung in razor-thin alignment, their violet light bleeding through the crystalline spires of the Upper Citadel. Lyra pressed her palms against the rune-stone, feeling the hum of celestial mana vibrate through her bones...",
-      "coverImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
-      "wordCount": 8420,
+      "title": "The Astral Weaver: Celestial Resonance",
+      "summary": "A complete serialized chapter arc following Lyra as she navigates the Floating Isles of Aethelgard and taps into the forbidden resonance of the Whispering Rift.",
       "status": "FINALIST",
-      "isFeatured": true,
-      "isLocked": false,
+      "score": 94.5,
       "votes": 420,
-      "votedUserIds": [
-        "usr_2",
-        "usr_3",
-        "usr_admin"
-      ],
-      "scores": {
-        "judgeScores": {
-          "usr_admin": {
-            "judgeId": "usr_admin",
-            "judgeName": "Master Admin",
-            "criteriaScores": {
-              "crit_quality": 95,
-              "crit_originality": 92,
-              "crit_characters": 94,
-              "crit_world": 98,
-              "crit_engagement": 90
-            },
-            "weightedScore": 94.2,
-            "feedback": "Exceptional prose cadence and breath-taking atmospheric description. Lyra is an instantly compelling protagonist.",
-            "submittedAt": "2026-09-12T16:30:00Z"
-          }
-        },
-        "averageJudgeScore": 94.2,
-        "communityScore": 95,
-        "adminScore": 95,
-        "finalWeightedScore": 94.5
-      },
-      "adminNotes": "Top contender for Grand Champion.",
-      "createdAt": "2026-08-15T18:00:00Z",
-      "updatedAt": "2026-09-12T16:30:00Z"
+      "submittedAt": "2026-08-15T18:00:00+00:00"
     },
     {
       "id": "sub_chronicles_void",
       "programId": "prog_kairo_originals_s1",
-      "participantId": "part_ren_s1",
       "userId": "usr_2",
-      "username": "ren_takahashi",
-      "displayName": "Ren Takahashi",
-      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
-      "title": "Echoes of Neo-Kyoto: The Fractured Core",
-      "tagline": "Where neon cyber-enhancements clash with forgotten Shinto guardian spirits.",
-      "summary": "A high-octane dark fantasy chapter detailing the awakening of the Void Guardian beneath the subterranean power plants of Sector 7.",
-      "submissionType": "STORY",
       "storyId": "story_2",
-      "storySlug": "chronicles-of-the-void-blade",
-      "content": "Rain hammered down upon the carbon-fiber rooftops of Neo-Kyoto. In the alley below, Jin unsheathed the Void Blade. The steel hissed as it met the ambient moisture, crackling with azure plasma...",
-      "coverImage": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&auto=format&fit=crop&q=80",
-      "wordCount": 7150,
+      "title": "Echoes of Neo-Kyoto: The Fractured Core",
+      "summary": "A high-octane dark fantasy chapter detailing the awakening of the Void Guardian beneath the subterranean power plants of Sector 7.",
       "status": "FINALIST",
-      "isFeatured": true,
-      "isLocked": false,
+      "score": 89.2,
       "votes": 312,
-      "votedUserIds": [
-        "usr_1",
-        "usr_3"
-      ],
-      "scores": {
-        "judgeScores": {
-          "usr_admin": {
-            "judgeId": "usr_admin",
-            "judgeName": "Master Admin",
-            "criteriaScores": {
-              "crit_quality": 88,
-              "crit_originality": 90,
-              "crit_characters": 86,
-              "crit_world": 92,
-              "crit_engagement": 88
-            },
-            "weightedScore": 89,
-            "feedback": "Incredible action choreography and kinetic energy. The blend of folklore and tech is electric.",
-            "submittedAt": "2026-09-12T17:00:00Z"
-          }
-        },
-        "averageJudgeScore": 89,
-        "communityScore": 89.5,
-        "finalWeightedScore": 89.2
-      },
-      "adminNotes": "Strong runner-up candidate.",
-      "createdAt": "2026-08-18T20:10:00Z",
-      "updatedAt": "2026-09-12T17:00:00Z"
+      "submittedAt": "2026-08-18T20:10:00+00:00"
     },
     {
       "id": "sub_sakura_whisper",
       "programId": "prog_kairo_originals_s1",
-      "participantId": "part_sakura_s1",
       "userId": "usr_3",
-      "username": "sakura_dreamer",
-      "displayName": "Sakura Dreamer",
-      "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
       "title": "The Petals of Nevermore",
-      "tagline": "A quiet romance woven across reincarnation and forgotten dreams.",
       "summary": "An evocative light novel chapter exploring the reunion of two lost mages beneath the eternal cherry blossoms.",
-      "submissionType": "TEXT",
-      "content": "They met when the cherry trees were heavy with dew. Neither spoke of the previous life, but the silver ribbon around her wrist was answer enough...",
-      "coverImage": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&auto=format&fit=crop&q=80",
-      "wordCount": 4200,
       "status": "APPROVED",
-      "isFeatured": false,
-      "isLocked": false,
+      "score": 83,
       "votes": 162,
-      "votedUserIds": [
-        "usr_1"
-      ],
-      "scores": {
-        "judgeScores": {},
-        "averageJudgeScore": 82,
-        "communityScore": 84,
-        "finalWeightedScore": 83
-      },
-      "createdAt": "2026-08-22T14:00:00Z",
-      "updatedAt": "2026-09-08T10:00:00Z"
+      "submittedAt": "2026-08-22T14:00:00+00:00"
     }
   ],
   "programVotes": [
@@ -3017,36 +2835,32 @@
       "programId": "prog_kairo_originals_s1",
       "submissionId": "sub_astral_weaver",
       "userId": "usr_admin",
-      "username": "admin",
-      "votedAt": "2026-09-07T10:00:00Z",
-      "ipAddress": "127.0.0.1"
+      "ipAddress": "127.0.0.1",
+      "votedAt": "2026-09-07T10:00:00+00:00"
     },
     {
       "id": "vote_2",
       "programId": "prog_kairo_originals_s1",
       "submissionId": "sub_astral_weaver",
       "userId": "usr_2",
-      "username": "ren_takahashi",
-      "votedAt": "2026-09-08T11:20:00Z",
-      "ipAddress": "127.0.0.1"
+      "ipAddress": "127.0.0.1",
+      "votedAt": "2026-09-08T11:20:00+00:00"
     },
     {
       "id": "vote_3",
       "programId": "prog_kairo_originals_s1",
       "submissionId": "sub_chronicles_void",
       "userId": "usr_1",
-      "username": "althea_v",
-      "votedAt": "2026-09-08T15:40:00Z",
-      "ipAddress": "127.0.0.1"
+      "ipAddress": "127.0.0.1",
+      "votedAt": "2026-09-08T15:40:00+00:00"
     },
     {
       "id": "vote_4",
       "programId": "prog_kairo_originals_s1",
       "submissionId": "sub_sakura_whisper",
       "userId": "usr_1",
-      "username": "althea_v",
-      "votedAt": "2026-09-09T09:00:00Z",
-      "ipAddress": "127.0.0.1"
+      "ipAddress": "127.0.0.1",
+      "votedAt": "2026-09-09T09:00:00+00:00"
     }
   ],
   "programAnnouncements": [
@@ -3277,6 +3091,74 @@
       },
       "createdAt": "2026-09-19T15:15:16.099Z",
       "updatedAt": "2026-09-19T15:15:16.099Z"
+    },
+    "usr_admin": {
+      "id": "uip_usr_admin",
+      "userId": "usr_admin",
+      "preferredGenres": {
+        "All Genres": 1
+      },
+      "preferredSubgenres": [],
+      "preferredLanguages": [
+        "English"
+      ],
+      "preferredUiLanguage": "English",
+      "preferredStoryStyles": {
+        "Deep world-building": 0.9,
+        "Fast-paced action": 0.85,
+        "Plot twists": 0.8
+      },
+      "preferredThemes": [
+        "All Themes"
+      ],
+      "preferredStoryLengths": [
+        "Medium",
+        "Long"
+      ],
+      "preferredSerialization": [
+        "Serialized chapters",
+        "Light novels"
+      ],
+      "preferredReadingFrequency": "Daily",
+      "preferredEndingStyles": [
+        "Unexpected",
+        "Bittersweet"
+      ],
+      "animePreferences": [
+        "Shonen",
+        "Dark Fantasy",
+        "Supernatural"
+      ],
+      "readingMediumPreferences": [
+        "Light Novels",
+        "Original Fiction",
+        "Manga-Style Stories"
+      ],
+      "userRoles": [
+        "Reader",
+        "Community Explorer"
+      ],
+      "userInterests": [
+        "Epic Lore",
+        "Character Development"
+      ],
+      "favoriteAuthorIds": [],
+      "favoriteAnimeIds": [],
+      "seededItemIds": [],
+      "readerScore": 85,
+      "writerScore": 20,
+      "communityScore": 65,
+      "animeScore": 80,
+      "hasCompletedOnboarding": false,
+      "onboardingSkipped": false,
+      "negativeSignals": {
+        "dislikedStoryIds": [],
+        "dislikedGenres": [],
+        "mutedAuthorIds": [],
+        "hiddenRecommendationIds": []
+      },
+      "createdAt": "2026-09-20T14:02:44.605Z",
+      "updatedAt": "2026-09-20T14:02:44.605Z"
     }
   },
   "userBehaviorEvents": [],

@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { DatabaseSchema } from './db.js';
-import { User, Story, Chapter } from '../src/types.js';
+import { User, Story, Chapter, Program } from '../src/types.js';
+import { initialPrograms } from './programs-seed.js';
 
 let supabaseClient: SupabaseClient | null = null;
 
@@ -1019,17 +1020,25 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
 
   try {
     const [
-      { data: profiles },
-      { data: credentials },
-      { data: sessions },
-      { data: stories },
-      { data: chapters },
-      { data: readingProgress },
-      { data: library },
-      { data: reviews },
-      { data: comments },
-      { data: characters },
-      { data: trash },
+      { data: profiles, error: errProfiles },
+      { data: credentials, error: errCredentials },
+      { data: sessions, error: errSessions },
+      { data: stories, error: errStories },
+      { data: chapters, error: errChapters },
+      { data: readingProgress, error: errReadingProgress },
+      { data: library, error: errLibrary },
+      { data: storyLikes, error: errStoryLikes },
+      { data: userFollows, error: errUserFollows },
+      { data: reviews, error: errReviews },
+      { data: comments, error: errComments },
+      { data: characters, error: errCharacters },
+      { data: worlds, error: errWorlds },
+      { data: universes, error: errUniverses },
+      { data: programs, error: errPrograms },
+      { data: programParticipants, error: errParticipants },
+      { data: programSubmissions, error: errSubmissions },
+      { data: programVotes, error: errVotes },
+      { data: trash, error: errTrash },
     ] = await Promise.all([
       supabase.from('profiles').select('*'),
       supabase.from('user_credentials').select('*'),
@@ -1038,11 +1047,24 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
       supabase.from('chapters').select('*'),
       supabase.from('reading_progress').select('*'),
       supabase.from('library').select('*'),
+      supabase.from('story_likes').select('*'),
+      supabase.from('user_follows').select('*'),
       supabase.from('reviews').select('*'),
       supabase.from('chapter_comments').select('*'),
       supabase.from('characters').select('*'),
+      supabase.from('worlds').select('*'),
+      supabase.from('universes').select('*'),
+      supabase.from('programs').select('*'),
+      supabase.from('program_participants').select('*'),
+      supabase.from('program_submissions').select('*'),
+      supabase.from('program_votes').select('*'),
       supabase.from('recently_deleted_stories').select('*'),
     ]);
+
+    if (errProfiles || errStories) {
+      console.error('[Supabase Full State Error] Failed to fetch critical profiles or stories:', errProfiles || errStories);
+      return null;
+    }
 
     if (!profiles && !stories) {
       return null;
@@ -1120,12 +1142,30 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
       sessionMap[s.token] = { userId: s.user_id, createdAt: s.created_at, expiresAt: s.expires_at };
     });
 
+    const likesMap: Record<string, string[]> = {};
+    (storyLikes || []).forEach(l => {
+      if (!likesMap[l.story_id]) likesMap[l.story_id] = [];
+      if (!likesMap[l.story_id].includes(l.user_id)) {
+        likesMap[l.story_id].push(l.user_id);
+      }
+    });
+
+    const followsMap: Record<string, string[]> = {};
+    (userFollows || []).forEach(f => {
+      if (!followsMap[f.author_id]) followsMap[f.author_id] = [];
+      if (!followsMap[f.author_id].includes(f.follower_id)) {
+        followsMap[f.author_id].push(f.follower_id);
+      }
+    });
+
     return {
       users,
       stories: mappedStories,
       chapters: mappedChapters,
       passwords,
       sessions: sessionMap,
+      likes: likesMap,
+      follows: followsMap,
       readingProgress: (readingProgress || []).map(rp => ({
         id: `${rp.user_id}_${rp.story_id}`,
         userId: rp.user_id,
@@ -1185,6 +1225,149 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
         personality: ch.personality || '',
         createdAt: ch.created_at,
       })),
+      worlds: (worlds || []).map(w => ({
+        id: w.id,
+        authorId: w.author_id,
+        name: w.name,
+        description: w.description || '',
+        rules: w.rules || '',
+        magicTypes: w.magic_system ? [w.magic_system] : [],
+        techLevel: w.technology_level || '',
+        createdAt: w.created_at,
+      })),
+      universes: (universes || []).map(u => ({
+        id: u.id,
+        slug: u.slug || u.id,
+        authorId: u.author_id,
+        name: u.title || 'Untitled Universe',
+        tagline: '',
+        description: u.description || '',
+        bannerImage: u.banner_image || u.cover_image || '',
+        storiesCount: 0,
+        charactersCount: 0,
+        readersCount: 0,
+        rating: 5,
+        createdAt: u.created_at,
+      })),
+      programs: (programs || []).map(p => {
+        const seed = initialPrograms.find(ip => ip.id === p.id || ip.slug === p.slug);
+        const fallbackTimeline = seed?.timeline || {
+          registrationOpens: p.start_date || new Date().toISOString(),
+          registrationCloses: p.end_date || new Date(Date.now() + 14 * 86400000).toISOString(),
+          submissionOpens: p.start_date || new Date().toISOString(),
+          submissionDeadline: p.end_date || new Date(Date.now() + 30 * 86400000).toISOString(),
+          votingStarts: new Date(Date.now() + 31 * 86400000).toISOString(),
+          votingEnds: new Date(Date.now() + 45 * 86400000).toISOString(),
+          judgingStarts: new Date(Date.now() + 31 * 86400000).toISOString(),
+          judgingEnds: new Date(Date.now() + 50 * 86400000).toISOString(),
+          finalistAnnouncementDate: new Date(Date.now() + 46 * 86400000).toISOString(),
+          resultDeclarationDate: new Date(Date.now() + 55 * 86400000).toISOString(),
+          winnerAnnouncementTime: '12:00 UTC',
+          programEndDate: new Date(Date.now() + 60 * 86400000).toISOString()
+        };
+        const fallbackAnalytics = seed?.analytics || {
+          views: 0,
+          uniqueVisitors: 0,
+          registrationsCount: 0,
+          submissionsCount: 0,
+          totalVotes: 0,
+          completionRate: 0,
+          sharesCount: 0
+        };
+
+        return {
+          ...seed,
+          id: p.id,
+          slug: p.slug,
+          name: p.title || seed?.name || 'Untitled Program',
+          tagline: p.subtitle || seed?.tagline || '',
+          description: p.description || seed?.description || '',
+          type: p.type || seed?.type || 'Writing Competition',
+          status: p.status || seed?.status || 'REGISTRATION_OPEN',
+          bannerImage: p.banner_image || seed?.bannerImage || '',
+          coverImage: seed?.coverImage || p.banner_image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
+          thumbnail: seed?.thumbnail || p.banner_image || 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400&auto=format&fit=crop&q=80',
+          organizerName: seed?.organizerName || 'KAIRO Editorial Guild',
+          theme: seed?.theme || 'Creative Writing',
+          category: seed?.category || 'Fiction',
+          eligibility: seed?.eligibility || 'Open to all creators',
+          language: seed?.language || 'English',
+          maxParticipants: seed?.maxParticipants || 500,
+          minParticipants: seed?.minParticipants || 1,
+          targetAudience: (p.settings?.targetAudience || seed?.targetAudience || 'both') as any,
+          visibility: (p.settings?.visibility || seed?.visibility || 'public') as any,
+          timeline: fallbackTimeline,
+          rules: (typeof seed?.rules === 'object' && seed.rules !== null && !Array.isArray(seed.rules)) ? seed.rules : {
+            fullRules: Array.isArray(p.rules) ? p.rules.join('\n') : (typeof p.rules === 'string' ? p.rules : 'Adhere to community guidelines.'),
+            participationRequirements: 'Active account required.',
+            allowedContent: 'Original stories.',
+            prohibitedContent: 'Plagiarism, hate speech.',
+            wordLimitMin: 1000,
+            wordLimitMax: 20000,
+            requireRulesAgreement: true
+          },
+          prizes: seed?.prizes || [],
+          judgingConfig: seed?.judgingConfig || {
+            criteria: [
+              { id: 'crit_1', name: 'Originality', description: 'Uniqueness of concept', maxScore: 25, weightPercent: 25 },
+              { id: 'crit_2', name: 'Writing Style', description: 'Flow and prose quality', maxScore: 25, weightPercent: 25 },
+              { id: 'crit_3', name: 'Pacing & Plot', description: 'Narrative structure', maxScore: 25, weightPercent: 25 },
+              { id: 'crit_4', name: 'Worldbuilding', description: 'Setting immersion', maxScore: 25, weightPercent: 25 }
+            ],
+            formula: 'WEIGHTED_SUM',
+            judgeWeightPercent: 70,
+            communityWeightPercent: 30
+          },
+          votingConfig: seed?.votingConfig || {
+            enabled: true,
+            mode: 'POINTS_ALLOCATION',
+            maxVotesPerUser: 5,
+            preventVoteBuying: true
+          },
+          leaderboardConfig: seed?.leaderboardConfig || {
+            enabled: true,
+            visibility: 'PUBLIC',
+            realTime: true,
+            rankBy: 'COMBINED'
+          },
+          sponsors: seed?.sponsors || [],
+          faq: seed?.faq || [],
+          finalists: seed?.finalists || [],
+          results: seed?.results || { isLocked: false, winners: [] },
+          analytics: fallbackAnalytics,
+          createdAt: p.created_at || seed?.createdAt || new Date().toISOString(),
+          updatedAt: p.updated_at || seed?.updatedAt || new Date().toISOString(),
+          createdByAdminId: p.created_by || seed?.createdByAdminId || 'usr_admin',
+        } as Program;
+      }),
+      programParticipants: (programParticipants || []).map(pp => ({
+        id: pp.id,
+        programId: pp.program_id,
+        userId: pp.user_id,
+        status: pp.status || 'REGISTERED',
+        rulesAgreementCheckbox: Boolean(pp.rules_accepted),
+        registeredAt: pp.registered_at || new Date().toISOString(),
+      })) as any,
+      programSubmissions: (programSubmissions || []).map(ps => ({
+        id: ps.id,
+        programId: ps.program_id,
+        userId: ps.user_id,
+        storyId: ps.story_id || undefined,
+        title: ps.title,
+        summary: ps.summary || '',
+        status: ps.status || 'SUBMITTED',
+        score: Number(ps.score || 0),
+        votes: Number(ps.votes_count || 0),
+        submittedAt: ps.submitted_at || new Date().toISOString(),
+      })) as any,
+      programVotes: (programVotes || []).map(pv => ({
+        id: pv.id,
+        programId: pv.program_id,
+        submissionId: pv.submission_id,
+        userId: pv.user_id,
+        ipAddress: pv.ip_address || '',
+        votedAt: pv.voted_at || new Date().toISOString(),
+      })) as any,
       recentlyDeletedStories: (trash || []).map(t => ({
         id: t.id,
         story: t.story,
@@ -1201,3 +1384,275 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
     return null;
   }
 }
+
+// =========================================================================
+// PHASE 2: AUTHORITATIVE SUPABASE AUTHENTICATION & IDENTITY PERSISTENCE
+// =========================================================================
+
+export async function supabaseFindUserByUsernameOrEmail(identifier: string): Promise<User | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  const clean = identifier.trim().toLowerCase();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .or(`username.ilike.${clean},email.ilike.${clean}`)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[Supabase Auth] findUserByUsernameOrEmail error:', error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    username: data.username,
+    email: data.email,
+    displayName: data.display_name || data.username,
+    avatar: data.avatar || '',
+    bio: data.bio || '',
+    role: data.role || 'USER',
+    xp: data.xp || 0,
+    level: data.level || 1,
+    readingStreak: data.reading_streak || 0,
+    lastActiveDate: data.last_active_date || data.created_at,
+    followersCount: data.followers_count || 0,
+    followingCount: data.following_count || 0,
+    totalReads: data.total_reads || 0,
+    favoriteGenres: data.favorite_genres || [],
+    favoriteThemes: data.favorite_themes || [],
+    isVerifiedWriter: Boolean(data.is_verified || data.role === 'WRITER' || data.role === 'ADMIN'),
+    createdAt: data.created_at,
+  };
+}
+
+export async function supabaseFindUserById(userId: string): Promise<User | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[Supabase Auth] findUserById error:', error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    username: data.username,
+    email: data.email,
+    displayName: data.display_name || data.username,
+    avatar: data.avatar || '',
+    bio: data.bio || '',
+    role: data.role || 'USER',
+    xp: data.xp || 0,
+    level: data.level || 1,
+    readingStreak: data.reading_streak || 0,
+    lastActiveDate: data.last_active_date || data.created_at,
+    followersCount: data.followers_count || 0,
+    followingCount: data.following_count || 0,
+    totalReads: data.total_reads || 0,
+    favoriteGenres: data.favorite_genres || [],
+    favoriteThemes: data.favorite_themes || [],
+    isVerifiedWriter: Boolean(data.is_verified || data.role === 'WRITER' || data.role === 'ADMIN'),
+    createdAt: data.created_at,
+  };
+}
+
+export async function supabaseCreateUserWithCredentials(
+  user: User,
+  salt: string,
+  hash: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { success: false, error: 'Database service unavailable: Supabase client not initialized.' };
+  }
+
+  // 1. Check for duplicates in Supabase directly
+  const { data: existing, error: checkError } = await supabase
+    .from('profiles')
+    .select('id, username, email')
+    .or(`username.ilike.${user.username},email.ilike.${user.email}`);
+
+  if (checkError) {
+    console.error('[Supabase Auth Error] Duplicate check failed:', checkError.message);
+    return { success: false, error: `Database verification error: ${checkError.message}` };
+  }
+
+  if (existing && existing.length > 0) {
+    return { success: false, error: 'A user with this username or email already exists in production.' };
+  }
+
+  // 2. Insert profile record
+  const profileRow = {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    display_name: user.displayName || user.username,
+    avatar: user.avatar || null,
+    bio: user.bio || null,
+    role: user.role || 'USER',
+    xp: user.xp || 0,
+    level: user.level || 1,
+    reading_streak: user.readingStreak || 0,
+    last_active_date: user.lastActiveDate || new Date().toISOString(),
+    followers_count: user.followersCount || 0,
+    following_count: user.followingCount || 0,
+    total_reads: user.totalReads || 0,
+    favorite_genres: user.favoriteGenres || [],
+    favorite_themes: user.favoriteThemes || [],
+    is_verified: Boolean(user.isVerifiedWriter || user.role === 'WRITER' || user.role === 'ADMIN'),
+    created_at: user.createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error: profileError } = await supabase.from('profiles').insert(profileRow);
+  if (profileError) {
+    console.error('[Supabase Auth Error] Failed to insert profile:', profileError.message);
+    return { success: false, error: `Failed to persist user profile: ${profileError.message}` };
+  }
+
+  // 3. Insert user credentials record
+  const credsRow = {
+    user_id: user.id,
+    salt,
+    hash,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error: credsError } = await supabase.from('user_credentials').insert(credsRow);
+  if (credsError) {
+    console.error('[Supabase Auth Error] Failed to insert credentials:', credsError.message);
+    // Rollback profile insert to prevent orphaned profile
+    await supabase.from('profiles').delete().eq('id', user.id);
+    return { success: false, error: `Failed to persist user credentials: ${credsError.message}` };
+  }
+
+  return { success: true };
+}
+
+export async function supabaseGetCredentials(userId: string): Promise<{ salt: string; hash: string } | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('user_credentials')
+    .select('salt, hash')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[Supabase Auth Error] getCredentials error:', error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function supabaseSetCredentials(userId: string, salt: string, hash: string): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('user_credentials')
+    .upsert({
+      user_id: userId,
+      salt,
+      hash,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+
+  if (error) {
+    console.error('[Supabase Auth Error] setCredentials error:', error.message);
+    return false;
+  }
+  return true;
+}
+
+export async function supabaseCreateSessionRecord(
+  token: string,
+  userId: string,
+  expiresAt: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { success: false, error: 'Database service unavailable: Supabase client not initialized.' };
+  }
+
+  const { error } = await supabase
+    .from('user_sessions')
+    .insert({
+      token,
+      user_id: userId,
+      created_at: new Date().toISOString(),
+      expires_at: expiresAt,
+    });
+
+  if (error) {
+    console.error('[Supabase Auth Error] createSessionRecord error:', error.message);
+    return { success: false, error: `Failed to persist session: ${error.message}` };
+  }
+  return { success: true };
+}
+
+export async function supabaseValidateSessionRecord(token: string): Promise<{
+  status: 'OK' | 'EXPIRED' | 'INVALID' | 'NOT_FOUND';
+  user: User | null;
+}> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { status: 'INVALID', user: null };
+  }
+
+  const { data: session, error } = await supabase
+    .from('user_sessions')
+    .select('token, user_id, expires_at')
+    .eq('token', token)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[Supabase Auth Error] validateSessionRecord error:', error.message);
+    return { status: 'INVALID', user: null };
+  }
+
+  if (!session) {
+    return { status: 'INVALID', user: null };
+  }
+
+  if (new Date(session.expires_at).getTime() < Date.now()) {
+    // Delete expired session
+    await supabase.from('user_sessions').delete().eq('token', token);
+    return { status: 'EXPIRED', user: null };
+  }
+
+  const user = await supabaseFindUserById(session.user_id);
+  if (!user) {
+    return { status: 'NOT_FOUND', user: null };
+  }
+
+  return { status: 'OK', user };
+}
+
+export async function supabaseDeleteSessionRecord(token: string): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('user_sessions')
+    .delete()
+    .eq('token', token);
+
+  if (error) {
+    console.error('[Supabase Auth Error] deleteSessionRecord error:', error.message);
+    return false;
+  }
+  return true;
+}
+
