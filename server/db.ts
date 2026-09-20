@@ -22,7 +22,7 @@ import {
   initialAnnouncements, initialAuditLogs, initialCertificates
 } from './programs-seed.js';
 import {
-  isSupabaseConfigured, checkSupabaseSchemaReady, loadFullStateFromSupabase, runSupabaseDataMigration, syncEntityToSupabase
+  isSupabaseConfigured, checkSupabaseSchemaReady, loadFullStateFromSupabase, runSupabaseDataMigration, syncEntityToSupabase, syncActivityImmediately
 } from './supabase.js';
 
 function resolveDataPaths() {
@@ -2340,6 +2340,7 @@ class DatabaseService {
     if (idx === -1) return undefined;
     this.db.users[idx] = { ...this.db.users[idx], ...updates };
     this.commit();
+    syncActivityImmediately('profile_upsert', this.db.users[idx]).catch(e => console.warn('[Supabase Auto-Sync] profile:', e));
     return this.db.users[idx];
   }
 
@@ -2543,6 +2544,7 @@ class DatabaseService {
 
     this.db.stories.unshift(newStory);
     this.commit();
+    syncActivityImmediately('story_upsert', newStory).catch(e => console.warn('[Supabase Auto-Sync] story create:', e));
     return newStory;
   }
 
@@ -2551,6 +2553,7 @@ class DatabaseService {
     if (idx === -1) return undefined;
     this.db.stories[idx] = { ...this.db.stories[idx], ...updates, updatedAt: new Date().toISOString() };
     this.commit();
+    syncActivityImmediately('story_upsert', this.db.stories[idx]).catch(e => console.warn('[Supabase Auto-Sync] story update:', e));
     return this.db.stories[idx];
   }
 
@@ -2619,6 +2622,7 @@ class DatabaseService {
 
     this.cleanupExpiredTrash();
     this.commit();
+    syncActivityImmediately('story_delete', { record, storyId: story.id }).catch(e => console.warn('[Supabase Auto-Sync] story trash:', e));
     return { success: true, record };
   }
 
@@ -2688,6 +2692,7 @@ class DatabaseService {
     }
 
     this.commit();
+    syncActivityImmediately('story_restore', { trashId: record.id, story: restoredStory }).catch(e => console.warn('[Supabase Auto-Sync] story restore:', e));
     return { success: true, story: restoredStory };
   }
 
@@ -2706,6 +2711,7 @@ class DatabaseService {
 
     this.db.recentlyDeletedStories.splice(idx, 1);
     this.commit();
+    syncActivityImmediately('story_permanent_delete', { trashId: record.id }).catch(e => console.warn('[Supabase Auto-Sync] story permanent delete:', e));
     return true;
   }
 
@@ -2754,6 +2760,7 @@ class DatabaseService {
     }
 
     this.commit();
+    syncActivityImmediately('chapter_upsert', { chapter: newChapter, storyId, chaptersCount: story?.chaptersCount }).catch(e => console.warn('[Supabase Auto-Sync] chapter create:', e));
     return newChapter;
   }
 
@@ -2776,6 +2783,7 @@ class DatabaseService {
       updatedAt: new Date().toISOString(),
     };
     this.commit();
+    syncActivityImmediately('chapter_upsert', { chapter: this.db.chapters[idx] }).catch(e => console.warn('[Supabase Auto-Sync] chapter update:', e));
     return this.db.chapters[idx];
   }
 
@@ -2792,6 +2800,7 @@ class DatabaseService {
       story.updatedAt = new Date().toISOString();
     }
     this.commit();
+    syncActivityImmediately('chapter_delete', { chapterId, storyId, chaptersCount: story?.chaptersCount }).catch(e => console.warn('[Supabase Auto-Sync] chapter delete:', e));
     return true;
   }
 
@@ -2846,6 +2855,7 @@ class DatabaseService {
     }
 
     this.commit();
+    syncActivityImmediately('reading_progress', progress).catch(e => console.warn('[Supabase Auto-Sync] reading progress:', e));
     return progress;
   }
 
@@ -2871,6 +2881,7 @@ class DatabaseService {
     if (idx !== -1) {
       this.db.library.splice(idx, 1);
       this.commit();
+      syncActivityImmediately('library_toggle', { userId, storyId, listType, inLibrary: false }).catch(e => console.warn('[Supabase Auto-Sync] library remove:', e));
       return { inLibrary: false };
     } else {
       const newItem: LibraryItem = {
@@ -2882,6 +2893,7 @@ class DatabaseService {
       };
       this.db.library.unshift(newItem);
       this.commit();
+      syncActivityImmediately('library_toggle', { userId, storyId, listType, inLibrary: true }).catch(e => console.warn('[Supabase Auto-Sync] library add:', e));
       return { inLibrary: true, item: newItem };
     }
   }
@@ -2904,6 +2916,7 @@ class DatabaseService {
       story.likes = this.db.likes[storyId].length;
     }
     this.commit();
+    syncActivityImmediately(liked ? 'story_like' : 'story_unlike', { userId, storyId, totalLikes: this.db.likes[storyId].length }).catch(e => console.warn('[Supabase Auto-Sync] story like:', e));
     return { liked, totalLikes: this.db.likes[storyId].length };
   }
 
@@ -2925,6 +2938,7 @@ class DatabaseService {
       author.followersCount = this.db.follows[authorId].length;
     }
     this.commit();
+    syncActivityImmediately(following ? 'user_follow' : 'user_unfollow', { followerId, authorId }).catch(e => console.warn('[Supabase Auto-Sync] user follow:', e));
     return { following, totalFollowers: this.db.follows[authorId].length };
   }
 
@@ -2957,6 +2971,7 @@ class DatabaseService {
 
     this.db.comments.push(newComment);
     this.commit();
+    syncActivityImmediately('comment_upsert', newComment).catch(e => console.warn('[Supabase Auto-Sync] comment create:', e));
     return newComment;
   }
 
@@ -2972,6 +2987,7 @@ class DatabaseService {
       comment.likes += 1;
     }
     this.commit();
+    syncActivityImmediately('comment_like', comment).catch(e => console.warn('[Supabase Auto-Sync] comment like:', e));
     return comment;
   }
 
@@ -2987,6 +3003,8 @@ class DatabaseService {
       existing.updatedAt = now;
       this.recalculateStoryRating(storyId);
       this.commit();
+      const story = this.findStoryByIdOrSlug(storyId);
+      syncActivityImmediately('review_upsert', { review: existing, storyRating: story?.rating }).catch(e => console.warn('[Supabase Auto-Sync] review update:', e));
       return existing;
     }
 
@@ -3005,6 +3023,8 @@ class DatabaseService {
     this.db.reviews.unshift(newRev);
     this.recalculateStoryRating(storyId);
     this.commit();
+    const story = this.findStoryByIdOrSlug(storyId);
+    syncActivityImmediately('review_upsert', { review: newRev, storyRating: story?.rating }).catch(e => console.warn('[Supabase Auto-Sync] review add:', e));
     return newRev;
   }
 
@@ -3987,6 +4007,7 @@ class DatabaseService {
     if (!this.db.characters) this.db.characters = [];
     this.db.characters.push(newChar);
     this.commit();
+    syncActivityImmediately('character_upsert', newChar).catch(e => console.warn('[Supabase Auto-Sync] character create:', e));
     return newChar;
   }
 
@@ -4005,6 +4026,7 @@ class DatabaseService {
       authorId: existing.authorId || user.id,
     };
     this.commit();
+    syncActivityImmediately('character_upsert', this.db.characters[idx]).catch(e => console.warn('[Supabase Auto-Sync] character update:', e));
     return this.db.characters[idx];
   }
 
@@ -4023,6 +4045,7 @@ class DatabaseService {
       );
     }
     this.commit();
+    syncActivityImmediately('character_delete', { characterId: id }).catch(e => console.warn('[Supabase Auto-Sync] character delete:', e));
     return true;
   }
 
@@ -4138,6 +4161,7 @@ class DatabaseService {
     };
     this.db.worlds.push(newWorld);
     this.commit();
+    syncActivityImmediately('world_upsert', newWorld).catch(e => console.warn('[Supabase Auto-Sync] world create:', e));
     return newWorld;
   }
 
@@ -4174,6 +4198,7 @@ class DatabaseService {
     };
     this.db.universes.push(newUni);
     this.commit();
+    syncActivityImmediately('universe_upsert', newUni).catch(e => console.warn('[Supabase Auto-Sync] universe create:', e));
     return newUni;
   }
 
@@ -4773,6 +4798,7 @@ class DatabaseService {
     }
 
     this.commit();
+    syncActivityImmediately('program_participant', newParticipant).catch(e => console.warn('[Supabase Auto-Sync] program participant:', e));
 
     this.logProgramAudit({
       programId,
@@ -4894,6 +4920,7 @@ class DatabaseService {
     }
 
     this.commit();
+    syncActivityImmediately('program_submission', newSub).catch(e => console.warn('[Supabase Auto-Sync] program submission create:', e));
 
     this.logProgramAudit({
       programId,
@@ -4930,6 +4957,7 @@ class DatabaseService {
     }
 
     this.commit();
+    syncActivityImmediately('program_submission', sub).catch(e => console.warn('[Supabase Auto-Sync] program submission update:', e));
 
     this.logProgramAudit({
       programId: sub.programId,
@@ -5151,6 +5179,7 @@ class DatabaseService {
     prog.analytics.totalVotes = (prog.analytics.totalVotes || 0) + 1;
 
     this.commit();
+    syncActivityImmediately('program_vote', { vote, submissionId, votesCount: sub.votes, programId }).catch(e => console.warn('[Supabase Auto-Sync] program vote:', e));
 
     return { success: true, message: 'Vote cast successfully!', votes: sub.votes };
   }
