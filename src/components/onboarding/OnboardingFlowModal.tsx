@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { User, Story, Community, UserInterestProfile, StoryDna } from '../../types';
+import { safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR } from '../../utils/imageOptimizer';
 
 interface OnboardingFlowModalProps {
   isOpen: boolean;
@@ -850,7 +851,7 @@ export const OnboardingFlowModal: React.FC<OnboardingFlowModalProps> = ({
                             }`}
                           >
                             <img
-                              src={story.coverImage}
+                              src={safeImg(story.coverImage, DEFAULT_STORY_COVER)}
                               alt={story.title}
                               className="w-14 h-20 rounded-lg object-cover shrink-0"
                             />
@@ -888,7 +889,7 @@ export const OnboardingFlowModal: React.FC<OnboardingFlowModalProps> = ({
                             }`}
                           >
                             <img
-                              src={comm.iconImage || comm.bannerImage}
+                              src={safeImg(comm.iconImage || comm.bannerImage, DEFAULT_USER_AVATAR)}
                               alt={comm.name}
                               className="w-10 h-10 rounded-lg object-cover shrink-0"
                             />

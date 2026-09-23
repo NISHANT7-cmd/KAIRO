@@ -15,6 +15,7 @@ import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { CreateProgramModal } from './CreateProgramModal';
 import { CertificateModal } from './CertificateModal';
+import { safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR } from '../../utils/imageOptimizer';
 
 interface AdminProgramsViewProps {
   onOpenStory?: (slug: string) => void;
@@ -569,7 +570,7 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
                     >
                       <div className="flex items-center gap-3">
                         <img
-                          src={prog.thumbnail || prog.coverImage}
+                          src={safeImg(prog.thumbnail || prog.coverImage, DEFAULT_STORY_COVER)}
                           alt={prog.name}
                           className="w-12 h-12 rounded-xl object-cover border border-pink-100 shrink-0"
                         />
@@ -652,7 +653,7 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
                     className="glass-card rounded-2xl overflow-hidden border border-pink-100 hover:border-pink-300 transition-all flex flex-col justify-between"
                   >
                     <div className="relative h-28 w-full overflow-hidden">
-                      <img src={prog.coverImage} alt={prog.name} className="w-full h-full object-cover" />
+                      <img src={safeImg(prog.coverImage, DEFAULT_STORY_COVER)} alt={prog.name} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <span className={`absolute top-3 left-3 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-sm ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
                         {prog.status}
@@ -795,7 +796,7 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               <img
-                                src={prog.thumbnail || prog.coverImage}
+                                src={safeImg(prog.thumbnail || prog.coverImage, DEFAULT_STORY_COVER)}
                                 alt={prog.name}
                                 className="w-10 h-10 rounded-xl object-cover border border-pink-100 shrink-0"
                               />
@@ -886,7 +887,7 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="flex items-start gap-4">
                 <img
-                  src={selectedProgram.coverImage}
+                  src={safeImg(selectedProgram.coverImage, DEFAULT_STORY_COVER)}
                   alt={selectedProgram.name}
                   className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-2 border-pink-200 shadow-md shrink-0"
                 />
@@ -1147,7 +1148,7 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
                       <tr key={part.id} className="hover:bg-pink-50/30 transition-all">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
-                            <img src={part.avatar} alt={part.displayName} className="w-8 h-8 rounded-full object-cover border border-pink-100" />
+                            <img src={safeImg(part.avatar, DEFAULT_USER_AVATAR)} alt={part.displayName} className="w-8 h-8 rounded-full object-cover border border-pink-100" />
                             <div>
                               <div className="font-bold text-[#26152b]">{part.displayName}</div>
                               <div className="text-[10px] text-[#877276]">@{part.username}</div>
@@ -1241,7 +1242,7 @@ export const AdminProgramsView: React.FC<AdminProgramsViewProps> = ({ onOpenStor
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
-                          <img src={sub.avatar} alt={sub.displayName} className="w-9 h-9 rounded-full object-cover border border-pink-200" />
+                          <img src={safeImg(sub.avatar, DEFAULT_USER_AVATAR)} alt={sub.displayName} className="w-9 h-9 rounded-full object-cover border border-pink-200" />
                           <div>
                             <div className="font-bold text-[#26152b] text-xs">{sub.displayName}</div>
                             <div className="text-[10px] text-gray-500">@{sub.username}</div>

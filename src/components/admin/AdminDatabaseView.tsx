@@ -7,6 +7,7 @@ import {
 import { fetchSupabaseStatus, triggerSupabaseMigration, fetchSupabaseSqlMigration, SupabaseServerStatus } from '../../services/supabase';
 import { api } from '../../services/api';
 import { DeletedStoryRecord } from '../../types';
+import { safeImg, DEFAULT_STORY_COVER } from '../../utils/imageOptimizer';
 
 export const AdminDatabaseView: React.FC = () => {
   const [status, setStatus] = useState<SupabaseServerStatus | null>(null);
@@ -402,7 +403,7 @@ export const AdminDatabaseView: React.FC = () => {
               >
                 <div className="flex items-center gap-3.5">
                   <img
-                    src={item.story?.coverImage || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80'}
+                    src={safeImg(item.story?.coverImage, DEFAULT_STORY_COVER)}
                     alt={item.story?.title}
                     className="w-12 h-16 object-cover rounded-xl border border-pink-100 shrink-0"
                   />

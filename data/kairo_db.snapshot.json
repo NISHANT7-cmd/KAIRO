@@ -184,6 +184,58 @@
       "isVerifiedWriter": true
     },
     {
+      "id": "usr_1789918722505_gfbx",
+      "username": "archeoptyrx",
+      "email": "nishantshewale69@gmail.com",
+      "displayName": "archeoptyrx",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "bio": "Author and worldbuilder crafting light novels on KAIRO.",
+      "role": "WRITER",
+      "xp": 0,
+      "level": 1,
+      "readingStreak": 0,
+      "lastActiveDate": "2026-09-20T15:38:42.505+00:00",
+      "followersCount": 0,
+      "followingCount": 0,
+      "totalReads": 0,
+      "favoriteGenres": [
+        "Fantasy",
+        "Anime-Inspired",
+        "Light Novel"
+      ],
+      "favoriteThemes": [
+        "World Building"
+      ],
+      "createdAt": "2026-09-20T15:38:42.505+00:00",
+      "isVerifiedWriter": true
+    },
+    {
+      "id": "usr_1789918851091_iriv",
+      "username": "archeoptyrx2",
+      "email": "nishantshewale66@gmail.com",
+      "displayName": "archeoptyrx1",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "bio": "Author and worldbuilder crafting light novels on KAIRO.",
+      "role": "WRITER",
+      "xp": 0,
+      "level": 1,
+      "readingStreak": 0,
+      "lastActiveDate": "2026-09-20T15:40:51.091+00:00",
+      "followersCount": 0,
+      "followingCount": 0,
+      "totalReads": 0,
+      "favoriteGenres": [
+        "Fantasy",
+        "Anime-Inspired",
+        "Light Novel"
+      ],
+      "favoriteThemes": [
+        "World Building"
+      ],
+      "createdAt": "2026-09-20T15:40:51.091+00:00",
+      "isVerifiedWriter": true
+    },
+    {
       "id": "usr_1789917838449_bk6p",
       "username": "ph2_test_wanderer",
       "email": "ph2_test@kairo.app",
@@ -242,6 +294,14 @@
     "usr_1789917838449_bk6p": {
       "salt": "3f67f76119b2a3ff2155b3094ad51ae0",
       "hash": "50c4ffb0b8024f4d5dd0efddd772f68ddab2432d7925799a3bbcf09add3021494f49cc166259aa2444301017ee48fdf288a8c3f9f0a4068079aa7ca8f0640219"
+    },
+    "usr_1789918722505_gfbx": {
+      "salt": "7499d8df6118426503e84d5c13e23a85",
+      "hash": "64ee5fa26e8ad090da6526cc254e3d0dc616017274aaf88842c709a084f6a09e3c4cea74b531e088dd6c78b7c8bbaa38c7579f96f04edc615544df7f6cd2be77"
+    },
+    "usr_1789918851091_iriv": {
+      "salt": "d3ed9a01cb2695876072032706c93a18",
+      "hash": "088892549b840b97acdbdcfa2d1c91c666b9074e307ef0a069038862ac2d6a78ae0b18f03dd6bd34b4e9f726d2f4fb7e9e6af069d9cc04c824d31b4fc273e7ed"
     }
   },
   "sessions": {
@@ -309,6 +369,36 @@
       "userId": "usr_1789917838449_bk6p",
       "createdAt": "2026-09-20T15:23:58.635Z",
       "expiresAt": "2026-10-20T15:23:58.635Z"
+    },
+    "kairo_sig.usr_admin.1792599123561.ac21ab5076297d171262c0813666e6f72a48666ac18991dca78604587029ebd6": {
+      "userId": "usr_admin",
+      "createdAt": "2026-09-21T16:12:03.561+00:00",
+      "expiresAt": "2026-10-21T16:12:03.561+00:00"
+    },
+    "kairo_sig.usr_1.1792603034133.34936638dec7d42723df2d82b06856672050e16afc3a43861f24df6e11528ea3": {
+      "userId": "usr_1",
+      "createdAt": "2026-09-21T17:17:14.134+00:00",
+      "expiresAt": "2026-10-21T17:17:14.133+00:00"
+    },
+    "kairo_sig.usr_1.1792603201062.7be875a460ae4b934412d571f9e4197dfb06767031758401eb62ae43940cbeaa": {
+      "userId": "usr_1",
+      "createdAt": "2026-09-21T17:20:01.063+00:00",
+      "expiresAt": "2026-10-21T17:20:01.062+00:00"
+    },
+    "kairo_sig.usr_1.1792603254964.c19be7aac248feaba6e581c36f8f0509beeade9e318672c2e36373a1c06c3190": {
+      "userId": "usr_1",
+      "createdAt": "2026-09-21T17:20:54.964+00:00",
+      "expiresAt": "2026-10-21T17:20:54.964+00:00"
+    },
+    "kairo_sig.usr_1.1792684818105.89b5e42651f941aaa8c66547faa02a2dd0a565213168a4392fc117915626a73a": {
+      "userId": "usr_1",
+      "createdAt": "2026-09-22T16:00:18.106+00:00",
+      "expiresAt": "2026-10-22T16:00:18.105+00:00"
+    },
+    "kairo_sig.usr_1.1792684849906.3e625bc8c99a57672b5305d6db1c920e172b99fc252dc5e0adb0bff3f208d4b7": {
+      "userId": "usr_1",
+      "createdAt": "2026-09-22T16:00:49.907+00:00",
+      "expiresAt": "2026-10-22T16:00:49.906+00:00"
     }
   },
   "stories": [
@@ -550,6 +640,61 @@
       "chaptersCount": 2,
       "createdAt": "2025-02-05T07:00:00+00:00",
       "updatedAt": "2025-02-26T18:00:00+00:00"
+    },
+    {
+      "id": "story_1790092818507",
+      "authorId": "usr_1",
+      "authorUsername": "althea_v",
+      "authorDisplayName": "Althea Vance",
+      "authorAvatar": "",
+      "title": "Persistence Verification Story mucv1mi1",
+      "slug": "persistence-verification-story-mucv1mi1-8507",
+      "description": "A story created strictly to verify awaited Supabase persistence.",
+      "coverImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800",
+      "genre": "Fantasy",
+      "tags": [
+        "Verified",
+        "Phase3"
+      ],
+      "language": "English",
+      "ageRating": "Everyone (G)",
+      "storyType": "Light Novel",
+      "status": "published",
+      "views": 0,
+      "likes": 0,
+      "rating": 5,
+      "ratingCount": 0,
+      "universeId": null,
+      "chaptersCount": 1,
+      "createdAt": "2026-09-22T16:00:18.422395+00:00",
+      "updatedAt": "2026-09-22T16:00:19.757+00:00"
+    },
+    {
+      "id": "story_1790092820627",
+      "authorId": "usr_1",
+      "authorUsername": "althea_v",
+      "authorDisplayName": "Althea Vance",
+      "authorAvatar": "",
+      "title": "Untitled Story",
+      "slug": "untitled-story-0627",
+      "description": "Story with missing title",
+      "coverImage": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80",
+      "genre": "Fantasy",
+      "tags": [
+        "Original Universe"
+      ],
+      "language": "English",
+      "ageRating": "Everyone (G)",
+      "storyType": "Light Novel",
+      "status": "Draft",
+      "views": 0,
+      "likes": 0,
+      "rating": 5,
+      "ratingCount": 0,
+      "universeId": null,
+      "chaptersCount": 0,
+      "createdAt": "2026-09-22T16:00:20.518518+00:00",
+      "updatedAt": "2026-09-22T16:00:20.627+00:00"
     }
   ],
   "chapters": [
@@ -695,9 +840,37 @@
       "updatedAt": "2026-09-18T17:29:00.821+00:00",
       "status": "Published",
       "createdAt": "2026-09-18T17:29:00.821+00:00"
+    },
+    {
+      "id": "chap_1790092818723",
+      "storyId": "story_1790092818507",
+      "chapterNumber": 1,
+      "title": "Chapter 1: The First Inscription (Revised mucv1mi1)",
+      "content": "Revised content verifying patch mutation.",
+      "wordCount": 5,
+      "readingTime": 1,
+      "publishedAt": "2026-09-22T16:00:18.723+00:00",
+      "updatedAt": "2026-09-22T16:00:18.884+00:00",
+      "status": "published",
+      "createdAt": "2026-09-22T16:00:18.60706+00:00"
     }
   ],
-  "readingProgress": [],
+  "readingProgress": [
+    {
+      "id": "usr_1_story_1790092818507",
+      "userId": "usr_1",
+      "storyId": "story_1790092818507",
+      "storyTitle": "",
+      "storyCover": "",
+      "chapterId": "chap_1790092818723",
+      "chapterNumber": 1,
+      "chapterTitle": "",
+      "totalChapters": 1,
+      "progressPercent": 65,
+      "lastPosition": 1200,
+      "lastReadAt": "2026-09-22T16:00:18.981+00:00"
+    }
+  ],
   "library": [],
   "reviews": [
     {
@@ -723,6 +896,18 @@
       "likes": 0,
       "createdAt": "2025-02-12T12:00:00+00:00",
       "updatedAt": "2025-02-12T12:00:00+00:00"
+    },
+    {
+      "id": "rev_1790092819724",
+      "userId": "usr_1",
+      "username": "Reader",
+      "userAvatar": "",
+      "storyId": "story_1790092818507",
+      "rating": 5,
+      "reviewText": "Phenomenal story! The world building and characters are exquisite.",
+      "likes": 0,
+      "createdAt": "2026-09-22T16:00:19.724+00:00",
+      "updatedAt": "2026-09-22T16:00:19.724+00:00"
     }
   ],
   "comments": [
@@ -756,387 +941,103 @@
         "usr_3"
       ],
       "createdAt": "2025-01-23T10:00:00+00:00"
+    },
+    {
+      "id": "com_1790092819835",
+      "chapterId": "chap_1790092818723",
+      "storyId": "story_1790092818507",
+      "userId": "usr_1",
+      "username": "User",
+      "userAvatar": "",
+      "content": "What a magnificent opening chapter! Can not wait for chapter 2. (mucv1mi1)",
+      "parentId": null,
+      "likes": 1,
+      "likedByUsers": [
+        "usr_1"
+      ],
+      "createdAt": "2026-09-22T16:00:19.835+00:00"
     }
   ],
   "communities": [
     {
-      "id": "comm_1",
-      "name": "The Astral Universe Fandom",
-      "slug": "astral-universe-fandom",
-      "description": "The official sanctuary for readers, lore explorers, and theory crafters following Althea Vance's celestial works.",
-      "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
+      "id": "comm_1790011201975",
+      "slug": "test-community-mubigacx-1975",
+      "name": "Test Community mubigacx",
+      "description": "Community for testing persistence",
       "iconImage": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&auto=format&fit=crop&q=80",
-      "type": "story",
-      "memberCount": 8420,
-      "membersCount": 8420,
-      "postsCount": 14,
-      "createdAt": "2025-01-12T00:00:00Z"
-    },
-    {
-      "id": "comm_2",
-      "name": "Dark Fantasy & Isekai Guild",
-      "slug": "dark-fantasy-isekai-guild",
-      "description": "Discussions around grimdark worldbuilding, anti-hero protagonists, and high-stakes magic systems.",
-      "bannerImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
-      "iconImage": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
-      "type": "genre",
-      "memberCount": 14200,
-      "membersCount": 14200,
-      "postsCount": 28,
-      "createdAt": "2025-01-05T00:00:00Z"
-    },
-    {
-      "id": "comm_3",
-      "name": "Light Novel Writers Workshop",
-      "slug": "light-novel-writers-workshop",
-      "description": "Peer critiques, pacing discussions, magic system design, and serialized storytelling masterclasses.",
-      "bannerImage": "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&auto=format&fit=crop&q=80",
-      "iconImage": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
-      "type": "creator",
-      "memberCount": 6510,
-      "membersCount": 6510,
-      "postsCount": 9,
-      "createdAt": "2025-01-08T00:00:00Z"
-    },
-    {
-      "id": "comm_4",
-      "name": "Anime Theories & Seasonal Hype",
-      "slug": "anime-theories-seasonal-hype",
-      "description": "Weekly episode breakdowns, manga-to-anime comparisons, animation studio analyses, and trackings.",
-      "bannerImage": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1600&auto=format&fit=crop&q=80",
-      "iconImage": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
-      "type": "anime",
-      "memberCount": 22100,
-      "membersCount": 22100,
-      "postsCount": 35,
-      "createdAt": "2025-01-02T00:00:00Z"
-    },
-    {
-      "id": "comm_astral",
-      "name": "The Astral Sanctuary",
-      "slug": "astral-sanctuary",
-      "description": "Official community for Celestial Drifters and the Astral Universe saga. Explore cosmic lore, discuss theories, and meet the author.",
       "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
+      "type": "PUBLIC",
+      "categories": [
+        "Discussion"
+      ],
+      "memberCount": 1,
+      "postsCount": 1,
+      "createdAt": "2026-09-21T17:20:01.975+00:00"
+    },
+    {
+      "id": "comm_1790092820010",
+      "slug": "test-community-mucv1mi1-0010",
+      "name": "Test Community mucv1mi1",
+      "description": "Community for testing persistence",
       "iconImage": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&auto=format&fit=crop&q=80",
-      "type": "story",
-      "ownerId": "usr_1",
-      "ownerName": "Althea Vance",
-      "ownerRole": "WRITER",
-      "linkedStoryId": "story_1",
-      "linkedStoryTitle": "Celestial Drifters: Awakening",
-      "categories": [
-        "Discussion",
-        "Theories",
-        "Characters",
-        "World",
-        "Fan Art",
-        "Announcements"
-      ],
-      "rules": [
-        "Be respectful of fellow lore crafters",
-        "Tag all Chapter 4+ plot details with spoiler warnings",
-        "Original fan art must credit references"
-      ],
-      "membersCount": 8420,
-      "activeMembersCount": 142,
-      "postsCount": 18,
-      "createdAt": "2025-01-12T00:00:00Z"
-    },
-    {
-      "id": "comm_shattered",
-      "name": "The Shattered Keep",
-      "slug": "the-shattered-keep",
-      "description": "Dark fantasy haven for Prince Lucian's rebellion. Blood runes, grim political intrigue, and battle discussions.",
-      "bannerImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80",
-      "iconImage": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
-      "type": "story",
-      "ownerId": "usr_2",
-      "ownerName": "Void Knight",
-      "ownerRole": "WRITER",
-      "linkedStoryId": "story_2",
-      "linkedStoryTitle": "The Shattered Crown",
-      "categories": [
-        "Discussion",
-        "Theories",
-        "Characters",
-        "World",
-        "Announcements"
-      ],
-      "membersCount": 6850,
-      "activeMembersCount": 98,
-      "postsCount": 12,
-      "createdAt": "2025-01-08T00:00:00Z"
-    },
-    {
-      "id": "comm_dark_fantasy",
-      "name": "Dark Fantasy & Grim Lore",
-      "slug": "dark-fantasy-lore",
-      "description": "For lovers of anti-heroes, high stakes, forbidden magic systems, and morally grey epics.",
-      "bannerImage": "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&auto=format&fit=crop&q=80",
-      "iconImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&auto=format&fit=crop&q=80",
-      "type": "genre",
-      "categories": [
-        "General",
-        "Recommendations",
-        "Worldbuilding",
-        "Debates"
-      ],
-      "membersCount": 14200,
-      "activeMembersCount": 310,
-      "postsCount": 34,
-      "createdAt": "2025-01-05T00:00:00Z"
-    },
-    {
-      "id": "comm_writers_workshop",
-      "name": "Light Novel Writers Workshop",
-      "slug": "writers-workshop",
-      "description": "Peer critiques, pacing discussions, magic system design, and serialized storytelling masterclasses.",
-      "bannerImage": "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&auto=format&fit=crop&q=80",
-      "iconImage": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
-      "type": "creator",
-      "categories": [
-        "Critique",
-        "Worldbuilding",
-        "Dialogue",
-        "Milestones"
-      ],
-      "membersCount": 6510,
-      "activeMembersCount": 85,
-      "postsCount": 16,
-      "createdAt": "2025-01-08T00:00:00Z"
-    },
-    {
-      "id": "comm_althea",
-      "name": "Althea Vance Official Archive",
-      "slug": "althea-vance-archive",
-      "description": "Direct author notes, exclusive world codex sketches, Q&A logs, and early draft sneak peeks.",
-      "bannerImage": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1600&auto=format&fit=crop&q=80",
-      "iconImage": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
-      "type": "author",
-      "ownerId": "usr_1",
-      "ownerName": "Althea Vance",
-      "ownerRole": "WRITER",
-      "linkedAuthorId": "usr_1",
-      "categories": [
-        "Author Notes",
-        "Q&A",
-        "Drafts",
-        "Community Chat"
-      ],
-      "membersCount": 9400,
-      "activeMembersCount": 180,
-      "postsCount": 22,
-      "createdAt": "2025-01-10T00:00:00Z"
-    },
-    {
-      "id": "comm_astral_alpha",
-      "name": "Astral Alpha Lorekeepers",
-      "slug": "astral-alpha-lorekeepers",
-      "description": "Private circle for beta readers reviewing unreleased cosmology notes and lore drafts.",
       "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
-      "iconImage": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&auto=format&fit=crop&q=80",
-      "type": "private",
-      "isPrivate": true,
-      "accessCode": "ASTRAL2025",
-      "ownerId": "usr_1",
-      "ownerName": "Althea Vance",
-      "ownerRole": "WRITER",
-      "membersCount": 350,
-      "activeMembersCount": 24,
-      "postsCount": 8,
-      "createdAt": "2025-01-25T00:00:00Z"
+      "type": "PUBLIC",
+      "categories": [
+        "Discussion"
+      ],
+      "memberCount": 1,
+      "postsCount": 1,
+      "createdAt": "2026-09-22T16:00:20.01+00:00"
     }
   ],
   "communityPosts": [
     {
-      "id": "post_1",
-      "communityId": "comm_1",
-      "communityName": "The Astral Universe Fandom",
-      "authorId": "usr_3",
-      "authorUsername": "sakura_dreamer",
-      "authorDisplayName": "Sakura Dreamer",
-      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
-      "title": "Who will master the Twin Eclipse resonance first?",
-      "content": "In chapter 4 we saw the void rift expand over Port Lunaris. Do you think Aria will unlock her second affinity or will Kaelen have to sacrifice his ancestral blade?",
-      "tag": "Theory",
-      "likes": 42,
-      "likedByUsers": [
-        "usr_1"
-      ],
-      "commentsCount": 18,
-      "mediaType": "poll",
-      "poll": {
-        "id": "poll_1",
-        "question": "Who will master the Twin Eclipse resonance first?",
-        "options": [
-          {
-            "id": "opt_1",
-            "text": "Aria unlocks pure Nova Flare",
-            "votes": [
-              "usr_1",
-              "usr_3"
-            ]
-          },
-          {
-            "id": "opt_2",
-            "text": "Kaelen embraces the void rune",
-            "votes": [
-              "usr_2"
-            ]
-          },
-          {
-            "id": "opt_3",
-            "text": "Lyra builds a dampening matrix",
-            "votes": []
-          },
-          {
-            "id": "opt_4",
-            "text": "They combine affinities in tandem",
-            "votes": [
-              "usr_admin"
-            ]
-          }
-        ],
-        "totalVotes": 4,
-        "expiresAt": "2025-04-01T00:00:00Z"
-      },
-      "createdAt": "2025-02-22T14:00:00Z"
-    },
-    {
-      "id": "post_2",
-      "communityId": "comm_1",
-      "communityName": "The Astral Universe Fandom",
+      "id": "post_1790011202078",
+      "communityId": "comm_1790011201975",
+      "userId": "usr_1",
       "authorId": "usr_1",
-      "authorUsername": "althea_v",
+      "authorUsername": "Althea Vance",
       "authorDisplayName": "Althea Vance",
       "authorAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
-      "title": "Chapter 5 Teaser: The Archon Chamber",
-      "content": "Here is an official snippet from next week’s chapter: \"The stained glass of the High Spire began to sing in three distinct keys. None of them belonged to the living world.\"",
-      "mediaUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1000&auto=format&fit=crop&q=80",
-      "mediaType": "image",
-      "tag": "Official Update",
-      "likes": 128,
-      "likedByUsers": [
-        "usr_2",
-        "usr_3"
-      ],
-      "commentsCount": 34,
-      "createdAt": "2025-02-26T18:00:00Z"
-    },
-    {
-      "id": "post_3",
-      "communityId": "comm_dark_fantasy",
-      "communityName": "Dark Fantasy & Grim Lore",
-      "communitySlug": "dark-fantasy-lore",
-      "communityType": "genre",
-      "authorId": "usr_2",
-      "authorUsername": "voidknight",
-      "authorDisplayName": "Void Knight",
-      "authorAvatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80",
       "authorRole": "WRITER",
-      "title": "Why anti-heroes need emotional anchors to stay compelling",
-      "content": "An anti-hero who only kills and broods becomes tedious by chapter 10. In The Shattered Crown, Prince Lucian’s ruthless streak is only meaningful because he remembers the oath he swore to the hearth-children of Ravenhold. What are your favorite moral anchors in fiction?",
+      "title": "Welcome to the test guild mubigacx",
+      "content": "This post tests direct Supabase persistence of community activity.",
       "type": "DISCUSSION",
-      "tag": "Craft & Critique",
       "tags": [
-        "Writing",
-        "Anti-Hero",
-        "Character Design"
+        "Announcement",
+        "Test"
       ],
-      "likes": 76,
-      "likedByUsers": [
-        "usr_1"
-      ],
-      "commentsCount": 8,
-      "createdAt": "2025-02-25T11:30:00Z"
+      "likes": 1,
+      "likedByUsers": [],
+      "commentCount": 0,
+      "commentsCount": 0,
+      "isPinned": false,
+      "isLocked": false,
+      "createdAt": "2026-09-21T17:20:02.078+00:00"
     },
     {
-      "id": "post_4",
-      "communityId": "comm_anime_hype",
-      "communityName": "Anime Theories & Seasonal Hype",
-      "communitySlug": "anime-theories-seasonal-hype",
-      "communityType": "fandom",
-      "authorId": "usr_3",
-      "authorUsername": "sakura_dreamer",
-      "authorDisplayName": "Sakura Dreamer",
-      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
-      "title": "Fan Art: Aria & Kaelen Dual Stance Under Eclipse",
-      "content": "Finished this piece after re-reading the arena duel! Tried to capture the contrast between the cyan graviton pulses and the crimson void blades.",
-      "type": "ART",
-      "mediaUrl": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1000&auto=format&fit=crop&q=80",
-      "mediaType": "image",
-      "tag": "Fan Art",
+      "id": "post_1790092820141",
+      "communityId": "comm_1790092820010",
+      "userId": "usr_1",
+      "authorId": "usr_1",
+      "authorUsername": "Althea Vance",
+      "authorDisplayName": "Althea Vance",
+      "authorAvatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+      "authorRole": "WRITER",
+      "title": "Welcome to the test guild mucv1mi1",
+      "content": "This post tests direct Supabase persistence of community activity.",
+      "type": "DISCUSSION",
       "tags": [
-        "Fan Art",
-        "Celestial Drifters",
-        "Digital Art"
+        "Announcement",
+        "Test"
       ],
-      "likes": 189,
-      "likedByUsers": [
-        "usr_1",
-        "usr_2"
-      ],
-      "commentsCount": 14,
-      "createdAt": "2025-02-27T16:00:00Z"
-    },
-    {
-      "id": "post_5",
-      "communityId": "comm_astral",
-      "communityName": "The Astral Sanctuary",
-      "communitySlug": "astral-sanctuary",
-      "communityType": "story",
-      "authorId": "usr_3",
-      "authorUsername": "sakura_dreamer",
-      "authorDisplayName": "Sakura Dreamer",
-      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
-      "title": "⚠️ The Titan Ships Theory: The Floating Isles are ancient hulls!",
-      "content": "If you look closely at the map in World Codex, the inverted graviton lattices follow the exact curvature of pre-ancient interstellar ships. The Archons are actually maintaining ancient life-support!",
-      "type": "THEORY",
-      "tag": "Theory",
-      "tags": [
-        "Cosmology",
-        "Lore",
-        "Titans"
-      ],
-      "isSpoiler": true,
-      "spoilerChapter": 3,
-      "linkedStoryId": "story_1",
-      "linkedStoryTitle": "Celestial Drifters: Awakening",
-      "agreeCount": 94,
-      "disagreeCount": 12,
-      "likes": 112,
-      "likedByUsers": [
-        "usr_1"
-      ],
-      "commentsCount": 22,
-      "createdAt": "2025-02-24T09:00:00Z"
-    },
-    {
-      "id": "post_6",
-      "communityId": "comm_dark_fantasy",
-      "communityName": "Dark Fantasy & Grim Lore",
-      "communitySlug": "dark-fantasy-lore",
-      "communityType": "genre",
-      "authorId": "usr_3",
-      "authorUsername": "sakura_dreamer",
-      "authorDisplayName": "Sakura Dreamer",
-      "authorAvatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80",
-      "title": "Weekly Recommendation: If you love grim political intrigue",
-      "content": "Check out The Shattered Crown by Void Knight. The dialogue in Chapter 1 during the throne room betrayal sets up an extraordinary civil war arc with zero plot armor.",
-      "type": "RECOMMENDATION",
-      "tag": "Recommendation",
-      "recommendation": {
-        "title": "The Shattered Crown",
-        "category": "Story",
-        "note": "Fast-paced grimdark light novel with blood rune magic.",
-        "linkSlug": "the-shattered-crown"
-      },
-      "likes": 64,
-      "likedByUsers": [
-        "usr_2"
-      ],
-      "commentsCount": 6,
-      "createdAt": "2025-02-26T14:00:00Z"
+      "likes": 1,
+      "likedByUsers": [],
+      "commentCount": 0,
+      "commentsCount": 0,
+      "isPinned": false,
+      "isLocked": false,
+      "createdAt": "2026-09-22T16:00:20.141+00:00"
     }
   ],
   "theories": [
@@ -1212,6 +1113,19 @@
       "biography": "A genius tinkerer who built her own hover-board at age 12. Provides technical firepower and endless witty commentary for Aria’s squadron.",
       "personality": "Eccentric technomancer, caffeine enthusiast, loyal sister-figure and tactical genius.",
       "createdAt": "2025-01-12T10:30:00+00:00"
+    },
+    {
+      "id": "char_1790092820348",
+      "storyId": "story_1790092818507",
+      "authorId": "usr_1",
+      "name": "Kaelen Vane mucv1mi1",
+      "role": "Protagonist",
+      "age": "22",
+      "portrait": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+      "primaryPower": "",
+      "biography": "A wandering ether-blade swordsman seeking forgotten memories.",
+      "personality": "Determined, calculating, fiercely loyal",
+      "createdAt": "2026-09-22T16:00:20.348+00:00"
     }
   ],
   "characterRelationships": [
@@ -1255,6 +1169,30 @@
       ],
       "techLevel": "Aether-Magitech (Stellar Crystal Infusion)",
       "createdAt": "2025-01-11T12:30:00+00:00"
+    },
+    {
+      "id": "world_1790011201242",
+      "authorId": "usr_1",
+      "name": "Test World mubigacx",
+      "description": "World description for persistence verification.",
+      "rules": "",
+      "magicTypes": [
+        "Stellar Magitech"
+      ],
+      "techLevel": "High Magic / Magitech",
+      "createdAt": "2026-09-21T17:20:01.242+00:00"
+    },
+    {
+      "id": "world_1790092818404",
+      "authorId": "usr_1",
+      "name": "Test World mucv1mi1",
+      "description": "World description for persistence verification.",
+      "rules": "",
+      "magicTypes": [
+        "Stellar Magitech"
+      ],
+      "techLevel": "High Magic / Magitech",
+      "createdAt": "2026-09-22T16:00:18.404+00:00"
     }
   ],
   "universes": [
@@ -1271,6 +1209,34 @@
       "readersCount": 0,
       "rating": 5,
       "createdAt": "2025-01-11T12:00:00+00:00"
+    },
+    {
+      "id": "uni_1790011201141",
+      "slug": "test-universe-mubigacx-1141",
+      "authorId": "usr_1",
+      "name": "Test Universe mubigacx",
+      "tagline": "",
+      "description": "Detailed description of universe created in Phase 3 verification.",
+      "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
+      "storiesCount": 0,
+      "charactersCount": 0,
+      "readersCount": 0,
+      "rating": 5,
+      "createdAt": "2026-09-21T17:20:01.142+00:00"
+    },
+    {
+      "id": "uni_1790092818225",
+      "slug": "test-universe-mucv1mi1-8225",
+      "authorId": "usr_1",
+      "name": "Test Universe mucv1mi1",
+      "tagline": "",
+      "description": "Detailed description of universe created in Phase 3 verification.",
+      "bannerImage": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=1600&auto=format&fit=crop&q=80",
+      "storiesCount": 0,
+      "charactersCount": 0,
+      "readersCount": 0,
+      "rating": 5,
+      "createdAt": "2026-09-22T16:00:18.226+00:00"
     }
   ],
   "animeEntries": [
@@ -1690,7 +1656,9 @@
     "story_5": [
       "usr_1",
       "usr_3"
-    ]
+    ],
+    "undefined": [],
+    "story_1790092818507": []
   },
   "follows": {
     "usr_1": [
@@ -1698,12 +1666,13 @@
       "usr_3"
     ],
     "usr_2": [
-      "usr_1",
-      "usr_3"
+      "usr_3",
+      "usr_1"
     ],
     "usr_3": [
       "usr_1"
-    ]
+    ],
+    "usr_admin": []
   },
   "userAnimeTracking": {
     "usr_3": {
@@ -2070,6 +2039,12 @@
     "comm_writers_workshop": [
       "usr_1",
       "usr_2"
+    ],
+    "comm_1790011201975": [
+      "usr_1"
+    ],
+    "comm_1790092820010": [
+      "usr_1"
     ]
   },
   "postSaves": {},
@@ -2790,6 +2765,14 @@
       "status": "APPROVED",
       "rulesAgreementCheckbox": true,
       "registeredAt": "2026-08-12T11:45:00+00:00"
+    },
+    {
+      "id": "part_1790092820431_y2vh",
+      "programId": "prog_worldbuilding_codex",
+      "userId": "usr_1",
+      "status": "APPROVED",
+      "rulesAgreementCheckbox": true,
+      "registeredAt": "2026-09-22T16:00:20.431+00:00"
     }
   ],
   "programSubmissions": [
@@ -2827,6 +2810,18 @@
       "score": 83,
       "votes": 162,
       "submittedAt": "2026-08-22T14:00:00+00:00"
+    },
+    {
+      "id": "sub_1790092820510_3ym8",
+      "programId": "prog_worldbuilding_codex",
+      "userId": "usr_1",
+      "storyId": "story_1790092818507",
+      "title": "Verification Serial Entry mucv1mi1",
+      "summary": "A serialized masterpiece for the grand competition.",
+      "status": "SUBMITTED",
+      "score": 0,
+      "votes": 0,
+      "submittedAt": "2026-09-22T16:00:20.51+00:00"
     }
   ],
   "programVotes": [
@@ -2886,6 +2881,28 @@
     }
   ],
   "programAuditLogs": [
+    {
+      "id": "log_1790092820556_nfpm5",
+      "timestamp": "2026-09-22T16:00:20.556Z",
+      "programId": "prog_worldbuilding_codex",
+      "action": "SUBMISSION_CREATED",
+      "actorId": "usr_1",
+      "actorUsername": "althea_v",
+      "targetType": "SUBMISSION",
+      "targetId": "sub_1790092820510_3ym8",
+      "targetName": "Verification Serial Entry mucv1mi1"
+    },
+    {
+      "id": "log_1790092820476_tz380",
+      "timestamp": "2026-09-22T16:00:20.476Z",
+      "programId": "prog_worldbuilding_codex",
+      "action": "PARTICIPANT_REGISTERED",
+      "actorId": "usr_1",
+      "actorUsername": "althea_v",
+      "targetType": "PARTICIPANT",
+      "targetId": "part_1790092820431_y2vh",
+      "targetName": "Althea Vance"
+    },
     {
       "id": "log_1",
       "programId": "prog_kairo_originals_s1",
@@ -3036,7 +3053,9 @@
       "preferredStoryStyles": {
         "Deep world-building": 0.9,
         "Fast-paced action": 0.85,
-        "Plot twists": 0.8
+        "Plot twists": 0.8,
+        "Verified": 0.55,
+        "Phase3": 0.55
       },
       "preferredThemes": [
         "Magic Systems",
@@ -3090,7 +3109,7 @@
         "hiddenRecommendationIds": []
       },
       "createdAt": "2026-09-19T15:15:16.099Z",
-      "updatedAt": "2026-09-19T15:15:16.099Z"
+      "updatedAt": "2026-09-22T16:00:19.795Z"
     },
     "usr_admin": {
       "id": "uip_usr_admin",
@@ -3159,9 +3178,172 @@
       },
       "createdAt": "2026-09-20T14:02:44.605Z",
       "updatedAt": "2026-09-20T14:02:44.605Z"
+    },
+    "usr_1789918851091_iriv": {
+      "id": "uip_usr_1789918851091_iriv",
+      "userId": "usr_1789918851091_iriv",
+      "preferredGenres": {
+        "Fantasy": 1,
+        "Anime-Inspired": 0.9,
+        "Light Novel": 0.8
+      },
+      "preferredSubgenres": [],
+      "preferredLanguages": [
+        "English"
+      ],
+      "preferredUiLanguage": "English",
+      "preferredStoryStyles": {
+        "Deep world-building": 0.9,
+        "Fast-paced action": 0.85,
+        "Plot twists": 0.8
+      },
+      "preferredThemes": [
+        "World Building"
+      ],
+      "preferredStoryLengths": [
+        "Medium",
+        "Long"
+      ],
+      "preferredSerialization": [
+        "Serialized chapters",
+        "Light novels"
+      ],
+      "preferredReadingFrequency": "Daily",
+      "preferredEndingStyles": [
+        "Unexpected",
+        "Bittersweet"
+      ],
+      "animePreferences": [
+        "Shonen",
+        "Dark Fantasy",
+        "Supernatural"
+      ],
+      "readingMediumPreferences": [
+        "Light Novels",
+        "Original Fiction",
+        "Manga-Style Stories"
+      ],
+      "userRoles": [
+        "Writer",
+        "World Builder"
+      ],
+      "userInterests": [
+        "Epic Lore",
+        "Character Development"
+      ],
+      "favoriteAuthorIds": [],
+      "favoriteAnimeIds": [],
+      "seededItemIds": [],
+      "readerScore": 85,
+      "writerScore": 90,
+      "communityScore": 65,
+      "animeScore": 80,
+      "hasCompletedOnboarding": false,
+      "onboardingSkipped": false,
+      "negativeSignals": {
+        "dislikedStoryIds": [],
+        "dislikedGenres": [],
+        "mutedAuthorIds": [],
+        "hiddenRecommendationIds": []
+      },
+      "createdAt": "2026-09-21T15:55:46.396Z",
+      "updatedAt": "2026-09-21T15:55:46.396Z"
     }
   },
-  "userBehaviorEvents": [],
+  "userBehaviorEvents": [
+    {
+      "id": "bev_1790011201810_kiuc",
+      "userId": "usr_1",
+      "eventType": "follow_author",
+      "contentType": "AUTHOR",
+      "contentId": "usr_2",
+      "createdAt": "2026-09-21T17:20:01.810Z"
+    },
+    {
+      "id": "bev_1790092819039_eut8",
+      "userId": "usr_1",
+      "eventType": "reading_duration",
+      "contentType": "CHAPTER",
+      "contentId": "chap_1790092818723",
+      "metadata": {
+        "storyId": "story_1790092818507",
+        "progressPercent": 65,
+        "readingTimeMinutes": 0
+      },
+      "createdAt": "2026-09-22T16:00:19.039Z"
+    },
+    {
+      "id": "bev_1790092819131_opdf",
+      "userId": "usr_1",
+      "eventType": "unbookmark",
+      "contentType": "STORY",
+      "contentId": "story_1790092818507",
+      "metadata": {
+        "listType": "reading"
+      },
+      "createdAt": "2026-09-22T16:00:19.131Z"
+    },
+    {
+      "id": "bev_1790092819246_dr23",
+      "userId": "usr_1",
+      "eventType": "bookmark",
+      "contentType": "STORY",
+      "contentId": "story_1790092818507",
+      "metadata": {
+        "listType": "reading"
+      },
+      "createdAt": "2026-09-22T16:00:19.246Z"
+    },
+    {
+      "id": "bev_1790092819397_uovp",
+      "userId": "usr_1",
+      "eventType": "like",
+      "contentType": "STORY",
+      "contentId": "story_1790092818507",
+      "createdAt": "2026-09-22T16:00:19.397Z"
+    },
+    {
+      "id": "bev_1790092819614_op8j",
+      "userId": "usr_1",
+      "eventType": "follow_author",
+      "contentType": "AUTHOR",
+      "contentId": "usr_admin",
+      "createdAt": "2026-09-22T16:00:19.614Z"
+    },
+    {
+      "id": "bev_1790092819795_jhn4",
+      "userId": "usr_1",
+      "eventType": "review",
+      "contentType": "STORY",
+      "contentId": "story_1790092818507",
+      "metadata": {
+        "rating": 5
+      },
+      "createdAt": "2026-09-22T16:00:19.795Z"
+    },
+    {
+      "id": "bev_1790092819887_a331",
+      "userId": "usr_1",
+      "eventType": "comment",
+      "contentType": "CHAPTER",
+      "contentId": "chap_1790092818723",
+      "metadata": {
+        "storyId": "story_1790092818507"
+      },
+      "createdAt": "2026-09-22T16:00:19.888Z"
+    },
+    {
+      "id": "bev_1790092850031_8f5c",
+      "userId": "usr_1",
+      "eventType": "unbookmark",
+      "contentType": "STORY",
+      "contentId": "story_1790092818507",
+      "metadata": {
+        "listType": "reading"
+      },
+      "createdAt": "2026-09-22T16:00:50.031Z"
+    }
+  ],
   "adminRecommendationSettings": {
     "weights": {
       "genreMatch": 0.25,
@@ -3182,7 +3364,8 @@
   },
   "revokedTokens": {
     "kairo_sig.usr_3.1791980255800.b4cc07dcbc55cb97bbd2f2f699205e39905661677e34e41cbe3964b9496d76f0": true,
-    "kairo_sig.usr_1.1792421596793.f3ce8fcefc4610825b36b0c74d1c0a2061d54f72f5ad6691e01436f5a91071aa": true
+    "kairo_sig.usr_1.1792421596793.f3ce8fcefc4610825b36b0c74d1c0a2061d54f72f5ad6691e01436f5a91071aa": true,
+    "kairo_sig.usr_1789918851091_iriv.1792510851330.52e8e82f14d88a71c256c6b6e5c1b95d80eba38566fbf5ce8f5f07cc3dc7e7d5": true
   },
   "recentlyDeletedStories": []
 }

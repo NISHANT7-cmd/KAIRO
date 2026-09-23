@@ -4,7 +4,7 @@ import { StoryType, AgeRating, StoryStatus } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ImageUploader } from './ImageUploader';
-import { ensureSafePayloadImage } from '../utils/imageOptimizer';
+import { ensureSafePayloadImage, safeImg, DEFAULT_STORY_COVER } from '../utils/imageOptimizer';
 
 interface CreateStoryViewProps {
   onBack: () => void;
@@ -372,7 +372,7 @@ export const CreateStoryView: React.FC<CreateStoryViewProps> = ({ onBack, onStor
       {step === 3 && (
         <div className="glass-card rounded-3xl p-6 sm:p-8 border border-pink-200/90 shadow-lg space-y-6 animate-in fade-in">
           <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/80 border border-pink-100">
-            <img src={coverImage} alt={title} className="w-20 h-28 object-cover rounded-xl shadow-xs" />
+            <img src={safeImg(coverImage, DEFAULT_STORY_COVER)} alt={title} className="w-20 h-28 object-cover rounded-xl shadow-xs" />
             <div>
               <span className="px-2 py-0.5 rounded-md bg-[#fee7ff] text-[#9e3b5f] text-[10px] font-bold">
                 {genre} • {storyType}

@@ -6,6 +6,7 @@ import {
 import { Universe, Story, Character, World, Theory } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR, DEFAULT_UNIVERSE_BANNER } from '../utils/imageOptimizer';
 
 interface UniverseDetailViewProps {
   universeSlug: string;
@@ -130,7 +131,7 @@ export const UniverseDetailView: React.FC<UniverseDetailViewProps> = ({
       <section className="relative rounded-3xl overflow-hidden glass-card border border-purple-200/80 shadow-xl">
         <div className="relative h-64 sm:h-80 w-full overflow-hidden">
           <img
-            src={universe.bannerImage}
+            src={safeImg(universe.bannerImage, DEFAULT_UNIVERSE_BANNER)}
             alt={universe.name}
             className="w-full h-full object-cover"
           />
@@ -216,7 +217,7 @@ export const UniverseDetailView: React.FC<UniverseDetailViewProps> = ({
             >
               <div>
                 <div className="relative rounded-2xl overflow-hidden aspect-4/3 mb-3.5">
-                  <img src={story.coverImage} alt={story.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img src={safeImg(story.coverImage, DEFAULT_STORY_COVER)} alt={story.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   <div className="absolute top-2.5 left-2.5 bg-[#635882]/90 backdrop-blur-md text-white px-2 py-0.5 rounded-md text-[10px] font-bold uppercase">
                     {story.genre}
                   </div>
@@ -248,7 +249,7 @@ export const UniverseDetailView: React.FC<UniverseDetailViewProps> = ({
           {worlds.map(world => (
             <div key={world.id} className="glass-card rounded-3xl overflow-hidden border border-pink-100 shadow-md">
               <div className="h-48 relative">
-                <img src={world.mapImageUrl} alt={world.name} className="w-full h-full object-cover" />
+                <img src={safeImg(world.mapImageUrl, DEFAULT_UNIVERSE_BANNER)} alt={world.name} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                 <div className="absolute bottom-3 left-3 text-white">
                   <div className="text-[10px] uppercase font-bold tracking-wider text-pink-200">{world.climate}</div>
@@ -277,7 +278,7 @@ export const UniverseDetailView: React.FC<UniverseDetailViewProps> = ({
           {characters.map(char => (
             <div key={char.id} className="glass-card rounded-3xl p-5 border border-purple-100 shadow-sm space-y-3">
               <div className="flex items-center gap-3.5">
-                <img src={char.portrait} alt={char.name} className="w-14 h-14 rounded-2xl object-cover border-2 border-purple-200" />
+                <img src={safeImg(char.portrait, DEFAULT_USER_AVATAR)} alt={char.name} className="w-14 h-14 rounded-2xl object-cover border-2 border-purple-200" />
                 <div>
                   <div className="px-2 py-0.5 rounded-md bg-purple-100 text-[#635882] text-[10px] font-bold uppercase inline-block">
                     {char.role}

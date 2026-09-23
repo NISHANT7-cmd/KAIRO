@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, Image as ImageIcon, Camera, Trash2, Link as LinkIcon, AlertCircle, Check, Loader2, Sparkles } from 'lucide-react';
-import { optimizeImageFile } from '../utils/imageOptimizer';
+import { optimizeImageFile, safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 export interface ImageUploaderProps {
   id?: string;
@@ -224,7 +224,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       )}
 
       {/* Main Upload / Preview Area */}
-      {value ? (
+      {value && value.trim() ? (
         <div
           className={`relative group overflow-hidden border-2 border-pink-200/80 bg-stone-900/5 shadow-xs transition-all ${
             avatarMode ? 'rounded-full w-32 h-32 mx-auto ring-4 ring-pink-100' : 'rounded-2xl'
@@ -234,7 +234,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           onDrop={handleDrop}
         >
           <img
-            src={value}
+            src={safeImg(value, avatarMode ? DEFAULT_USER_AVATAR : DEFAULT_STORY_COVER)}
             alt={label || 'Uploaded content'}
             className="w-full h-full object-cover"
           />

@@ -233,3 +233,18 @@ export async function ensureSafePayloadImage(
     img.src = urlOrDataUrl;
   });
 }
+
+export const DEFAULT_STORY_COVER = 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800';
+export const DEFAULT_USER_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200';
+export const DEFAULT_UNIVERSE_BANNER = 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200';
+
+/**
+ * Returns a valid, non-empty image source string.
+ * Strictly prevents empty strings ("") being passed to the React `src` attribute.
+ */
+export function safeImg(url?: string | null, fallback: string = DEFAULT_STORY_COVER): string {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return fallback;
+  }
+  return url;
+}

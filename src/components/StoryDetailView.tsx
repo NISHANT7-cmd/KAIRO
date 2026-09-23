@@ -8,6 +8,7 @@ import { Story, Chapter, Review, Character, Theory, ReadingProgress } from '../t
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { CharacterBuilderModal } from './CharacterBuilderModal';
+import { safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 interface StoryDetailViewProps {
   storyIdOrSlug: string;
@@ -209,7 +210,7 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
         {/* Background Blurred Cover */}
         <div className="absolute inset-0 overflow-hidden">
           <img
-            src={story.coverImage}
+            src={safeImg(story.coverImage, DEFAULT_STORY_COVER)}
             alt={story.title}
             className="w-full h-full object-cover blur-2xl scale-125 opacity-25"
           />
@@ -222,7 +223,7 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
           <div className="lg:col-span-4 max-w-[280px] mx-auto lg:mx-0">
             <div className="relative rounded-2xl overflow-hidden aspect-3/4 shadow-2xl border-2 border-white/80 group">
               <img
-                src={story.coverImage}
+                src={safeImg(story.coverImage, DEFAULT_STORY_COVER)}
                 alt={story.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
@@ -263,7 +264,7 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
             {/* Author bar */}
             <div className="flex items-center gap-3">
               <img
-                src={story.authorAvatar}
+                src={safeImg(story.authorAvatar, DEFAULT_USER_AVATAR)}
                 alt={story.authorDisplayName}
                 className="w-10 h-10 rounded-full object-cover border border-pink-200"
               />
@@ -640,7 +641,7 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
 
                     <div className="flex items-center gap-3.5 pr-14">
                       <img
-                        src={char.portrait || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80'}
+                        src={safeImg(char.portrait, DEFAULT_USER_AVATAR)}
                         alt={char.name}
                         className="w-14 h-14 rounded-2xl object-cover border-2 border-pink-200 shadow-xs shrink-0"
                       />
@@ -732,7 +733,7 @@ export const StoryDetailView: React.FC<StoryDetailViewProps> = ({
                 <div key={rev.id} className="glass-card rounded-3xl p-5 border border-pink-100 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <img src={rev.userAvatar} alt={rev.username} className="w-8 h-8 rounded-full object-cover" />
+                      <img src={safeImg(rev.userAvatar, DEFAULT_USER_AVATAR)} alt={rev.username} className="w-8 h-8 rounded-full object-cover" />
                       <span className="font-bold text-xs text-[#26152b]">{rev.username}</span>
                     </div>
                     <div className="flex items-center gap-1 text-amber-500 font-bold text-xs">

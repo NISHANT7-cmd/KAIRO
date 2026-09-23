@@ -322,39 +322,44 @@ app.get('/api/auth/me', async (req: Request, res: Response) => {
   return res.json({ user: enrichedUser });
 });
 
-app.patch('/api/auth/profile', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  
-  // Whitelist safe profile fields only - prevent privilege escalation
-  const safeUpdates: Partial<User> = {};
-  if (typeof req.body.displayName === 'string' && req.body.displayName.trim()) {
-    safeUpdates.displayName = req.body.displayName.trim();
-  }
-  if (typeof req.body.bio === 'string') {
-    safeUpdates.bio = req.body.bio.trim();
-  }
-  if (typeof req.body.avatar === 'string' && req.body.avatar.trim()) {
-    safeUpdates.avatar = req.body.avatar.trim();
-  }
-  if (Array.isArray(req.body.favoriteGenres)) {
-    safeUpdates.favoriteGenres = req.body.favoriteGenres;
-  }
-  if (Array.isArray(req.body.favoriteThemes)) {
-    safeUpdates.favoriteThemes = req.body.favoriteThemes;
-  }
-  if (req.body.role === 'WRITER' || (req.body.role === 'USER' && user.role !== 'ADMIN')) {
-    safeUpdates.role = req.body.role;
-    if (req.body.role === 'WRITER') {
-      safeUpdates.isVerifiedWriter = true;
+app.patch('/api/auth/profile', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    
+    // Whitelist safe profile fields only - prevent privilege escalation
+    const safeUpdates: Partial<User> = {};
+    if (typeof req.body.displayName === 'string' && req.body.displayName.trim()) {
+      safeUpdates.displayName = req.body.displayName.trim();
     }
-  }
-  if (typeof req.body.isVerifiedWriter === 'boolean' && (user.role === 'ADMIN' || user.role === 'WRITER' || req.body.role === 'WRITER')) {
-    safeUpdates.isVerifiedWriter = req.body.isVerifiedWriter;
-  }
+    if (typeof req.body.bio === 'string') {
+      safeUpdates.bio = req.body.bio.trim();
+    }
+    if (typeof req.body.avatar === 'string' && req.body.avatar.trim()) {
+      safeUpdates.avatar = req.body.avatar.trim();
+    }
+    if (Array.isArray(req.body.favoriteGenres)) {
+      safeUpdates.favoriteGenres = req.body.favoriteGenres;
+    }
+    if (Array.isArray(req.body.favoriteThemes)) {
+      safeUpdates.favoriteThemes = req.body.favoriteThemes;
+    }
+    if (req.body.role === 'WRITER' || (req.body.role === 'USER' && user.role !== 'ADMIN')) {
+      safeUpdates.role = req.body.role;
+      if (req.body.role === 'WRITER') {
+        safeUpdates.isVerifiedWriter = true;
+      }
+    }
+    if (typeof req.body.isVerifiedWriter === 'boolean' && (user.role === 'ADMIN' || user.role === 'WRITER' || req.body.role === 'WRITER')) {
+      safeUpdates.isVerifiedWriter = req.body.isVerifiedWriter;
+    }
 
-  const updated = dbService.updateUser(user.id, safeUpdates);
-  const enrichedUser = updated ? dbService.getUserEnriched(updated) : undefined;
-  return res.json({ user: enrichedUser });
+    const updated = await dbService.updateUser(user.id, safeUpdates);
+    const enrichedUser = updated ? dbService.getUserEnriched(updated) : undefined;
+    return res.json({ user: enrichedUser });
+  } catch (err: any) {
+    console.error('[Profile Update Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update profile' });
+  }
 });
 
 app.get('/api/users/profile/:idOrUsername', (req: Request, res: Response) => {
@@ -442,55 +447,73 @@ app.get('/api/stories/:idOrSlug', (req: Request, res: Response) => {
   return res.json({ story, chapters, reviews });
 });
 
-app.post('/api/stories', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  if (user.role === 'USER') {
-    user.role = 'WRITER';
-    user.isVerifiedWriter = true;
-    dbService.updateUser(user.id, { role: 'WRITER', isVerifiedWriter: true });
-  }
-  const story = dbService.createStory(req.body, user);
-  return res.json({ story, user: dbService.getUserEnriched(user) });
-});
-
-app.patch('/api/stories/:id', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  let rawId = req.params.id;
-  try { rawId = decodeURIComponent(rawId); } catch {}
-  const story = dbService.findStoryByIdOrSlug(rawId);
-  if (!story) return res.status(404).json({ error: 'Story not found' });
-  if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Forbidden: You do not own this story' });
-  }
-
-  const updated = dbService.updateStory(story.id, req.body);
-  return res.json({ story: updated });
-});
-
-app.delete('/api/stories/:id', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  let rawId = req.params.id;
-  try { rawId = decodeURIComponent(rawId); } catch {}
-  const story = dbService.findStoryByIdOrSlug(rawId);
-  if (!story) {
-    const inTrash = (dbService.getRaw().recentlyDeletedStories || []).find(r => r.id === rawId || r.story.id === rawId || r.story.slug === rawId);
-    if (inTrash) {
-      return res.json({ success: true, movedToTrash: true, alreadyInTrash: true });
+app.post('/api/stories', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    if (user.role === 'USER') {
+      user.role = 'WRITER';
+      user.isVerifiedWriter = true;
+      await dbService.updateUser(user.id, { role: 'WRITER', isVerifiedWriter: true });
     }
-    return res.status(404).json({ error: 'Story not found' });
+    const story = await dbService.createStory(req.body, user);
+    return res.json({ story, user: dbService.getUserEnriched(user) });
+  } catch (err: any) {
+    console.error('[Story Create Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create story' });
   }
+});
 
-  const isOwner = user.role === 'ADMIN' || 
-    story.authorId === user.id || 
-    (story.authorUsername && user.username && story.authorUsername.toLowerCase() === user.username.toLowerCase()) ||
-    (story.authorDisplayName && user.displayName && story.authorDisplayName.toLowerCase() === user.displayName.toLowerCase());
+const handleStoryUpdate = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    let rawId = req.params.id;
+    try { rawId = decodeURIComponent(rawId); } catch {}
+    const story = dbService.findStoryByIdOrSlug(rawId);
+    if (!story) return res.status(404).json({ error: 'Story not found' });
+    if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden: You do not own this story' });
+    }
 
-  if (!isOwner) {
-    return res.status(403).json({ error: 'Forbidden: You do not own this story' });
+    const updated = await dbService.updateStory(story.id, req.body);
+    return res.json({ story: updated });
+  } catch (err: any) {
+    console.error('[Story Update Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update story' });
   }
+};
 
-  const result = dbService.moveToRecentlyDeleted(story.id, user);
-  return res.json({ success: true, movedToTrash: true, record: result.record });
+app.patch('/api/stories/:id', requireAuth, handleStoryUpdate);
+app.put('/api/stories/:id', requireAuth, handleStoryUpdate);
+
+app.delete('/api/stories/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    let rawId = req.params.id;
+    try { rawId = decodeURIComponent(rawId); } catch {}
+    const story = dbService.findStoryByIdOrSlug(rawId);
+    if (!story) {
+      const inTrash = (dbService.getRaw().recentlyDeletedStories || []).find(r => r.id === rawId || r.story.id === rawId || r.story.slug === rawId);
+      if (inTrash) {
+        return res.json({ success: true, movedToTrash: true, alreadyInTrash: true });
+      }
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    const isOwner = user.role === 'ADMIN' || 
+      story.authorId === user.id || 
+      (story.authorUsername && user.username && story.authorUsername.toLowerCase() === user.username.toLowerCase()) ||
+      (story.authorDisplayName && user.displayName && story.authorDisplayName.toLowerCase() === user.displayName.toLowerCase());
+
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Forbidden: You do not own this story' });
+    }
+
+    const result = await dbService.moveToRecentlyDeleted(story.id, user);
+    return res.json({ success: true, movedToTrash: true, record: result.record });
+  } catch (err: any) {
+    console.error('[Story Delete Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to delete story' });
+  }
 });
 
 // Recently Deleted (Trash Bin) Endpoints
@@ -500,26 +523,36 @@ app.get('/api/stories-trash', requireAuth, (req: Request, res: Response) => {
   return res.json({ trash: list });
 });
 
-app.post('/api/stories-trash/:id/restore', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  let rawId = req.params.id;
-  try { rawId = decodeURIComponent(rawId); } catch {}
-  const result = dbService.restoreRecentlyDeleted(rawId, user);
-  if (!result.success) {
-    return res.status(400).json({ error: result.message || 'Failed to restore story' });
+app.post('/api/stories-trash/:id/restore', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    let rawId = req.params.id;
+    try { rawId = decodeURIComponent(rawId); } catch {}
+    const result = await dbService.restoreRecentlyDeleted(rawId, user);
+    if (!result.success) {
+      return res.status(400).json({ error: result.message || 'Failed to restore story' });
+    }
+    return res.json({ success: true, story: result.story });
+  } catch (err: any) {
+    console.error('[Story Restore Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to restore story' });
   }
-  return res.json({ success: true, story: result.story });
 });
 
-app.delete('/api/stories-trash/:id/permanent', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  let rawId = req.params.id;
-  try { rawId = decodeURIComponent(rawId); } catch {}
-  const success = dbService.permanentlyDeleteTrashStory(rawId, user);
-  if (!success) {
-    return res.status(400).json({ error: 'Story not found in recently deleted or not authorized' });
+app.delete('/api/stories-trash/:id/permanent', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    let rawId = req.params.id;
+    try { rawId = decodeURIComponent(rawId); } catch {}
+    const success = await dbService.permanentlyDeleteTrashStory(rawId, user);
+    if (!success) {
+      return res.status(400).json({ error: 'Story not found in recently deleted or not authorized' });
+    }
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error('[Story Permanent Delete Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to permanently delete story' });
   }
-  return res.json({ success: true });
 });
 
 app.get('/api/stories/:id/chapters', (req: Request, res: Response) => {
@@ -529,36 +562,46 @@ app.get('/api/stories/:id/chapters', (req: Request, res: Response) => {
   return res.json({ chapters });
 });
 
-app.post('/api/stories/:id/chapters', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  let story = dbService.findStoryByIdOrSlug(req.params.id);
-  if (!story && req.body && req.body.storyId) {
-    story = dbService.findStoryByIdOrSlug(req.body.storyId);
-  }
-  if (!story && req.body && req.body.storySlug) {
-    story = dbService.findStoryByIdOrSlug(req.body.storySlug);
-  }
-  if (!story) return res.status(404).json({ error: 'Story not found' });
-  if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Forbidden: You do not own this story' });
-  }
+app.post('/api/stories/:id/chapters', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    let story = dbService.findStoryByIdOrSlug(req.params.id);
+    if (!story && req.body && req.body.storyId) {
+      story = dbService.findStoryByIdOrSlug(req.body.storyId);
+    }
+    if (!story && req.body && req.body.storySlug) {
+      story = dbService.findStoryByIdOrSlug(req.body.storySlug);
+    }
+    if (!story) return res.status(404).json({ error: 'Story not found' });
+    if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden: You do not own this story' });
+    }
 
-  const chapter = dbService.createChapter(req.body, story.id);
-  return res.json({ chapter });
+    const chapter = await dbService.createChapter(req.body, story.id);
+    return res.json({ chapter });
+  } catch (err: any) {
+    console.error('[Chapter Create Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create chapter' });
+  }
 });
 
-app.post('/api/chapters', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const targetStoryId = req.body?.storyId || req.body?.storySlug || (req.query?.storyId as string);
-  if (!targetStoryId) return res.status(400).json({ error: 'storyId is required' });
-  const story = dbService.findStoryByIdOrSlug(targetStoryId);
-  if (!story) return res.status(404).json({ error: 'Story not found' });
-  if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Forbidden: You do not own this story' });
-  }
+app.post('/api/chapters', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const targetStoryId = req.body?.storyId || req.body?.storySlug || (req.query?.storyId as string);
+    if (!targetStoryId) return res.status(400).json({ error: 'storyId is required' });
+    const story = dbService.findStoryByIdOrSlug(targetStoryId);
+    if (!story) return res.status(404).json({ error: 'Story not found' });
+    if (story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden: You do not own this story' });
+    }
 
-  const chapter = dbService.createChapter(req.body, story.id);
-  return res.json({ chapter });
+    const chapter = await dbService.createChapter(req.body, story.id);
+    return res.json({ chapter });
+  } catch (err: any) {
+    console.error('[Chapter Create Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create chapter' });
+  }
 });
 
 app.get('/api/chapters/:chapterId', (req: Request, res: Response) => {
@@ -569,56 +612,71 @@ app.get('/api/chapters/:chapterId', (req: Request, res: Response) => {
   return res.json({ chapter, story, allChapters });
 });
 
-app.patch('/api/chapters/:chapterId', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const chapter = dbService.findChapter(req.params.chapterId);
-  if (!chapter) return res.status(404).json({ error: 'Chapter not found' });
+app.patch('/api/chapters/:chapterId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const chapter = dbService.findChapter(req.params.chapterId);
+    if (!chapter) return res.status(404).json({ error: 'Chapter not found' });
 
-  const story = dbService.findStoryByIdOrSlug(chapter.storyId);
-  if (story && story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Forbidden: You do not own this chapter' });
+    const story = dbService.findStoryByIdOrSlug(chapter.storyId);
+    if (story && story.authorId !== user.id && story.authorUsername !== user.username && user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden: You do not own this chapter' });
+    }
+
+    const updated = await dbService.updateChapter(chapter.id, req.body);
+    return res.json({ chapter: updated });
+  } catch (err: any) {
+    console.error('[Chapter Update Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update chapter' });
   }
-
-  const updated = dbService.updateChapter(chapter.id, req.body);
-  return res.json({ chapter: updated });
 });
 
-app.delete('/api/chapters/:chapterId', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const chapter = dbService.findChapter(req.params.chapterId);
-  if (!chapter) return res.status(404).json({ error: 'Chapter not found' });
+app.delete('/api/chapters/:chapterId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const chapter = dbService.findChapter(req.params.chapterId);
+    if (!chapter) return res.status(404).json({ error: 'Chapter not found' });
 
-  const story = dbService.findStoryByIdOrSlug(chapter.storyId);
-  if (!story) return res.status(404).json({ error: 'Story not found' });
-  if (story.authorId !== user.id && user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Forbidden: You do not own this chapter' });
+    const story = dbService.findStoryByIdOrSlug(chapter.storyId);
+    if (!story) return res.status(404).json({ error: 'Story not found' });
+    if (story.authorId !== user.id && user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden: You do not own this chapter' });
+    }
+
+    await dbService.deleteChapter(chapter.id);
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error('[Chapter Delete Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to delete chapter' });
   }
-
-  dbService.deleteChapter(chapter.id);
-  return res.json({ success: true });
 });
 
 // ----------------------------------------------------
 // READING PROGRESS & LIBRARY
 // ----------------------------------------------------
-app.post('/api/reading-progress', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const progress = dbService.saveReadingProgress(user.id, req.body);
-  
-  // Track behavior event
-  const isComplete = progress.progressPercent >= 90;
-  recommendationService.recordBehaviorEvent(user.id, {
-    eventType: isComplete ? 'chapter_completed' : 'reading_duration',
-    contentType: 'CHAPTER',
-    contentId: progress.chapterId,
-    metadata: {
-      storyId: progress.storyId,
-      progressPercent: progress.progressPercent,
-      readingTimeMinutes: (progress as any).readingTimeMinutes || 0
-    }
-  });
+app.post('/api/reading-progress', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const progress = await dbService.saveReadingProgress(user.id, req.body);
+    
+    // Track behavior event
+    const isComplete = progress.progressPercent >= 90;
+    recommendationService.recordBehaviorEvent(user.id, {
+      eventType: isComplete ? 'chapter_completed' : 'reading_duration',
+      contentType: 'CHAPTER',
+      contentId: progress.chapterId,
+      metadata: {
+        storyId: progress.storyId,
+        progressPercent: progress.progressPercent,
+        readingTimeMinutes: (progress as any).readingTimeMinutes || 0
+      }
+    });
 
-  return res.json({ progress });
+    return res.json({ progress });
+  } catch (err: any) {
+    console.error('[Reading Progress Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to save reading progress' });
+  }
 });
 
 app.get('/api/reading-progress', (req: Request, res: Response) => {
@@ -635,49 +693,64 @@ app.get('/api/library', (req: Request, res: Response) => {
   return res.json({ library });
 });
 
-app.post('/api/library/toggle', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const { storyId, listType = 'saved' } = req.body;
-  const result = dbService.toggleLibrary(user.id, storyId, listType);
+app.post('/api/library/toggle', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const { storyId, listType = 'saved' } = req.body;
+    const result = await dbService.toggleLibrary(user.id, storyId, listType);
 
-  recommendationService.recordBehaviorEvent(user.id, {
-    eventType: result.inLibrary ? 'bookmark' : 'unbookmark',
-    contentType: 'STORY',
-    contentId: storyId,
-    metadata: { listType }
-  });
-
-  return res.json(result);
-});
-
-app.post('/api/stories/:id/like', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const result = dbService.toggleLikeStory(user.id, req.params.id);
-
-  if (result.liked) {
     recommendationService.recordBehaviorEvent(user.id, {
-      eventType: 'like',
+      eventType: result.inLibrary ? 'bookmark' : 'unbookmark',
       contentType: 'STORY',
-      contentId: req.params.id
+      contentId: storyId,
+      metadata: { listType }
     });
-  }
 
-  return res.json(result);
+    return res.json(result);
+  } catch (err: any) {
+    console.error('[Library Toggle Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update library' });
+  }
 });
 
-app.post('/api/users/:id/follow', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const result = dbService.toggleFollowUser(user.id, req.params.id);
+app.post('/api/stories/:id/like', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const result = await dbService.toggleLikeStory(user.id, req.params.id);
 
-  if (result.following) {
-    recommendationService.recordBehaviorEvent(user.id, {
-      eventType: 'follow_author',
-      contentType: 'AUTHOR',
-      contentId: req.params.id
-    });
+    if (result.liked) {
+      recommendationService.recordBehaviorEvent(user.id, {
+        eventType: 'like',
+        contentType: 'STORY',
+        contentId: req.params.id
+      });
+    }
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error('[Story Like Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to like story' });
   }
+});
 
-  return res.json(result);
+app.post('/api/users/:id/follow', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const result = await dbService.toggleFollowUser(user.id, req.params.id);
+
+    if (result.following) {
+      recommendationService.recordBehaviorEvent(user.id, {
+        eventType: 'follow_author',
+        contentType: 'AUTHOR',
+        contentId: req.params.id
+      });
+    }
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error('[User Follow Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to follow user' });
+  }
 });
 
 // ----------------------------------------------------
@@ -688,40 +761,55 @@ app.get('/api/chapters/:chapterId/comments', (req: Request, res: Response) => {
   return res.json({ comments });
 });
 
-app.post('/api/chapters/:chapterId/comments', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const { storyId, content, parentId } = req.body;
-  const comment = dbService.addChapterComment(user.id, req.params.chapterId, storyId, content, parentId);
+app.post('/api/chapters/:chapterId/comments', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const { storyId, content, parentId } = req.body;
+    const comment = await dbService.addChapterComment(user.id, req.params.chapterId, storyId, content, parentId);
 
-  recommendationService.recordBehaviorEvent(user.id, {
-    eventType: 'comment',
-    contentType: 'CHAPTER',
-    contentId: req.params.chapterId,
-    metadata: { storyId }
-  });
+    recommendationService.recordBehaviorEvent(user.id, {
+      eventType: 'comment',
+      contentType: 'CHAPTER',
+      contentId: req.params.chapterId,
+      metadata: { storyId }
+    });
 
-  return res.json({ comment });
+    return res.json({ comment });
+  } catch (err: any) {
+    console.error('[Chapter Comment Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to post chapter comment' });
+  }
 });
 
-app.post('/api/comments/:commentId/like', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const comment = dbService.likeComment(req.params.commentId, user.id);
-  return res.json({ comment });
+app.post('/api/comments/:commentId/like', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const comment = await dbService.likeComment(req.params.commentId, user.id);
+    return res.json({ comment });
+  } catch (err: any) {
+    console.error('[Comment Like Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to like comment' });
+  }
 });
 
-app.post('/api/stories/:id/reviews', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const { rating, reviewText } = req.body;
-  const review = dbService.addReview(user.id, req.params.id, Number(rating), reviewText);
+app.post('/api/stories/:id/reviews', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const { rating, reviewText } = req.body;
+    const review = await dbService.addReview(user.id, req.params.id, Number(rating), reviewText);
 
-  recommendationService.recordBehaviorEvent(user.id, {
-    eventType: 'review',
-    contentType: 'STORY',
-    contentId: req.params.id,
-    metadata: { rating: Number(rating) }
-  });
+    recommendationService.recordBehaviorEvent(user.id, {
+      eventType: 'review',
+      contentType: 'STORY',
+      contentId: req.params.id,
+      metadata: { rating: Number(rating) }
+    });
 
-  return res.json({ review });
+    return res.json({ review });
+  } catch (err: any) {
+    console.error('[Story Review Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to add review' });
+  }
 });
 
 // ----------------------------------------------------
@@ -736,10 +824,15 @@ app.get('/api/communities', (req: Request, res: Response) => {
   return res.json({ communities });
 });
 
-app.post('/api/communities', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const community = dbService.createCommunity(user.id, req.body);
-  return res.json({ community });
+app.post('/api/communities', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const community = await dbService.createCommunity(user.id, req.body);
+    return res.json({ community });
+  } catch (err: any) {
+    console.error('[Community Create Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create community' });
+  }
 });
 
 app.get('/api/communities/:slug', (req: Request, res: Response) => {
@@ -750,18 +843,28 @@ app.get('/api/communities/:slug', (req: Request, res: Response) => {
   return res.json({ community, posts });
 });
 
-app.post('/api/communities/:id/join', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const { accessCode } = req.body;
-  const result = dbService.joinCommunity(req.params.id, user.id, accessCode);
-  if (!result.success) return res.status(400).json({ error: result.message });
-  return res.json({ success: true });
+app.post('/api/communities/:id/join', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const { accessCode } = req.body;
+    const result = await dbService.joinCommunity(req.params.id, user.id, accessCode);
+    if (!result.success) return res.status(400).json({ error: result.message });
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error('[Community Join Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to join community' });
+  }
 });
 
-app.post('/api/communities/:id/leave', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const success = dbService.leaveCommunity(req.params.id, user.id);
-  return res.json({ success });
+app.post('/api/communities/:id/leave', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const success = await dbService.leaveCommunity(req.params.id, user.id);
+    return res.json({ success });
+  } catch (err: any) {
+    console.error('[Community Leave Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to leave community' });
+  }
 });
 
 app.get('/api/posts', (req: Request, res: Response) => {
@@ -777,16 +880,26 @@ app.get('/api/posts/:id', (req: Request, res: Response) => {
   return res.json({ post });
 });
 
-app.post('/api/communities/:id/posts', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const post = dbService.createCommunityPost(user.id, req.params.id, req.body);
-  return res.json({ post });
+app.post('/api/communities/:id/posts', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const post = await dbService.createCommunityPost(user.id, req.params.id, req.body);
+    return res.json({ post });
+  } catch (err: any) {
+    console.error('[Community Post Create Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create community post' });
+  }
 });
 
-app.post('/api/posts/:id/like', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const likes = dbService.likeCommunityPost(req.params.id, user.id);
-  return res.json({ likes });
+app.post('/api/posts/:id/like', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const likes = await dbService.likeCommunityPost(req.params.id, user.id);
+    return res.json({ likes });
+  } catch (err: any) {
+    console.error('[Post Like Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to like post' });
+  }
 });
 
 app.post('/api/posts/:id/save', requireAuth, (req: Request, res: Response) => {
@@ -808,16 +921,26 @@ app.post('/api/posts/:id/vote', requireAuth, (req: Request, res: Response) => {
   return res.json({ post });
 });
 
-app.post('/api/posts/:id/pin', requireAuth, (req: Request, res: Response) => {
-  const { isPinned } = req.body;
-  const ok = dbService.pinPost(req.params.id, Boolean(isPinned));
-  return res.json({ success: ok });
+app.post('/api/posts/:id/pin', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { isPinned } = req.body;
+    const ok = await dbService.pinPost(req.params.id, Boolean(isPinned));
+    return res.json({ success: ok });
+  } catch (err: any) {
+    console.error('[Post Pin Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to pin post' });
+  }
 });
 
-app.post('/api/posts/:id/lock', requireAuth, (req: Request, res: Response) => {
-  const { isLocked } = req.body;
-  const ok = dbService.lockPost(req.params.id, Boolean(isLocked));
-  return res.json({ success: ok });
+app.post('/api/posts/:id/lock', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { isLocked } = req.body;
+    const ok = await dbService.lockPost(req.params.id, Boolean(isLocked));
+    return res.json({ success: ok });
+  } catch (err: any) {
+    console.error('[Post Lock Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to lock post' });
+  }
 });
 
 app.delete('/api/posts/:id', requireAuth, (req: Request, res: Response) => {
@@ -1084,43 +1207,63 @@ app.get('/api/stories/:id/characters', (req: Request, res: Response) => {
   return res.json({ characters });
 });
 
-app.post('/api/characters', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const character = dbService.createCharacter(req.body, user);
-  return res.json({ character });
+app.post('/api/characters', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const character = await dbService.createCharacter(req.body, user);
+    return res.json({ character });
+  } catch (err: any) {
+    console.error('[Character Create Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create character' });
+  }
 });
 
-app.patch('/api/characters/:id', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  let charId = req.params.id;
-  try { charId = decodeURIComponent(charId); } catch {}
-  const updated = dbService.updateCharacter(charId, req.body, user);
-  if (!updated) {
-    return res.status(404).json({ error: 'Character not found or you lack permission to edit it' });
+app.patch('/api/characters/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    let charId = req.params.id;
+    try { charId = decodeURIComponent(charId); } catch {}
+    const updated = await dbService.updateCharacter(charId, req.body, user);
+    if (!updated) {
+      return res.status(404).json({ error: 'Character not found or you lack permission to edit it' });
+    }
+    return res.json({ character: updated });
+  } catch (err: any) {
+    console.error('[Character Update Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update character' });
   }
-  return res.json({ character: updated });
 });
 
-app.put('/api/characters/:id', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  let charId = req.params.id;
-  try { charId = decodeURIComponent(charId); } catch {}
-  const updated = dbService.updateCharacter(charId, req.body, user);
-  if (!updated) {
-    return res.status(404).json({ error: 'Character not found or you lack permission to edit it' });
+app.put('/api/characters/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    let charId = req.params.id;
+    try { charId = decodeURIComponent(charId); } catch {}
+    const updated = await dbService.updateCharacter(charId, req.body, user);
+    if (!updated) {
+      return res.status(404).json({ error: 'Character not found or you lack permission to edit it' });
+    }
+    return res.json({ character: updated });
+  } catch (err: any) {
+    console.error('[Character Update Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update character' });
   }
-  return res.json({ character: updated });
 });
 
-app.delete('/api/characters/:id', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  let charId = req.params.id;
-  try { charId = decodeURIComponent(charId); } catch {}
-  const success = dbService.deleteCharacter(charId, user);
-  if (!success) {
-    return res.status(404).json({ error: 'Character not found or you lack permission to delete it' });
+app.delete('/api/characters/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    let charId = req.params.id;
+    try { charId = decodeURIComponent(charId); } catch {}
+    const success = await dbService.deleteCharacter(charId, user);
+    if (!success) {
+      return res.status(404).json({ error: 'Character not found or you lack permission to delete it' });
+    }
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error('[Character Delete Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to delete character' });
   }
-  return res.json({ success: true });
 });
 
 app.post('/api/stories/:id/characters/extract', requireAuth, (req: Request, res: Response) => {
@@ -1147,10 +1290,15 @@ app.get('/api/worlds', (req: Request, res: Response) => {
   return res.json({ worlds });
 });
 
-app.post('/api/worlds', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const world = dbService.createWorld(req.body, user);
-  return res.json({ world });
+app.post('/api/worlds', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const world = await dbService.createWorld(req.body, user);
+    return res.json({ world });
+  } catch (err: any) {
+    console.error('[World Create Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create world' });
+  }
 });
 
 app.get('/api/universes', (req: Request, res: Response) => {
@@ -1167,10 +1315,15 @@ app.get('/api/universes/:idOrSlug', (req: Request, res: Response) => {
   return res.json(result);
 });
 
-app.post('/api/universes', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const universe = dbService.createUniverse(req.body, user);
-  return res.json({ universe });
+app.post('/api/universes', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as User;
+    const universe = await dbService.createUniverse(req.body, user);
+    return res.json({ universe });
+  } catch (err: any) {
+    console.error('[Universe Create Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create universe' });
+  }
 });
 
 // ----------------------------------------------------
@@ -1490,14 +1643,19 @@ app.get('/api/programs/:id/announcements', (req: Request, res: Response) => {
 });
 
 // User register for program
-app.post('/api/programs/:id/register', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user;
-  const { rulesAgreementCheckbox, userType } = req.body;
-  if (!rulesAgreementCheckbox) {
-    return res.status(400).json({ error: 'You must agree to the program rules to participate' });
+app.post('/api/programs/:id/register', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { rulesAgreementCheckbox, userType } = req.body;
+    if (!rulesAgreementCheckbox) {
+      return res.status(400).json({ error: 'You must agree to the program rules to participate' });
+    }
+    const participant = await dbService.registerProgramParticipant(req.params.id, user, { rulesAgreementCheckbox, userType });
+    return res.json({ participant });
+  } catch (err: any) {
+    console.error('[Program Register Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to register for program' });
   }
-  const participant = dbService.registerProgramParticipant(req.params.id, user, { rulesAgreementCheckbox, userType });
-  return res.json({ participant });
 });
 
 // User get status in program
@@ -1520,27 +1678,37 @@ app.get('/api/programs/:id/my-status', requireAuth, (req: Request, res: Response
 });
 
 // User submit entry
-app.post('/api/programs/:id/submit', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user;
-  const prog = dbService.getProgramById(req.params.id);
-  if (!prog) return res.status(404).json({ error: 'Program not found' });
+app.post('/api/programs/:id/submit', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const prog = dbService.getProgramById(req.params.id);
+    if (!prog) return res.status(404).json({ error: 'Program not found' });
 
-  if (!['SUBMISSION_OPEN', 'REGISTRATION_OPEN'].includes(prog.status)) {
-    return res.status(400).json({ error: 'Submissions are not currently open for this program' });
+    if (!['SUBMISSION_OPEN', 'REGISTRATION_OPEN'].includes(prog.status)) {
+      return res.status(400).json({ error: 'Submissions are not currently open for this program' });
+    }
+
+    const submission = await dbService.createProgramSubmission(req.params.id, user, req.body);
+    return res.status(201).json({ submission });
+  } catch (err: any) {
+    console.error('[Program Submit Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to submit program entry' });
   }
-
-  const submission = dbService.createProgramSubmission(req.params.id, user, req.body);
-  return res.status(201).json({ submission });
 });
 
 // User cast vote
-app.post('/api/programs/:id/submissions/:submissionId/vote', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user;
-  const result = dbService.voteProgramSubmission(req.params.id, req.params.submissionId, user, req.ip);
-  if (!result.success) {
-    return res.status(400).json({ error: result.message });
+app.post('/api/programs/:id/submissions/:submissionId/vote', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const result = await dbService.voteProgramSubmission(req.params.id, req.params.submissionId, user, req.ip);
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+    return res.json(result);
+  } catch (err: any) {
+    console.error('[Program Vote Error]:', err);
+    return res.status(500).json({ error: err.message || 'Failed to cast program vote' });
   }
-  return res.json(result);
 });
 
 // Public verify certificate

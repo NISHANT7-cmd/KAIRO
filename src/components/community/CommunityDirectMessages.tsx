@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, Send, X, Users, Sparkles, Shield } from 'lucide-react';
 import { DirectMessageConversation, DirectMessage, User } from '../../types';
 import { api } from '../../services/api';
+import { safeImg, DEFAULT_USER_AVATAR } from '../../utils/imageOptimizer';
 
 interface CommunityDirectMessagesProps {
   isOpen: boolean;
@@ -122,7 +123,7 @@ export const CommunityDirectMessages: React.FC<CommunityDirectMessagesProps> = (
                     }`}
                   >
                     <img
-                      src={other?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80'}
+                      src={safeImg(other?.avatar, DEFAULT_USER_AVATAR)}
                       alt={other?.displayName || 'User'}
                       className="w-10 h-10 rounded-xl object-cover shrink-0"
                     />

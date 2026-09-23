@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { AnimeEntry } from '../types';
 import { api } from '../services/api';
+import { safeImg, DEFAULT_STORY_COVER } from '../utils/imageOptimizer';
 
 interface AnimeHubViewProps {
   onOpenStory: (storySlug: string) => void;
@@ -103,7 +104,7 @@ export const AnimeHubView: React.FC<AnimeHubViewProps> = ({ onOpenStory }) => {
               <div>
                 <div className="relative h-56 overflow-hidden group">
                   <img
-                    src={anime.poster}
+                    src={safeImg(anime.poster, DEFAULT_STORY_COVER)}
                     alt={anime.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />

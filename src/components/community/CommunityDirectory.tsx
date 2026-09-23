@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Users, Search, Lock, Globe, Check, Plus, Sparkles, BookOpen, Shield } from 'lucide-react';
 import { Community, User } from '../../types';
 import { api } from '../../services/api';
+import { safeImg, DEFAULT_UNIVERSE_BANNER, DEFAULT_USER_AVATAR } from '../../utils/imageOptimizer';
 
 interface CommunityDirectoryProps {
   communities: Community[];
@@ -122,7 +123,7 @@ export const CommunityDirectory: React.FC<CommunityDirectoryProps> = ({
               <div className="h-28 relative overflow-hidden bg-gradient-to-r from-[#3d1838] to-[#9e3b5f]">
                 {community.bannerImage && (
                   <img
-                    src={community.bannerImage}
+                    src={safeImg(community.bannerImage, DEFAULT_UNIVERSE_BANNER)}
                     alt={community.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"
                   />
@@ -138,7 +139,7 @@ export const CommunityDirectory: React.FC<CommunityDirectoryProps> = ({
                 {/* Icon Avatar */}
                 <div className="-mt-12 w-14 h-14 rounded-2xl border-2 border-white overflow-hidden shadow-md bg-white shrink-0">
                   <img
-                    src={community.iconImage || 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=100&auto=format&fit=crop&q=80'}
+                    src={safeImg(community.iconImage, DEFAULT_USER_AVATAR)}
                     alt={community.name}
                     className="w-full h-full object-cover"
                   />

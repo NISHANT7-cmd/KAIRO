@@ -9,6 +9,7 @@ import { Story, Chapter, CreatorStats, StoryStatus, StoryType, AgeRating, Delete
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ImageUploader } from './ImageUploader';
+import { safeImg, DEFAULT_STORY_COVER } from '../utils/imageOptimizer';
 
 interface StudioDashboardViewProps {
   onCreateStory: () => void;
@@ -722,7 +723,7 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
                     <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
                       <div className="flex items-start gap-4">
                         <img
-                          src={item.story.coverImage}
+                          src={safeImg(item.story.coverImage, DEFAULT_STORY_COVER)}
                           alt={item.story.title}
                           className="w-16 h-22 sm:w-20 sm:h-28 object-cover rounded-2xl shadow-xs shrink-0 opacity-80"
                         />
@@ -823,7 +824,7 @@ export const StudioDashboardView: React.FC<StudioDashboardViewProps> = ({
                   <div className="p-5 sm:p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 bg-white/70">
                     <div className="flex items-start gap-4">
                       <img
-                        src={story.coverImage}
+                        src={safeImg(story.coverImage, DEFAULT_STORY_COVER)}
                         alt={story.title}
                         className="w-16 h-22 sm:w-20 sm:h-28 object-cover rounded-2xl shadow-xs shrink-0"
                       />

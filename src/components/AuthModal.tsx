@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { KairoLogo } from './KairoLogo';
 import { ImageUploader } from './ImageUploader';
+import { safeImg, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 interface AuthModalProps {
   isOpen: boolean;

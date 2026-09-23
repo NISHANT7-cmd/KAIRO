@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { ChatRoom, ChatMessage, User } from '../../types';
 import { api } from '../../services/api';
+import { safeImg, DEFAULT_USER_AVATAR, DEFAULT_STORY_COVER } from '../../utils/imageOptimizer';
 
 interface CommunityChatRoomsProps {
   user: User | null;
@@ -235,7 +236,7 @@ export const CommunityChatRooms: React.FC<CommunityChatRoomsProps> = ({
               return (
                 <div key={msg.id} className="flex items-start gap-3 group">
                   <img
-                    src={msg.userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+                    src={safeImg(msg.userAvatar, DEFAULT_USER_AVATAR)}
                     alt={msg.displayName || msg.username}
                     className="w-9 h-9 rounded-xl object-cover shrink-0 border border-pink-100 shadow-2xs"
                   />
@@ -288,7 +289,7 @@ export const CommunityChatRooms: React.FC<CommunityChatRoomsProps> = ({
                         onClick={() => onOpenStory && onOpenStory(msg.storyCard!.slug)}
                         className="p-2 rounded-xl bg-pink-50/70 border border-pink-200/80 flex items-center gap-3 cursor-pointer hover:bg-pink-100/80 transition-all max-w-sm"
                       >
-                        <img src={msg.storyCard.cover} alt={msg.storyCard.title} className="w-10 h-14 object-cover rounded-lg shadow-2xs" />
+                        <img src={safeImg(msg.storyCard.cover, DEFAULT_STORY_COVER)} alt={msg.storyCard.title} className="w-10 h-14 object-cover rounded-lg shadow-2xs" />
                         <div className="min-w-0">
                           <span className="text-[10px] font-bold text-[#9e3b5f] uppercase tracking-wider flex items-center gap-1">
                             <BookOpen className="w-3 h-3" /> Story Mention

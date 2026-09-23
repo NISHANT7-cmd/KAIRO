@@ -12,7 +12,7 @@ import { api } from '../services/api';
 import { Story, PublicUserProfile, User } from '../types';
 import { ImageUploader } from './ImageUploader';
 import { FALLBACK_USERS, FALLBACK_STORIES, FALLBACK_UNIVERSES } from '../services/fallbackData';
-import { optimizeImageFile } from '../utils/imageOptimizer';
+import { optimizeImageFile, safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR, DEFAULT_UNIVERSE_BANNER } from '../utils/imageOptimizer';
 
 interface ProfileViewProps {
   userIdOrUsername?: string | any;
@@ -462,7 +462,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="relative group">
               <div className="p-1 rounded-2xl sm:rounded-4xl bg-white shadow-lg ring-3 sm:ring-4 ring-pink-200/80 relative overflow-hidden">
                 <img
-                  src={userAvatar}
+                  src={safeImg(userAvatar, DEFAULT_USER_AVATAR)}
                   alt={user.displayName}
                   className="w-20 h-20 sm:w-32 sm:h-32 rounded-xl sm:rounded-3xl object-cover"
                 />
@@ -1072,7 +1072,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {/* Story Cover */}
                     <div className="relative rounded-2xl overflow-hidden aspect-4/3 mb-3.5 shadow-xs">
                       <img
-                        src={story.coverImage}
+                        src={safeImg(story.coverImage, DEFAULT_STORY_COVER)}
                         alt={story.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
@@ -1204,7 +1204,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   className="glass-card rounded-3xl p-5 border border-pink-100 hover:border-pink-300 transition-all cursor-pointer bg-white/90 space-y-3 group shadow-2xs"
                 >
                   <div className="h-28 rounded-2xl overflow-hidden relative">
-                    <img src={uni.bannerImage} alt={uni.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img src={safeImg(uni.bannerImage, DEFAULT_UNIVERSE_BANNER)} alt={uni.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                     <div className="absolute bottom-2.5 left-3 text-white font-bold font-display text-base truncate">
                       {uni.name}
@@ -1281,7 +1281,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 >
                   <div className="flex gap-4">
                     <img
-                      src={item.story.coverImage || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800'}
+                      src={safeImg(item.story.coverImage, DEFAULT_STORY_COVER)}
                       alt={item.story.title}
                       className="w-20 h-28 rounded-2xl object-cover shadow-sm shrink-0 group-hover:scale-103 transition-transform"
                     />

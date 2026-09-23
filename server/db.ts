@@ -28,6 +28,8 @@ import {
   supabaseFindUserById, supabaseFindUserByUsernameOrEmail
 } from './supabase.js';
 
+// LEGACY ARCHIVE PATHS — Kept strictly for read-only offline backup/migration references.
+// In Phase 4, production data is stored exclusively in Supabase PostgreSQL.
 function resolveDataPaths() {
   const isServerless = process.env.VERCEL === '1' || 
                        Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) || 
@@ -1639,91 +1641,33 @@ class DatabaseService {
     try {
       const { ready, reason } = await checkSupabaseSchemaReady();
       if (!ready) {
-        console.info(`[Supabase Readiness] Supabase schema not yet ready: ${reason}. Retaining local memory cache without writing to Supabase.`);
-        this.isReady = true;
-        return;
+        throw new Error(`Supabase schema not ready: ${reason}`);
       }
       console.info('[Supabase Readiness] Supabase reachable & schema ready. Hydrating authoritative production data from Supabase...');
       const remoteState = await loadFullStateFromSupabase();
 
       if (!remoteState) {
-        console.warn('[Supabase Readiness Safeguard] Supabase returned null or failed query. Keeping existing memory state WITHOUT writing to Supabase.');
-        this.isReady = true;
-        return;
+        throw new Error('Supabase returned null or failed query during authoritative hydration.');
       }
 
       console.info(`[Supabase Readiness] Authoritative Supabase state received (${remoteState.stories?.length || 0} stories, ${remoteState.users?.length || 0} users). Updating runtime cache...`);
 
-      // Supabase is the AUTHORITATIVE source of truth.
-      // Merge remote state with priority to Supabase records:
-      if (remoteState.users && remoteState.users.length > 0) {
-        const userMap = new Map((remoteState.users).map(u => [u.id, u]));
-        (this.db.users || []).forEach(localUser => {
-          if (!userMap.has(localUser.id)) {
-            userMap.set(localUser.id, localUser);
-          }
-        });
-        this.db.users = Array.from(userMap.values());
-      }
-
-      if (remoteState.stories && remoteState.stories.length > 0) {
-        const storyMap = new Map((remoteState.stories).map(s => [s.id, s]));
-        (this.db.stories || []).forEach(localStory => {
-          if (!storyMap.has(localStory.id)) {
-            storyMap.set(localStory.id, localStory);
-          }
-        });
-        this.db.stories = Array.from(storyMap.values());
-      }
-
-      if (remoteState.chapters && remoteState.chapters.length > 0) {
-        const chapMap = new Map((remoteState.chapters).map(c => [c.id, c]));
-        (this.db.chapters || []).forEach(localChap => {
-          if (!chapMap.has(localChap.id)) {
-            chapMap.set(localChap.id, localChap);
-          }
-        });
-        this.db.chapters = Array.from(chapMap.values());
-      }
-
-      if (remoteState.passwords && Object.keys(remoteState.passwords).length > 0) {
-        this.db.passwords = { ...(this.db.passwords || {}), ...remoteState.passwords };
-      }
-
-      if (remoteState.sessions && Object.keys(remoteState.sessions).length > 0) {
-        this.db.sessions = { ...(this.db.sessions || {}), ...remoteState.sessions };
-      }
-
-      if (remoteState.readingProgress) {
-        this.db.readingProgress = remoteState.readingProgress as any;
-      }
-      if (remoteState.library) {
-        this.db.library = remoteState.library as any;
-      }
-      if (remoteState.reviews) {
-        this.db.reviews = remoteState.reviews as any;
-      }
-      if (remoteState.comments) {
-        this.db.comments = remoteState.comments as any;
-      }
-      if (remoteState.characters) {
-        this.db.characters = remoteState.characters as any;
-      }
-      if (remoteState.recentlyDeletedStories) {
-        this.db.recentlyDeletedStories = remoteState.recentlyDeletedStories as any;
-      }
-      if (remoteState.likes) {
-        this.db.likes = { ...(this.db.likes || {}), ...remoteState.likes };
-      }
-      if (remoteState.follows) {
-        this.db.follows = { ...(this.db.follows || {}), ...remoteState.follows };
-      }
-      if (remoteState.worlds && remoteState.worlds.length > 0) {
-        this.db.worlds = remoteState.worlds as any;
-      }
-      if (remoteState.universes && remoteState.universes.length > 0) {
-        this.db.universes = remoteState.universes as any;
-      }
+      // Supabase is the EXCLUSIVE AUTHORITATIVE source of truth.
+      this.db.users = remoteState.users || [];
+      this.db.stories = remoteState.stories || [];
+      this.db.chapters = remoteState.chapters || [];
+      this.db.passwords = remoteState.passwords || {};
+      this.db.sessions = remoteState.sessions || {};
+      this.db.readingProgress = (remoteState.readingProgress as any) || [];
+      this.db.library = (remoteState.library as any) || [];
+      this.db.reviews = (remoteState.reviews as any) || [];
+      this.db.comments = (remoteState.comments as any) || [];
+      this.db.characters = (remoteState.characters as any) || [];
+      this.db.recentlyDeletedStories = (remoteState.recentlyDeletedStories as any) || [];
+      this.db.likes = remoteState.likes || {};
+      this.db.follows = remoteState.follows || {};
+      this.db.worlds = (remoteState.worlds as any) || [];
+      this.db.universes = (remoteState.universes as any) || [];
       if (remoteState.programs && remoteState.programs.length > 0) {
         this.db.programs = (remoteState.programs as any[]).map(p => {
           const seed = initialPrograms.find(ip => ip.id === p.id || ip.slug === p.slug);
@@ -1769,17 +1713,33 @@ class DatabaseService {
       if (remoteState.programVotes && remoteState.programVotes.length > 0) {
         this.db.programVotes = remoteState.programVotes as any;
       }
+      if (remoteState.communities && remoteState.communities.length > 0) {
+        this.db.communities = remoteState.communities as any;
+      }
+      if (remoteState.communityPosts && remoteState.communityPosts.length > 0) {
+        this.db.communityPosts = remoteState.communityPosts as any;
+      }
+      if (remoteState.notifications && remoteState.notifications.length > 0) {
+        this.db.notifications = remoteState.notifications as any;
+      }
 
-      this.saveDatabase();
-      console.info(`[Supabase Readiness] Hydration complete. Active state contains ${this.db.stories?.length || 0} stories and ${this.db.users?.length || 0} users.`);
-    } catch (err: any) {
-      console.warn('[Supabase Readiness Warning] Non-blocking initial sync issue:', err?.message || err);
-    } finally {
+      // In Phase 4, production persistence resides purely in Supabase. No disk writes.
+      console.info(`[Supabase Readiness] Hydration complete. Active memory cache contains ${this.db.stories?.length || 0} stories and ${this.db.users?.length || 0} users.`);
       this.isReady = true;
+    } catch (err: any) {
+      console.error('[Supabase Readiness Error] Authoritative hydration failed:', err?.message || err);
+      this.isReady = false;
+      this.readyPromise = null;
+      throw err;
     }
   }
 
   private ensureDataDir() {
+    if (isSupabaseConfigured()) {
+      // Phase 4 Architecture: Supabase is authoritative.
+      // No local filesystem data directory or /tmp/kairo_data is used in production.
+      return;
+    }
     try {
       if (!fs.existsSync(this.dataDir)) {
         fs.mkdirSync(this.dataDir, { recursive: true });
@@ -2012,6 +1972,30 @@ class DatabaseService {
   }
 
   private loadDatabase(): DatabaseSchema {
+    if (isSupabaseConfigured()) {
+      // In Phase 4, Supabase PostgreSQL is the authoritative production database.
+      // Runtime state is hydrated exclusively and authoritatively from Supabase.
+      // We initialize clean baseline structure without reading stale legacy JSON files or /tmp.
+      const seed = getInitialSeed();
+      seed.users = [];
+      seed.stories = [];
+      seed.chapters = [];
+      seed.passwords = {};
+      seed.sessions = {};
+      seed.readingProgress = [];
+      seed.library = [];
+      seed.reviews = [];
+      seed.comments = [];
+      seed.characters = [];
+      seed.worlds = [];
+      seed.universes = [];
+      seed.likes = {};
+      seed.follows = {};
+      seed.recentlyDeletedStories = [];
+      return this.enrichDatabase(seed);
+    }
+
+    // Offline dev mode without Supabase credentials (fallback only):
     // Tier 1: Primary active database file
     try {
       if (fs.existsSync(this.dbFile)) {
@@ -2093,13 +2077,19 @@ class DatabaseService {
   }
 
   private saveDatabase(data?: DatabaseSchema) {
+    if (isSupabaseConfigured()) {
+      // PHASE 4 RETIREMENT:
+      // Production writes to local JSON or /tmp/kairo_data are permanently retired.
+      // All production writes are synchronously committed to Supabase PostgreSQL.
+      return;
+    }
+
     try {
       const dataToSave = data || this.db;
       this.ensureDataDir();
       const content = JSON.stringify(dataToSave, null, 2);
 
       // 1. Atomic write using temporary file and atomic rename
-      // This guarantees that kairo_db.json is NEVER truncated or left in 0-byte state during restarts
       const tmpFile = path.join(this.dataDir, `.kairo_db_tmp_${process.pid}_${Date.now()}.json`);
       fs.writeFileSync(tmpFile, content, 'utf-8');
       fs.renameSync(tmpFile, this.dbFile);
@@ -2113,7 +2103,7 @@ class DatabaseService {
         // Non-blocking
       }
 
-      // 3. Periodic snapshot (every 5 minutes or on demand)
+      // 3. Periodic snapshot
       const now = Date.now();
       if (now - this.lastSnapshotTime > 5 * 60 * 1000) {
         this.lastSnapshotTime = now;
@@ -2124,7 +2114,7 @@ class DatabaseService {
         } catch {}
       }
     } catch (err: any) {
-      console.warn('Notice: Active database is saved in-memory (disk persistence skipped in restricted environment):', err?.message);
+      console.warn('Notice: Offline database saved in-memory:', err?.message);
     }
   }
 
@@ -2132,15 +2122,14 @@ class DatabaseService {
     return this.db;
   }
 
-  private supabaseSyncTimeout: any = null;
-  private queueSupabaseSync() {
-    // Phase 1 Architecture: Supabase is authoritative.
-    // Prevent un-awaited background timers from pushing stale in-memory states to Supabase.
-  }
-
   public commit() {
-    this.saveDatabase();
-    this.queueSupabaseSync();
+    // Phase 4 Architecture:
+    // Memory state acts purely as an in-process query cache.
+    // Mutations are committed directly to Supabase via syncActivityImmediately.
+    // Zero disk writes, zero background setTimeout sync.
+    if (!isSupabaseConfigured()) {
+      this.saveDatabase();
+    }
   }
 
   public getDatabaseHealth() {
@@ -2560,12 +2549,18 @@ class DatabaseService {
     };
   }
 
-  public updateUser(userId: string, updates: Partial<User>): User | undefined {
+  public async updateUser(userId: string, updates: Partial<User>): Promise<User | undefined> {
     const idx = this.db.users.findIndex(u => u.id === userId);
     if (idx === -1) return undefined;
-    this.db.users[idx] = { ...this.db.users[idx], ...updates };
+    const updatedUser = { ...this.db.users[idx], ...updates };
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('profile_upsert', updatedUser);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist user profile to Supabase');
+      }
+    }
+    this.db.users[idx] = updatedUser;
     this.commit();
-    syncActivityImmediately('profile_upsert', this.db.users[idx]).catch(e => console.warn('[Supabase Auto-Sync] profile:', e));
     return this.db.users[idx];
   }
 
@@ -2731,7 +2726,7 @@ class DatabaseService {
     );
   }
 
-  public createStory(story: Partial<Story>, author: User): Story {
+  public async createStory(story: Partial<Story>, author: User): Promise<Story> {
     const id = 'story_' + Date.now();
     const slug = (story.title || 'untitled-story')
       .toLowerCase()
@@ -2767,18 +2762,30 @@ class DatabaseService {
       updatedAt: now,
     };
 
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('story_upsert', newStory);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist new story to Supabase');
+      }
+    }
+
     this.db.stories.unshift(newStory);
     this.commit();
-    syncActivityImmediately('story_upsert', newStory).catch(e => console.warn('[Supabase Auto-Sync] story create:', e));
     return newStory;
   }
 
-  public updateStory(storyId: string, updates: Partial<Story>): Story | undefined {
+  public async updateStory(storyId: string, updates: Partial<Story>): Promise<Story | undefined> {
     const idx = this.db.stories.findIndex(s => s.id === storyId);
     if (idx === -1) return undefined;
-    this.db.stories[idx] = { ...this.db.stories[idx], ...updates, updatedAt: new Date().toISOString() };
+    const updatedStory = { ...this.db.stories[idx], ...updates, updatedAt: new Date().toISOString() };
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('story_upsert', updatedStory);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist story updates to Supabase');
+      }
+    }
+    this.db.stories[idx] = updatedStory;
     this.commit();
-    syncActivityImmediately('story_upsert', this.db.stories[idx]).catch(e => console.warn('[Supabase Auto-Sync] story update:', e));
     return this.db.stories[idx];
   }
 
@@ -2810,20 +2817,13 @@ class DatabaseService {
     }
   }
 
-  public moveToRecentlyDeleted(storyId: string, user: User): { success: boolean; record?: DeletedStoryRecord } {
+  public async moveToRecentlyDeleted(storyId: string, user: User): Promise<{ success: boolean; record?: DeletedStoryRecord }> {
     const story = this.findStoryByIdOrSlug(storyId);
     if (!story) return { success: false };
 
     // Find all chapters and characters associated with this story
     const chapters = (this.db.chapters || []).filter(c => c.storyId === story.id);
     const characters = (this.db.characters || []).filter(c => c.storyId === story.id);
-
-    // Remove from active database collections
-    this.db.stories = (this.db.stories || []).filter(s => s.id !== story.id);
-    this.db.chapters = (this.db.chapters || []).filter(c => c.storyId !== story.id);
-    if (this.db.characters) {
-      this.db.characters = this.db.characters.filter(c => c.storyId !== story.id);
-    }
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30-day retention window
@@ -2839,6 +2839,20 @@ class DatabaseService {
       deletedByUsername: user.username || user.displayName || 'Author'
     };
 
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('story_delete', { record, storyId: story.id });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to soft delete story in Supabase');
+      }
+    }
+
+    // Remove from active database collections
+    this.db.stories = (this.db.stories || []).filter(s => s.id !== story.id);
+    this.db.chapters = (this.db.chapters || []).filter(c => c.storyId !== story.id);
+    if (this.db.characters) {
+      this.db.characters = this.db.characters.filter(c => c.storyId !== story.id);
+    }
+
     if (!this.db.recentlyDeletedStories) {
       this.db.recentlyDeletedStories = [];
     }
@@ -2847,7 +2861,6 @@ class DatabaseService {
 
     this.cleanupExpiredTrash();
     this.commit();
-    syncActivityImmediately('story_delete', { record, storyId: story.id }).catch(e => console.warn('[Supabase Auto-Sync] story trash:', e));
     return { success: true, record };
   }
 
@@ -2869,7 +2882,7 @@ class DatabaseService {
     });
   }
 
-  public restoreRecentlyDeleted(storyId: string, user: User): { success: boolean; story?: Story; message?: string } {
+  public async restoreRecentlyDeleted(storyId: string, user: User): Promise<{ success: boolean; story?: Story; message?: string }> {
     this.cleanupExpiredTrash();
     if (!this.db.recentlyDeletedStories) {
       return { success: false, message: 'Story not found in recently deleted' };
@@ -2890,12 +2903,20 @@ class DatabaseService {
       return { success: false, message: 'Forbidden: You do not own this story' };
     }
 
+    const restoredStory = { ...record.story, updatedAt: new Date().toISOString() };
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('story_restore', { trashId: record.id, story: restoredStory });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to restore story in Supabase');
+      }
+    }
+
     // Remove from recently deleted
     this.db.recentlyDeletedStories.splice(idx, 1);
 
     // Restore story into active database
     this.db.stories = (this.db.stories || []).filter(s => s.id !== record.story.id);
-    const restoredStory = { ...record.story, updatedAt: new Date().toISOString() };
     this.db.stories.unshift(restoredStory);
 
     // Restore chapters
@@ -2917,11 +2938,10 @@ class DatabaseService {
     }
 
     this.commit();
-    syncActivityImmediately('story_restore', { trashId: record.id, story: restoredStory }).catch(e => console.warn('[Supabase Auto-Sync] story restore:', e));
     return { success: true, story: restoredStory };
   }
 
-  public permanentlyDeleteTrashStory(storyId: string, user: User): boolean {
+  public async permanentlyDeleteTrashStory(storyId: string, user: User): Promise<boolean> {
     if (!this.db.recentlyDeletedStories) return false;
     const idx = this.db.recentlyDeletedStories.findIndex(r => r.id === storyId || r.story.id === storyId);
     if (idx === -1) return false;
@@ -2934,9 +2954,15 @@ class DatabaseService {
 
     if (!isOwner) return false;
 
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('story_permanent_delete', { trashId: record.id });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to permanently delete story in Supabase');
+      }
+    }
+
     this.db.recentlyDeletedStories.splice(idx, 1);
     this.commit();
-    syncActivityImmediately('story_permanent_delete', { trashId: record.id }).catch(e => console.warn('[Supabase Auto-Sync] story permanent delete:', e));
     return true;
   }
 
@@ -2951,7 +2977,7 @@ class DatabaseService {
     return this.db.chapters.find(c => c.id === chapterId);
   }
 
-  public createChapter(chapter: Partial<Chapter>, storyId: string): Chapter {
+  public async createChapter(chapter: Partial<Chapter>, storyId: string): Promise<Chapter> {
     const id = 'chap_' + Date.now();
     const existing = this.getStoryChapters(storyId);
     const chapterNumber = chapter.chapterNumber || (existing.length + 1);
@@ -2975,21 +3001,29 @@ class DatabaseService {
       updatedAt: now,
     };
 
+    const story = this.findStoryByIdOrSlug(storyId);
+    const chaptersCount = existing.length + 1;
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('chapter_upsert', { chapter: newChapter, storyId, chaptersCount });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist chapter to Supabase');
+      }
+    }
+
     this.db.chapters.push(newChapter);
     
     // update story chapter count
-    const story = this.findStoryByIdOrSlug(storyId);
     if (story) {
-      story.chaptersCount = this.getStoryChapters(storyId).length;
+      story.chaptersCount = chaptersCount;
       story.updatedAt = now;
     }
 
     this.commit();
-    syncActivityImmediately('chapter_upsert', { chapter: newChapter, storyId, chaptersCount: story?.chaptersCount }).catch(e => console.warn('[Supabase Auto-Sync] chapter create:', e));
     return newChapter;
   }
 
-  public updateChapter(chapterId: string, updates: Partial<Chapter>): Chapter | undefined {
+  public async updateChapter(chapterId: string, updates: Partial<Chapter>): Promise<Chapter | undefined> {
     const idx = this.db.chapters.findIndex(c => c.id === chapterId);
     if (idx === -1) return undefined;
     
@@ -3000,49 +3034,66 @@ class DatabaseService {
       readingTime = Math.max(1, Math.ceil(wordCount / 200));
     }
 
-    this.db.chapters[idx] = {
+    const updatedChapter = {
       ...this.db.chapters[idx],
       ...updates,
       wordCount,
       readingTime,
       updatedAt: new Date().toISOString(),
     };
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('chapter_upsert', { chapter: updatedChapter });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist chapter updates to Supabase');
+      }
+    }
+
+    this.db.chapters[idx] = updatedChapter;
     this.commit();
-    syncActivityImmediately('chapter_upsert', { chapter: this.db.chapters[idx] }).catch(e => console.warn('[Supabase Auto-Sync] chapter update:', e));
     return this.db.chapters[idx];
   }
 
-  public deleteChapter(chapterId: string): boolean {
+  public async deleteChapter(chapterId: string): Promise<boolean> {
     const idx = this.db.chapters.findIndex(c => c.id === chapterId);
     if (idx === -1) return false;
     const storyId = this.db.chapters[idx].storyId;
+    const story = this.findStoryByIdOrSlug(storyId);
+    const chaptersCount = Math.max(0, this.getStoryChapters(storyId).length - 1);
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('chapter_delete', { chapterId, storyId, chaptersCount });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to delete chapter from Supabase');
+      }
+    }
+
     this.db.chapters.splice(idx, 1);
     
     // update story chapter count
-    const story = this.findStoryByIdOrSlug(storyId);
     if (story) {
-      story.chaptersCount = this.getStoryChapters(storyId).length;
+      story.chaptersCount = chaptersCount;
       story.updatedAt = new Date().toISOString();
     }
     this.commit();
-    syncActivityImmediately('chapter_delete', { chapterId, storyId, chaptersCount: story?.chaptersCount }).catch(e => console.warn('[Supabase Auto-Sync] chapter delete:', e));
     return true;
   }
 
   // Reading Progress & Library
-  public saveReadingProgress(userId: string, data: { storyId: string; chapterId: string; chapterNumber: number; progressPercent: number; lastPosition: number }): ReadingProgress {
+  public async saveReadingProgress(userId: string, data: { storyId: string; chapterId: string; chapterNumber: number; progressPercent: number; lastPosition: number }): Promise<ReadingProgress> {
     const story = this.findStoryByIdOrSlug(data.storyId);
     const chapter = this.findChapter(data.chapterId);
     const now = new Date().toISOString();
 
     const existingIdx = this.db.readingProgress.findIndex(rp => rp.userId === userId && rp.storyId === data.storyId);
     
+    const defaultCover = 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800';
     const progress: ReadingProgress = {
       id: existingIdx !== -1 ? this.db.readingProgress[existingIdx].id : 'rp_' + Date.now(),
       userId,
       storyId: data.storyId,
       storyTitle: story?.title || 'Story',
-      storyCover: story?.coverImage || '',
+      storyCover: story?.coverImage || defaultCover,
       chapterId: data.chapterId,
       chapterNumber: data.chapterNumber,
       chapterTitle: chapter?.title || `Chapter ${data.chapterNumber}`,
@@ -3051,6 +3102,13 @@ class DatabaseService {
       lastPosition: data.lastPosition,
       lastReadAt: now,
     };
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('reading_progress', progress);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist reading progress to Supabase');
+      }
+    }
 
     if (existingIdx !== -1) {
       this.db.readingProgress[existingIdx] = progress;
@@ -3080,12 +3138,21 @@ class DatabaseService {
     }
 
     this.commit();
-    syncActivityImmediately('reading_progress', progress).catch(e => console.warn('[Supabase Auto-Sync] reading progress:', e));
     return progress;
   }
 
   public getUserReadingProgress(userId: string): ReadingProgress[] {
-    return this.db.readingProgress.filter(rp => rp.userId === userId);
+    const defaultCover = 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800';
+    return this.db.readingProgress.filter(rp => rp.userId === userId).map(rp => {
+      const story = this.findStoryByIdOrSlug(rp.storyId);
+      const chapter = this.findChapter(rp.chapterId);
+      return {
+        ...rp,
+        storyTitle: rp.storyTitle || story?.title || 'Story',
+        storyCover: rp.storyCover || story?.coverImage || defaultCover,
+        chapterTitle: rp.chapterTitle || chapter?.title || `Chapter ${rp.chapterNumber}`,
+      };
+    });
   }
 
   public getUserLibrary(userId: string): (LibraryItem & { story: Story; readingProgress?: ReadingProgress })[] {
@@ -3101,12 +3168,17 @@ class DatabaseService {
     }).filter(item => Boolean(item.story));
   }
 
-  public toggleLibrary(userId: string, storyId: string, listType: 'reading' | 'saved' | 'completed' | 'following'): { inLibrary: boolean; item?: LibraryItem } {
+  public async toggleLibrary(userId: string, storyId: string, listType: 'reading' | 'saved' | 'completed' | 'following'): Promise<{ inLibrary: boolean; item?: LibraryItem }> {
     const idx = this.db.library.findIndex(l => l.userId === userId && l.storyId === storyId);
     if (idx !== -1) {
+      if (isSupabaseConfigured()) {
+        const syncRes = await syncActivityImmediately('library_toggle', { userId, storyId, listType, inLibrary: false });
+        if (!syncRes.success) {
+          throw new Error(syncRes.error || 'Failed to remove story from library in Supabase');
+        }
+      }
       this.db.library.splice(idx, 1);
       this.commit();
-      syncActivityImmediately('library_toggle', { userId, storyId, listType, inLibrary: false }).catch(e => console.warn('[Supabase Auto-Sync] library remove:', e));
       return { inLibrary: false };
     } else {
       const newItem: LibraryItem = {
@@ -3116,55 +3188,71 @@ class DatabaseService {
         listType,
         addedAt: new Date().toISOString()
       };
+      if (isSupabaseConfigured()) {
+        const syncRes = await syncActivityImmediately('library_toggle', { userId, storyId, listType, inLibrary: true });
+        if (!syncRes.success) {
+          throw new Error(syncRes.error || 'Failed to add story to library in Supabase');
+        }
+      }
       this.db.library.unshift(newItem);
       this.commit();
-      syncActivityImmediately('library_toggle', { userId, storyId, listType, inLibrary: true }).catch(e => console.warn('[Supabase Auto-Sync] library add:', e));
       return { inLibrary: true, item: newItem };
     }
   }
 
-  public toggleLikeStory(userId: string, storyId: string): { liked: boolean; totalLikes: number } {
+  public async toggleLikeStory(userId: string, storyId: string): Promise<{ liked: boolean; totalLikes: number }> {
     if (!this.db.likes[storyId]) {
       this.db.likes[storyId] = [];
     }
     const idx = this.db.likes[storyId].indexOf(userId);
-    let liked = false;
-    if (idx !== -1) {
-      this.db.likes[storyId].splice(idx, 1);
-      liked = false;
-    } else {
+    const willLike = idx === -1;
+    const nextTotalLikes = willLike ? this.db.likes[storyId].length + 1 : Math.max(0, this.db.likes[storyId].length - 1);
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately(willLike ? 'story_like' : 'story_unlike', { userId, storyId, totalLikes: nextTotalLikes });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist story like to Supabase');
+      }
+    }
+
+    if (willLike) {
       this.db.likes[storyId].push(userId);
-      liked = true;
+    } else {
+      this.db.likes[storyId].splice(idx, 1);
     }
     const story = this.findStoryByIdOrSlug(storyId);
     if (story) {
       story.likes = this.db.likes[storyId].length;
     }
     this.commit();
-    syncActivityImmediately(liked ? 'story_like' : 'story_unlike', { userId, storyId, totalLikes: this.db.likes[storyId].length }).catch(e => console.warn('[Supabase Auto-Sync] story like:', e));
-    return { liked, totalLikes: this.db.likes[storyId].length };
+    return { liked: willLike, totalLikes: this.db.likes[storyId].length };
   }
 
-  public toggleFollowUser(followerId: string, authorId: string): { following: boolean; totalFollowers: number } {
+  public async toggleFollowUser(followerId: string, authorId: string): Promise<{ following: boolean; totalFollowers: number }> {
     if (!this.db.follows[authorId]) {
       this.db.follows[authorId] = [];
     }
     const idx = this.db.follows[authorId].indexOf(followerId);
-    let following = false;
-    if (idx !== -1) {
-      this.db.follows[authorId].splice(idx, 1);
-      following = false;
-    } else {
+    const willFollow = idx === -1;
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately(willFollow ? 'user_follow' : 'user_unfollow', { followerId, authorId });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist follow status to Supabase');
+      }
+    }
+
+    if (willFollow) {
       this.db.follows[authorId].push(followerId);
-      following = true;
+    } else {
+      this.db.follows[authorId].splice(idx, 1);
     }
     const author = this.findUserById(authorId);
     if (author) {
       author.followersCount = this.db.follows[authorId].length;
     }
     this.commit();
-    syncActivityImmediately(following ? 'user_follow' : 'user_unfollow', { followerId, authorId }).catch(e => console.warn('[Supabase Auto-Sync] user follow:', e));
-    return { following, totalFollowers: this.db.follows[authorId].length };
+    return { following: willFollow, totalFollowers: this.db.follows[authorId].length };
   }
 
   // Comments
@@ -3176,7 +3264,7 @@ class DatabaseService {
     });
   }
 
-  public addChapterComment(userId: string, chapterId: string, storyId: string, content: string, parentId?: string): ChapterComment {
+  public async addChapterComment(userId: string, chapterId: string, storyId: string, content: string, parentId?: string): Promise<ChapterComment> {
     const user = this.findUserById(userId);
     const newComment: ChapterComment = {
       id: 'com_' + Date.now(),
@@ -3194,42 +3282,69 @@ class DatabaseService {
       createdAt: new Date().toISOString()
     };
 
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('comment_upsert', newComment);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist comment to Supabase');
+      }
+    }
+
     this.db.comments.push(newComment);
     this.commit();
-    syncActivityImmediately('comment_upsert', newComment).catch(e => console.warn('[Supabase Auto-Sync] comment create:', e));
     return newComment;
   }
 
-  public likeComment(commentId: string, userId: string): ChapterComment | undefined {
+  public async likeComment(commentId: string, userId: string): Promise<ChapterComment | undefined> {
     const comment = this.db.comments.find(c => c.id === commentId);
     if (!comment) return undefined;
     const idx = comment.likedByUsers.indexOf(userId);
-    if (idx !== -1) {
-      comment.likedByUsers.splice(idx, 1);
-      comment.likes = Math.max(0, comment.likes - 1);
-    } else {
-      comment.likedByUsers.push(userId);
-      comment.likes += 1;
+    const willLike = idx === -1;
+    const updatedLikedBy = willLike ? [...comment.likedByUsers, userId] : comment.likedByUsers.filter(u => u !== userId);
+    const updatedLikes = willLike ? comment.likes + 1 : Math.max(0, comment.likes - 1);
+
+    const updatedComment = {
+      ...comment,
+      likedByUsers: updatedLikedBy,
+      likes: updatedLikes
+    };
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('comment_like', updatedComment);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist comment like to Supabase');
+      }
     }
+
+    comment.likedByUsers = updatedLikedBy;
+    comment.likes = updatedLikes;
     this.commit();
-    syncActivityImmediately('comment_like', comment).catch(e => console.warn('[Supabase Auto-Sync] comment like:', e));
     return comment;
   }
 
   // Reviews
-  public addReview(userId: string, storyId: string, rating: number, reviewText: string): Review {
+  public async addReview(userId: string, storyId: string, rating: number, reviewText: string): Promise<Review> {
     const user = this.findUserById(userId);
     const existing = this.db.reviews.find(r => r.userId === userId && r.storyId === storyId);
     const now = new Date().toISOString();
 
     if (existing) {
+      const updatedRev = {
+        ...existing,
+        rating,
+        reviewText,
+        updatedAt: now
+      };
+      if (isSupabaseConfigured()) {
+        const syncRes = await syncActivityImmediately('review_upsert', { review: updatedRev, storyRating: rating });
+        if (!syncRes.success) {
+          throw new Error(syncRes.error || 'Failed to update review in Supabase');
+        }
+      }
       existing.rating = rating;
       existing.reviewText = reviewText;
       existing.updatedAt = now;
       this.recalculateStoryRating(storyId);
       this.commit();
-      const story = this.findStoryByIdOrSlug(storyId);
-      syncActivityImmediately('review_upsert', { review: existing, storyRating: story?.rating }).catch(e => console.warn('[Supabase Auto-Sync] review update:', e));
       return existing;
     }
 
@@ -3245,11 +3360,16 @@ class DatabaseService {
       updatedAt: now
     };
 
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('review_upsert', { review: newRev, storyRating: rating });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to save review to Supabase');
+      }
+    }
+
     this.db.reviews.unshift(newRev);
     this.recalculateStoryRating(storyId);
     this.commit();
-    const story = this.findStoryByIdOrSlug(storyId);
-    syncActivityImmediately('review_upsert', { review: newRev, storyRating: story?.rating }).catch(e => console.warn('[Supabase Auto-Sync] review add:', e));
     return newRev;
   }
 
@@ -3302,7 +3422,7 @@ class DatabaseService {
     };
   }
 
-  public createCommunity(userId: string, data: Partial<Community>): Community {
+  public async createCommunity(userId: string, data: Partial<Community>): Promise<Community> {
     const user = this.findUserById(userId);
     const id = 'comm_' + Date.now();
     const slug = (data.name || 'new-community').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + id.slice(-4);
@@ -3337,6 +3457,13 @@ class DatabaseService {
       createdAt: new Date().toISOString()
     };
 
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('community_upsert', newComm);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist community to Supabase');
+      }
+    }
+
     this.db.communities.push(newComm);
     if (!this.db.communityMembers[id]) {
       this.db.communityMembers[id] = [];
@@ -3346,13 +3473,23 @@ class DatabaseService {
     return newComm;
   }
 
-  public joinCommunity(communityId: string, userId: string, accessCode?: string): { success: boolean; message?: string } {
+  public async joinCommunity(communityId: string, userId: string, accessCode?: string): Promise<{ success: boolean; message?: string }> {
     const comm = this.db.communities.find(c => c.id === communityId || c.slug === communityId);
     if (!comm) return { success: false, message: 'Community not found' };
     
     if (comm.isPrivate && comm.accessCode) {
       if (!accessCode || accessCode.trim().toUpperCase() !== comm.accessCode.trim().toUpperCase()) {
         return { success: false, message: 'Invalid access code for private community' };
+      }
+    }
+
+    const currentMembers = this.db.communityMembers[comm.id] || [];
+    const nextCount = currentMembers.includes(userId) ? currentMembers.length : currentMembers.length + 1;
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('community_join', { communityId: comm.id, userId, memberCount: nextCount });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist community join to Supabase');
       }
     }
 
@@ -3368,9 +3505,20 @@ class DatabaseService {
     return { success: true };
   }
 
-  public leaveCommunity(communityId: string, userId: string): boolean {
+  public async leaveCommunity(communityId: string, userId: string): Promise<boolean> {
     const comm = this.db.communities.find(c => c.id === communityId || c.slug === communityId);
     if (!comm) return false;
+
+    const currentMembers = this.db.communityMembers[comm.id] || [];
+    const nextCount = Math.max(0, currentMembers.filter(id => id !== userId).length);
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('community_leave', { communityId: comm.id, userId, memberCount: nextCount });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist community leave to Supabase');
+      }
+    }
+
     if (this.db.communityMembers[comm.id]) {
       const idx = this.db.communityMembers[comm.id].indexOf(userId);
       if (idx !== -1) {
@@ -3428,7 +3576,7 @@ class DatabaseService {
     };
   }
 
-  public createCommunityPost(userId: string, communityId: string, postData: Partial<CommunityPost>): CommunityPost {
+  public async createCommunityPost(userId: string, communityId: string, postData: Partial<CommunityPost>): Promise<CommunityPost> {
     const user = this.findUserById(userId);
     const comm = this.db.communities.find(c => c.id === communityId || c.slug === communityId);
     const now = new Date().toISOString();
@@ -3473,9 +3621,17 @@ class DatabaseService {
       createdAt: now,
     };
 
+    const nextPostsCount = (comm?.postsCount || 0) + 1;
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('community_post_upsert', { ...newPost, communityPostsCount: nextPostsCount });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist community post to Supabase');
+      }
+    }
+
     this.db.communityPosts.unshift(newPost);
     if (comm) {
-      comm.postsCount = (comm.postsCount || 0) + 1;
+      comm.postsCount = nextPostsCount;
     }
     this.commit();
     return newPost;
@@ -3547,33 +3703,63 @@ class DatabaseService {
     }
   }
 
-  public likeCommunityPost(postId: string, userId: string): number {
+  public async likeCommunityPost(postId: string, userId: string): Promise<number> {
     const post = this.db.communityPosts.find(p => p.id === postId);
     if (!post) return 0;
     if (!post.likedByUsers) post.likedByUsers = [];
     const idx = post.likedByUsers.indexOf(userId);
+    let nextLikes = post.likes || 0;
+    if (idx !== -1) {
+      nextLikes = Math.max(0, (post.likes || 1) - 1);
+    } else {
+      nextLikes = (post.likes || 0) + 1;
+    }
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('community_post_like', { postId, likes: nextLikes });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to update post like in Supabase');
+      }
+    }
+
     if (idx !== -1) {
       post.likedByUsers.splice(idx, 1);
-      post.likes = Math.max(0, (post.likes || 1) - 1);
+      post.likes = nextLikes;
     } else {
       post.likedByUsers.push(userId);
-      post.likes = (post.likes || 0) + 1;
+      post.likes = nextLikes;
     }
     this.commit();
     return post.likes;
   }
 
-  public pinPost(postId: string, isPinned: boolean): boolean {
+  public async pinPost(postId: string, isPinned: boolean): Promise<boolean> {
     const post = this.db.communityPosts.find(p => p.id === postId);
     if (!post) return false;
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('community_post_pin', { postId, isPinned });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to pin/unpin post in Supabase');
+      }
+    }
+
     post.isPinned = isPinned;
     this.commit();
     return true;
   }
 
-  public lockPost(postId: string, isLocked: boolean): boolean {
+  public async lockPost(postId: string, isLocked: boolean): Promise<boolean> {
     const post = this.db.communityPosts.find(p => p.id === postId);
     if (!post) return false;
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('community_post_lock', { postId, isLocked });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to lock/unlock post in Supabase');
+      }
+    }
+
     post.isLocked = isLocked;
     this.commit();
     return true;
@@ -4203,7 +4389,7 @@ class DatabaseService {
     return (this.db.characters || []).find(c => c.id === id);
   }
 
-  public createCharacter(character: Partial<Character>, author: User): Character {
+  public async createCharacter(character: Partial<Character>, author: User): Promise<Character> {
     const id = 'char_' + Date.now();
     let storyTitle = character.storyTitle;
     if (character.storyId && !storyTitle) {
@@ -4229,14 +4415,20 @@ class DatabaseService {
       createdAt: new Date().toISOString()
     };
 
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('character_upsert', newChar);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist character to Supabase');
+      }
+    }
+
     if (!this.db.characters) this.db.characters = [];
     this.db.characters.push(newChar);
     this.commit();
-    syncActivityImmediately('character_upsert', newChar).catch(e => console.warn('[Supabase Auto-Sync] character create:', e));
     return newChar;
   }
 
-  public updateCharacter(id: string, updates: Partial<Character>, user: User): Character | undefined {
+  public async updateCharacter(id: string, updates: Partial<Character>, user: User): Promise<Character | undefined> {
     if (!this.db.characters) this.db.characters = [];
     const idx = this.db.characters.findIndex(c => c.id === id);
     if (idx === -1) return undefined;
@@ -4244,18 +4436,27 @@ class DatabaseService {
     if (existing.authorId && existing.authorId !== user.id && user.role !== 'ADMIN') {
       return undefined;
     }
-    this.db.characters[idx] = {
+
+    const updatedChar = {
       ...existing,
       ...updates,
       id: existing.id,
       authorId: existing.authorId || user.id,
     };
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('character_upsert', updatedChar);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist character updates to Supabase');
+      }
+    }
+
+    this.db.characters[idx] = updatedChar;
     this.commit();
-    syncActivityImmediately('character_upsert', this.db.characters[idx]).catch(e => console.warn('[Supabase Auto-Sync] character update:', e));
     return this.db.characters[idx];
   }
 
-  public deleteCharacter(id: string, user: User): boolean {
+  public async deleteCharacter(id: string, user: User): Promise<boolean> {
     if (!this.db.characters) return false;
     const idx = this.db.characters.findIndex(c => c.id === id);
     if (idx === -1) return false;
@@ -4263,6 +4464,14 @@ class DatabaseService {
     if (existing.authorId && existing.authorId !== user.id && user.role !== 'ADMIN') {
       return false;
     }
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('character_delete', { characterId: id });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to delete character from Supabase');
+      }
+    }
+
     this.db.characters.splice(idx, 1);
     if (this.db.characterRelationships) {
       this.db.characterRelationships = this.db.characterRelationships.filter(
@@ -4270,7 +4479,6 @@ class DatabaseService {
       );
     }
     this.commit();
-    syncActivityImmediately('character_delete', { characterId: id }).catch(e => console.warn('[Supabase Auto-Sync] character delete:', e));
     return true;
   }
 
@@ -4363,7 +4571,7 @@ class DatabaseService {
     return this.db.worlds;
   }
 
-  public createWorld(world: Partial<World>, author: User): World {
+  public async createWorld(world: Partial<World>, author: User): Promise<World> {
     const id = 'world_' + Date.now();
     const slug = (world.name || 'new-world').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + id.slice(-4);
     const newWorld: World = {
@@ -4384,9 +4592,16 @@ class DatabaseService {
       bannerImage: world.bannerImage || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
       createdAt: new Date().toISOString()
     };
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('world_upsert', newWorld);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist world to Supabase');
+      }
+    }
+
     this.db.worlds.push(newWorld);
     this.commit();
-    syncActivityImmediately('world_upsert', newWorld).catch(e => console.warn('[Supabase Auto-Sync] world create:', e));
     return newWorld;
   }
 
@@ -4402,7 +4617,7 @@ class DatabaseService {
     return { universe: uni, stories };
   }
 
-  public createUniverse(universe: Partial<Universe>, author: User): Universe {
+  public async createUniverse(universe: Partial<Universe>, author: User): Promise<Universe> {
     const id = 'uni_' + Date.now();
     const slug = (universe.name || 'new-universe').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + id.slice(-4);
     const newUni: Universe = {
@@ -4421,9 +4636,16 @@ class DatabaseService {
       featuredCharacterIds: universe.featuredCharacterIds || [],
       createdAt: new Date().toISOString()
     };
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('universe_upsert', newUni);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to persist universe to Supabase');
+      }
+    }
+
     this.db.universes.push(newUni);
     this.commit();
-    syncActivityImmediately('universe_upsert', newUni).catch(e => console.warn('[Supabase Auto-Sync] universe create:', e));
     return newUni;
   }
 
@@ -4986,7 +5208,7 @@ class DatabaseService {
     return list.filter(p => p.programId === programId);
   }
 
-  public registerProgramParticipant(programId: string, user: User, data: { rulesAgreementCheckbox: boolean; userType?: 'AUTHOR' | 'READER' | 'BOTH' }): ProgramParticipant {
+  public async registerProgramParticipant(programId: string, user: User, data: { rulesAgreementCheckbox: boolean; userType?: 'AUTHOR' | 'READER' | 'BOTH' }): Promise<ProgramParticipant> {
     if (!this.db.programParticipants) this.db.programParticipants = [];
 
     const existing = this.db.programParticipants.find(p => p.programId === programId && p.userId === user.id);
@@ -5014,6 +5236,13 @@ class DatabaseService {
       isFinalist: false
     };
 
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('program_participant', newParticipant);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to register participant in Supabase');
+      }
+    }
+
     this.db.programParticipants.unshift(newParticipant);
 
     // Increment program stats
@@ -5023,7 +5252,6 @@ class DatabaseService {
     }
 
     this.commit();
-    syncActivityImmediately('program_participant', newParticipant).catch(e => console.warn('[Supabase Auto-Sync] program participant:', e));
 
     this.logProgramAudit({
       programId,
@@ -5091,13 +5319,13 @@ class DatabaseService {
     return (this.db.programSubmissions || []).find(s => s.id === id);
   }
 
-  public createProgramSubmission(programId: string, user: User, data: Partial<ProgramSubmission>): ProgramSubmission {
+  public async createProgramSubmission(programId: string, user: User, data: Partial<ProgramSubmission>): Promise<ProgramSubmission> {
     if (!this.db.programSubmissions) this.db.programSubmissions = [];
 
     // Ensure user is participant
     let participant = (this.db.programParticipants || []).find(p => p.programId === programId && p.userId === user.id);
     if (!participant) {
-      participant = this.registerProgramParticipant(programId, user, { rulesAgreementCheckbox: true });
+      participant = await this.registerProgramParticipant(programId, user, { rulesAgreementCheckbox: true });
     }
 
     const now = new Date().toISOString();
@@ -5135,6 +5363,13 @@ class DatabaseService {
       updatedAt: now
     };
 
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('program_submission', newSub);
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to create program submission in Supabase');
+      }
+    }
+
     this.db.programSubmissions.unshift(newSub);
     participant.submissionStatus = 'SUBMITTED';
 
@@ -5145,7 +5380,6 @@ class DatabaseService {
     }
 
     this.commit();
-    syncActivityImmediately('program_submission', newSub).catch(e => console.warn('[Supabase Auto-Sync] program submission create:', e));
 
     this.logProgramAudit({
       programId,
@@ -5349,7 +5583,7 @@ class DatabaseService {
   }
 
   // Community Voting
-  public voteProgramSubmission(programId: string, submissionId: string, user: User, ipAddress?: string): { success: boolean; message: string; votes: number } {
+  public async voteProgramSubmission(programId: string, submissionId: string, user: User, ipAddress?: string): Promise<{ success: boolean; message: string; votes: number }> {
     if (!this.db.programVotes) this.db.programVotes = [];
 
     const prog = this.getProgramById(programId);
@@ -5388,11 +5622,20 @@ class DatabaseService {
       ipAddress
     };
 
+    const nextVotes = (sub.votes || 0) + 1;
+
+    if (isSupabaseConfigured()) {
+      const syncRes = await syncActivityImmediately('program_vote', { vote, submissionId, votesCount: nextVotes, programId });
+      if (!syncRes.success) {
+        throw new Error(syncRes.error || 'Failed to register vote in Supabase');
+      }
+    }
+
     this.db.programVotes.push(vote);
 
     if (!sub.votedUserIds) sub.votedUserIds = [];
     sub.votedUserIds.push(user.id);
-    sub.votes = (sub.votes || 0) + 1;
+    sub.votes = nextVotes;
 
     // Update participant
     const part = (this.db.programParticipants || []).find(p => p.id === sub.participantId);
@@ -5404,7 +5647,6 @@ class DatabaseService {
     prog.analytics.totalVotes = (prog.analytics.totalVotes || 0) + 1;
 
     this.commit();
-    syncActivityImmediately('program_vote', { vote, submissionId, votesCount: sub.votes, programId }).catch(e => console.warn('[Supabase Auto-Sync] program vote:', e));
 
     return { success: true, message: 'Vote cast successfully!', votes: sub.votes };
   }

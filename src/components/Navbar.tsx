@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { KairoLogo } from './KairoLogo';
+import { safeImg, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 interface NavbarProps {
   currentView: string;
@@ -197,7 +198,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center gap-1.5 p-1 rounded-full hover:ring-2 hover:ring-[#f47fa5] transition-all cursor-pointer focus:outline-none"
               >
                 <img
-                  src={user.avatar}
+                  src={safeImg(user.avatar, DEFAULT_USER_AVATAR)}
                   alt={user.displayName}
                   className="w-8 h-8 rounded-full object-cover border border-pink-200 shadow-xs"
                 />
@@ -210,7 +211,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <div className="px-3 py-2.5 border-b border-pink-100 flex items-center gap-2.5">
                     <img
-                      src={user.avatar}
+                      src={safeImg(user.avatar, DEFAULT_USER_AVATAR)}
                       alt={user.displayName}
                       className="w-10 h-10 rounded-full object-cover border border-pink-200"
                     />

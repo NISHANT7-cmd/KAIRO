@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, BookOpen, User, Sparkles, Tv, Users, Lightbulb, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
 import { SearchResult } from '../types';
+import { safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                         className="flex items-center gap-3.5 p-2.5 rounded-2xl hover:bg-[#fee7ff]/60 border border-transparent hover:border-pink-200 transition-all cursor-pointer group"
                       >
                         <img
-                          src={story.coverImage}
+                          src={safeImg(story.coverImage, DEFAULT_STORY_COVER)}
                           alt={story.title}
                           className="w-12 h-16 object-cover rounded-xl shadow-xs"
                         />
@@ -156,7 +157,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                         className="flex items-center gap-3 p-2.5 rounded-2xl bg-white/60 hover:bg-[#fee7ff]/40 border border-pink-100 transition-all cursor-pointer group"
                       >
                         <img
-                          src={char.portrait}
+                          src={safeImg(char.portrait, DEFAULT_USER_AVATAR)}
                           alt={char.name}
                           className="w-10 h-10 rounded-full object-cover border border-pink-200"
                         />
@@ -187,7 +188,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                         className="flex items-center gap-3 p-2.5 rounded-2xl bg-white/60 hover:bg-[#fee7ff]/40 border border-pink-100 transition-all cursor-pointer group"
                       >
                         <img
-                          src={ani.poster}
+                          src={safeImg(ani.poster, DEFAULT_STORY_COVER)}
                           alt={ani.title}
                           className="w-10 h-14 rounded-lg object-cover"
                         />
@@ -217,7 +218,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                         onClick={() => { onSelectCommunity(comm.slug); onClose(); }}
                         className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-[#fee7ff]/50 border border-pink-100/60 cursor-pointer"
                       >
-                        <img src={comm.iconImage} alt={comm.name} className="w-8 h-8 rounded-lg object-cover" />
+                        <img src={safeImg(comm.iconImage, DEFAULT_USER_AVATAR)} alt={comm.name} className="w-8 h-8 rounded-lg object-cover" />
                         <span className="text-xs font-semibold text-[#26152b] truncate">{comm.name}</span>
                       </div>
                     ))}

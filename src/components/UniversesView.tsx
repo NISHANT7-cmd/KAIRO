@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Globe, Sparkles, BookOpen, Users, Compass, ArrowRight, Star, Plus } from 'lucide-react';
 import { Universe } from '../types';
 import { api } from '../services/api';
+import { safeImg, DEFAULT_UNIVERSE_BANNER, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 interface UniversesViewProps {
   onOpenUniverse: (universeSlug: string) => void;
@@ -65,7 +66,7 @@ export const UniversesView: React.FC<UniversesViewProps> = ({ onOpenUniverse, on
                 {/* Banner Image */}
                 <div className="lg:col-span-5 relative h-64 lg:h-auto overflow-hidden">
                   <img
-                    src={uni.bannerImage}
+                    src={safeImg(uni.bannerImage, DEFAULT_UNIVERSE_BANNER)}
                     alt={uni.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
@@ -126,7 +127,7 @@ export const UniversesView: React.FC<UniversesViewProps> = ({ onOpenUniverse, on
 
                     <div className="flex items-center justify-between pt-2">
                       <div className="flex items-center gap-2">
-                        <img src={uni.creatorAvatar} alt={uni.creatorName} className="w-6 h-6 rounded-full object-cover" />
+                        <img src={safeImg(uni.creatorAvatar, DEFAULT_USER_AVATAR)} alt={uni.creatorName} className="w-6 h-6 rounded-full object-cover" />
                         <span className="text-xs font-semibold text-[#544246]">Curated by {uni.creatorName}</span>
                       </div>
 

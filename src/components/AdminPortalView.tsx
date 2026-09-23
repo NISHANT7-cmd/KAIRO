@@ -12,6 +12,7 @@ import { AdminProgramsView } from './admin/AdminProgramsView';
 import { AdminRecommendationControls } from './admin/AdminRecommendationControls';
 import { AdminDatabaseView } from './admin/AdminDatabaseView';
 import { Sliders } from 'lucide-react';
+import { safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 interface AdminPortalViewProps {
   onOpenStory: (slug: string) => void;
@@ -580,7 +581,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               <img
-                                src={userItem.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'}
+                                src={safeImg(userItem.avatar, DEFAULT_USER_AVATAR)}
                                 alt={userItem.displayName}
                                 className="w-9 h-9 rounded-full object-cover border border-pink-200 shrink-0"
                               />
@@ -757,7 +758,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 <div>
                   <div className="flex gap-3 mb-3">
                     <img 
-                      src={story.coverImage} 
+                      src={safeImg(story.coverImage, DEFAULT_STORY_COVER)} 
                       alt={story.title} 
                       className="w-16 h-22 rounded-xl object-cover border border-pink-200 shrink-0 shadow-xs"
                     />

@@ -314,28 +314,20 @@ export class ApiError extends Error {
 function isServerFailure(err: any): boolean {
   if (!err) return false;
   if (err instanceof ApiError) {
-    // 400, 401, 403 are intentional business/auth rejections - NOT transient server failures
-    if (err.status === 400 || err.status === 401 || err.status === 403) {
+    // Intentional HTTP error from the server (400, 401, 403, 500, etc.)
+    // If the server actually responded with a 500 error or 400 error, DO NOT mask it with offline fake data!
+    if (err.status !== 0) {
       return false;
     }
-    // 0 is network failure, 404 is endpoint/resource missing, 500+ are server errors
-    if (err.status === 0 || err.status >= 500 || err.status === 404) {
-      return true;
-    }
+    return true;
   }
   const msg = (err.message || '').toLowerCase();
+  // Only treat genuine browser/network disconnects as offline failures
   return msg.includes('network error') || 
          msg.includes('failed to fetch') || 
          msg.includes('networkerror') ||
-         msg.includes('status 404') || 
-         msg.includes('status 500') || 
-         msg.includes('status 502') || 
-         msg.includes('status 503') || 
-         msg.includes('status 504') || 
-         msg.includes('html response') ||
-         msg.includes('not reachable') ||
-         msg.includes('endpoint not found') ||
-         msg.includes('unable to connect');
+         msg.includes('unable to connect') ||
+         msg.includes('connection refused');
 }
 
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {

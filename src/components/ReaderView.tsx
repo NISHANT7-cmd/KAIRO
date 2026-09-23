@@ -9,6 +9,7 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useReader } from '../context/ReaderContext';
 import confetti from 'canvas-confetti';
+import { safeImg, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 interface ReaderViewProps {
   storySlug: string;
@@ -478,7 +479,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
                           <img
-                            src={comment.userAvatar}
+                            src={safeImg(comment.userAvatar, DEFAULT_USER_AVATAR)}
                             alt={comment.username}
                             className="w-7 h-7 rounded-full object-cover"
                           />
@@ -535,7 +536,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                           {comment.replies.map(reply => (
                             <div key={reply.id} className="p-2.5 rounded-xl bg-[#fee7ff]/40 space-y-1">
                               <div className="flex items-center gap-2">
-                                <img src={reply.userAvatar} alt={reply.username} className="w-5 h-5 rounded-full object-cover" />
+                                <img src={safeImg(reply.userAvatar, DEFAULT_USER_AVATAR)} alt={reply.username} className="w-5 h-5 rounded-full object-cover" />
                                 <span className="font-bold text-[11px] text-[#26152b]">{reply.username}</span>
                               </div>
                               <p className="text-[11px] text-[#544246]">{reply.content}</p>

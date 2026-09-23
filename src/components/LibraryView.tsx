@@ -6,6 +6,7 @@ import {
 import { Story, ReadingProgress } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { safeImg, DEFAULT_STORY_COVER } from '../utils/imageOptimizer';
 
 interface LibraryViewProps {
   onOpenStory: (storySlug: string) => void;
@@ -128,7 +129,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   className="glass-card rounded-3xl p-5 border border-pink-100 hover:shadow-md transition-all flex items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-4">
-                    <img src={prog.storyCover} alt={prog.storyTitle} className="w-16 h-22 object-cover rounded-xl shadow-xs" />
+                    <img src={safeImg(prog.storyCover, DEFAULT_STORY_COVER)} alt={prog.storyTitle} className="w-16 h-22 object-cover rounded-xl shadow-xs" />
                     <div>
                       <h4 className="font-bold text-base text-[#26152b] font-display line-clamp-1">{prog.storyTitle}</h4>
                       <p className="text-xs text-[#544246] mt-0.5">
@@ -185,7 +186,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 >
                   <div>
                     <div className="relative rounded-2xl overflow-hidden aspect-4/3 mb-3">
-                      <img src={story.coverImage} alt={story.title} className="w-full h-full object-cover" />
+                      <img src={safeImg(story.coverImage, DEFAULT_STORY_COVER)} alt={story.title} className="w-full h-full object-cover" />
                       <div className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
                         {story.genre}
                       </div>

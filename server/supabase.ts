@@ -535,25 +535,35 @@ export type SupabaseActivityType =
   | 'program_participant'
   | 'program_submission'
   | 'program_vote'
-  | 'profile_upsert';
+  | 'profile_upsert'
+  | 'community_upsert'
+  | 'community_join'
+  | 'community_leave'
+  | 'community_post_upsert'
+  | 'community_post_like'
+  | 'community_post_pin'
+  | 'community_post_lock'
+  | 'notification_read'
+  | 'notification_read_all'
+  | 'notification_upsert';
 
 /**
  * Automatically & immediately persists any user activity directly to Supabase server.
- * Operates non-blockingly with robust error containment so user requests are never delayed.
+ * Returns explicit success status and error message to guarantee persistence before returning to caller.
  */
 export async function syncActivityImmediately(
   activityType: SupabaseActivityType,
   payload: any
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   const supabase = getSupabaseClient();
-  if (!supabase) return false;
-  if (cachedSchemaStatus && !cachedSchemaStatus.ready) return false;
+  if (!supabase) return { success: false, error: 'Supabase client not initialized' };
+  if (cachedSchemaStatus && !cachedSchemaStatus.ready) return { success: false, error: 'Supabase schema not ready' };
 
   try {
     switch (activityType) {
       case 'story_upsert': {
         const story = payload;
-        if (!story || !story.id) return false;
+        if (!story || !story.id) return { success: false, error: 'Missing story data or id' };
         const row = {
           id: story.id,
           title: story.title,
@@ -571,11 +581,14 @@ export async function syncActivityImmediately(
           views: story.views || 0,
           like_count: story.likes || 0,
           rating: story.rating || 5.0,
-          updated_at: story.updatedAt || new Date().toISOString(),
+          last_updated_date: story.updatedAt || new Date().toISOString(),
         };
         const { error } = await supabase.from('stories').upsert(row, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] story_upsert warning:', error.message);
-        return !error;
+        if (error) {
+          console.error('[Supabase Realtime Sync] story_upsert error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'story_delete': {
@@ -592,37 +605,54 @@ export async function syncActivityImmediately(
             deleted_by_user_id: record.deletedByUserId,
             deleted_by_username: record.deletedByUsername,
           };
-          await supabase.from('recently_deleted_stories').upsert(trashRow, { onConflict: 'id' });
+          const { error: trashErr } = await supabase.from('recently_deleted_stories').upsert(trashRow, { onConflict: 'id' });
+          if (trashErr) {
+            console.error('[Supabase Realtime Sync] story_delete trash error:', trashErr.message);
+            return { success: false, error: trashErr.message };
+          }
         }
         if (storyId) {
-          await supabase.from('stories').delete().eq('id', storyId);
+          const { error: delErr } = await supabase.from('stories').delete().eq('id', storyId);
+          if (delErr) {
+            console.error('[Supabase Realtime Sync] story_delete stories error:', delErr.message);
+            return { success: false, error: delErr.message };
+          }
         }
-        return true;
+        return { success: true };
       }
 
       case 'story_restore': {
         const { trashId, story } = payload;
         if (trashId) {
-          await supabase.from('recently_deleted_stories').delete().eq('id', trashId);
+          const { error: delErr } = await supabase.from('recently_deleted_stories').delete().eq('id', trashId);
+          if (delErr) {
+            console.error('[Supabase Realtime Sync] story_restore delete trash error:', delErr.message);
+            return { success: false, error: delErr.message };
+          }
         }
         if (story && story.id) {
-          await syncActivityImmediately('story_upsert', story);
+          const upsertRes = await syncActivityImmediately('story_upsert', story);
+          if (!upsertRes.success) return upsertRes;
         }
-        return true;
+        return { success: true };
       }
 
       case 'story_permanent_delete': {
         const { trashId } = payload;
         if (trashId) {
-          await supabase.from('recently_deleted_stories').delete().eq('id', trashId);
+          const { error } = await supabase.from('recently_deleted_stories').delete().eq('id', trashId);
+          if (error) {
+            console.error('[Supabase Realtime Sync] story_permanent_delete error:', error.message);
+            return { success: false, error: error.message };
+          }
         }
-        return true;
+        return { success: true };
       }
 
       case 'chapter_upsert': {
         const { chapter, storyId, chaptersCount } = payload;
         const chap = chapter || payload;
-        if (!chap || !chap.id) return false;
+        if (!chap || !chap.id) return { success: false, error: 'Missing chapter data or id' };
         const chapRow = {
           id: chap.id,
           story_id: chap.storyId || storyId,
@@ -634,103 +664,135 @@ export async function syncActivityImmediately(
           publish_date: chap.publishedAt || chap.createdAt || new Date().toISOString(),
           updated_at: chap.updatedAt || new Date().toISOString(),
         };
-        const { error } = await supabase.from('chapters').upsert(chapRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] chapter_upsert warning:', error.message);
+        const { error: chapErr } = await supabase.from('chapters').upsert(chapRow, { onConflict: 'id' });
+        if (chapErr) {
+          console.error('[Supabase Realtime Sync] chapter_upsert error:', chapErr.message);
+          return { success: false, error: chapErr.message };
+        }
 
         const targetStoryId = chap.storyId || storyId;
         if (targetStoryId && chaptersCount !== undefined) {
-          await supabase.from('stories').update({
+          const { error: storyErr } = await supabase.from('stories').update({
             total_chapters: chaptersCount,
-            updated_at: new Date().toISOString(),
+            last_updated_date: new Date().toISOString(),
           }).eq('id', targetStoryId);
+          if (storyErr) console.warn('[Supabase Realtime Sync] story chaptersCount update warning:', storyErr.message);
         }
-        return !error;
+        return { success: true };
       }
 
       case 'chapter_delete': {
         const { chapterId, storyId, chaptersCount } = payload;
         if (chapterId) {
-          await supabase.from('chapters').delete().eq('id', chapterId);
+          const { error: delErr } = await supabase.from('chapters').delete().eq('id', chapterId);
+          if (delErr) {
+            console.error('[Supabase Realtime Sync] chapter_delete error:', delErr.message);
+            return { success: false, error: delErr.message };
+          }
         }
         if (storyId && chaptersCount !== undefined) {
-          await supabase.from('stories').update({
+          const { error: storyErr } = await supabase.from('stories').update({
             total_chapters: chaptersCount,
-            updated_at: new Date().toISOString(),
+            last_updated_date: new Date().toISOString(),
           }).eq('id', storyId);
+          if (storyErr) console.warn('[Supabase Realtime Sync] story chaptersCount update warning:', storyErr.message);
         }
-        return true;
+        return { success: true };
       }
 
       case 'story_like': {
         const { userId, storyId, totalLikes } = payload;
-        if (!userId || !storyId) return false;
-        const { error } = await supabase.from('story_likes').upsert({
+        if (!userId || !storyId) return { success: false, error: 'Missing userId or storyId' };
+        const { error: likeErr } = await supabase.from('story_likes').upsert({
           story_id: storyId,
           user_id: userId,
           created_at: new Date().toISOString(),
         }, { onConflict: 'story_id,user_id' });
-        if (error) console.warn('[Supabase Realtime Sync] story_like warning:', error.message);
+        if (likeErr) {
+          console.error('[Supabase Realtime Sync] story_like error:', likeErr.message);
+          return { success: false, error: likeErr.message };
+        }
 
         if (totalLikes !== undefined) {
           await supabase.from('stories').update({
             like_count: totalLikes,
-            updated_at: new Date().toISOString()
+            last_updated_date: new Date().toISOString()
           }).eq('id', storyId);
         }
-        return true;
+        return { success: true };
       }
 
       case 'story_unlike': {
         const { userId, storyId, totalLikes } = payload;
-        if (!userId || !storyId) return false;
-        await supabase.from('story_likes').delete().match({ story_id: storyId, user_id: userId });
+        if (!userId || !storyId) return { success: false, error: 'Missing userId or storyId' };
+        const { error: unlikeErr } = await supabase.from('story_likes').delete().match({ story_id: storyId, user_id: userId });
+        if (unlikeErr) {
+          console.error('[Supabase Realtime Sync] story_unlike error:', unlikeErr.message);
+          return { success: false, error: unlikeErr.message };
+        }
 
         if (totalLikes !== undefined) {
           await supabase.from('stories').update({
             like_count: totalLikes,
-            updated_at: new Date().toISOString()
+            last_updated_date: new Date().toISOString()
           }).eq('id', storyId);
         }
-        return true;
+        return { success: true };
       }
 
       case 'user_follow': {
         const { followerId, authorId } = payload;
-        if (!followerId || !authorId) return false;
-        await supabase.from('user_follows').upsert({
+        if (!followerId || !authorId) return { success: false, error: 'Missing followerId or authorId' };
+        const { error } = await supabase.from('user_follows').upsert({
           follower_id: followerId,
           author_id: authorId,
           created_at: new Date().toISOString(),
         }, { onConflict: 'follower_id,author_id' });
-        return true;
+        if (error) {
+          console.error('[Supabase Realtime Sync] user_follow error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'user_unfollow': {
         const { followerId, authorId } = payload;
-        if (!followerId || !authorId) return false;
-        await supabase.from('user_follows').delete().match({ follower_id: followerId, author_id: authorId });
-        return true;
+        if (!followerId || !authorId) return { success: false, error: 'Missing followerId or authorId' };
+        const { error } = await supabase.from('user_follows').delete().match({ follower_id: followerId, author_id: authorId });
+        if (error) {
+          console.error('[Supabase Realtime Sync] user_unfollow error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'library_toggle': {
         const { userId, storyId, listType, inLibrary } = payload;
-        if (!userId || !storyId) return false;
+        if (!userId || !storyId) return { success: false, error: 'Missing userId or storyId' };
         if (inLibrary) {
-          await supabase.from('library').upsert({
+          const { error } = await supabase.from('library').upsert({
             user_id: userId,
             story_id: storyId,
             list_type: listType || 'saved',
             added_at: new Date().toISOString(),
           }, { onConflict: 'user_id,story_id' });
+          if (error) {
+            console.error('[Supabase Realtime Sync] library add error:', error.message);
+            return { success: false, error: error.message };
+          }
         } else {
-          await supabase.from('library').delete().match({ user_id: userId, story_id: storyId });
+          const { error } = await supabase.from('library').delete().match({ user_id: userId, story_id: storyId });
+          if (error) {
+            console.error('[Supabase Realtime Sync] library remove error:', error.message);
+            return { success: false, error: error.message };
+          }
         }
-        return true;
+        return { success: true };
       }
 
       case 'reading_progress': {
         const progress = payload;
-        if (!progress || !progress.userId || !progress.storyId) return false;
+        if (!progress || !progress.userId || !progress.storyId) return { success: false, error: 'Missing userId or storyId' };
         const progRow = {
           user_id: progress.userId,
           story_id: progress.storyId,
@@ -741,14 +803,17 @@ export async function syncActivityImmediately(
           last_read_at: new Date().toISOString(),
         };
         const { error } = await supabase.from('reading_progress').upsert(progRow, { onConflict: 'user_id,story_id' });
-        if (error) console.warn('[Supabase Realtime Sync] reading_progress warning:', error.message);
-        return !error;
+        if (error) {
+          console.error('[Supabase Realtime Sync] reading_progress error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'review_upsert': {
         const { review, storyRating } = payload;
         const rev = review || payload;
-        if (!rev || !rev.id) return false;
+        if (!rev || !rev.id) return { success: false, error: 'Missing review id' };
         const revRow = {
           id: rev.id,
           user_id: rev.userId,
@@ -758,29 +823,36 @@ export async function syncActivityImmediately(
           likes: rev.likes || 0,
           created_at: rev.createdAt || new Date().toISOString(),
         };
-        const { error } = await supabase.from('reviews').upsert(revRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] review_upsert warning:', error.message);
+        const { error: revErr } = await supabase.from('reviews').upsert(revRow, { onConflict: 'id' });
+        if (revErr) {
+          console.error('[Supabase Realtime Sync] review_upsert error:', revErr.message);
+          return { success: false, error: revErr.message };
+        }
 
         if (rev.storyId && storyRating !== undefined) {
           await supabase.from('stories').update({
             rating: storyRating,
-            updated_at: new Date().toISOString(),
+            last_updated_date: new Date().toISOString(),
           }).eq('id', rev.storyId);
         }
-        return !error;
+        return { success: true };
       }
 
       case 'review_like': {
         const { reviewId, likes } = payload;
         if (reviewId && likes !== undefined) {
-          await supabase.from('reviews').update({ likes }).eq('id', reviewId);
+          const { error } = await supabase.from('reviews').update({ likes }).eq('id', reviewId);
+          if (error) {
+            console.error('[Supabase Realtime Sync] review_like error:', error.message);
+            return { success: false, error: error.message };
+          }
         }
-        return true;
+        return { success: true };
       }
 
       case 'comment_upsert': {
         const comment = payload;
-        if (!comment || !comment.id) return false;
+        if (!comment || !comment.id) return { success: false, error: 'Missing comment id' };
         const comRow = {
           id: comment.id,
           chapter_id: comment.chapterId,
@@ -793,23 +865,30 @@ export async function syncActivityImmediately(
           created_at: comment.createdAt || new Date().toISOString(),
         };
         const { error } = await supabase.from('chapter_comments').upsert(comRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] comment_upsert warning:', error.message);
-        return !error;
+        if (error) {
+          console.error('[Supabase Realtime Sync] comment_upsert error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'comment_like': {
         const comment = payload;
-        if (!comment || !comment.id) return false;
-        await supabase.from('chapter_comments').update({
+        if (!comment || !comment.id) return { success: false, error: 'Missing comment id' };
+        const { error } = await supabase.from('chapter_comments').update({
           likes: comment.likes || 0,
           liked_by: comment.likedByUsers || comment.likedBy || [],
         }).eq('id', comment.id);
-        return true;
+        if (error) {
+          console.error('[Supabase Realtime Sync] comment_like error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'program_participant': {
         const part = payload;
-        if (!part || !part.id) return false;
+        if (!part || !part.id) return { success: false, error: 'Missing participant id' };
         const partRow = {
           id: part.id,
           program_id: part.programId,
@@ -819,13 +898,16 @@ export async function syncActivityImmediately(
           registered_at: part.registeredAt || new Date().toISOString(),
         };
         const { error } = await supabase.from('program_participants').upsert(partRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] program_participant warning:', error.message);
-        return !error;
+        if (error) {
+          console.error('[Supabase Realtime Sync] program_participant error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'program_submission': {
         const sub = payload;
-        if (!sub || !sub.id) return false;
+        if (!sub || !sub.id) return { success: false, error: 'Missing submission id' };
         const subRow = {
           id: sub.id,
           program_id: sub.programId,
@@ -840,13 +922,16 @@ export async function syncActivityImmediately(
           submitted_at: sub.createdAt || sub.submittedAt || new Date().toISOString(),
         };
         const { error } = await supabase.from('program_submissions').upsert(subRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] program_submission warning:', error.message);
-        return !error;
+        if (error) {
+          console.error('[Supabase Realtime Sync] program_submission error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'program_vote': {
         const { vote, submissionId, votesCount, programId } = payload;
-        if (!vote || !vote.id) return false;
+        if (!vote || !vote.id) return { success: false, error: 'Missing vote id' };
         const voteRow = {
           id: vote.id,
           program_id: vote.programId || programId,
@@ -856,18 +941,21 @@ export async function syncActivityImmediately(
           voted_at: vote.votedAt || new Date().toISOString(),
         };
         const { error } = await supabase.from('program_votes').upsert(voteRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] program_vote warning:', error.message);
+        if (error) {
+          console.error('[Supabase Realtime Sync] program_vote error:', error.message);
+          return { success: false, error: error.message };
+        }
 
         const targetSubId = vote.submissionId || submissionId;
         if (targetSubId && votesCount !== undefined) {
           await supabase.from('program_submissions').update({ votes_count: votesCount }).eq('id', targetSubId);
         }
-        return !error;
+        return { success: true };
       }
 
       case 'character_upsert': {
         const c = payload;
-        if (!c || !c.id) return false;
+        if (!c || !c.id) return { success: false, error: 'Missing character id' };
         const charRow = {
           id: c.id,
           story_id: c.storyId || null,
@@ -883,21 +971,28 @@ export async function syncActivityImmediately(
           created_at: c.createdAt || new Date().toISOString(),
         };
         const { error } = await supabase.from('characters').upsert(charRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] character_upsert warning:', error.message);
-        return !error;
+        if (error) {
+          console.error('[Supabase Realtime Sync] character_upsert error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'character_delete': {
         const { characterId } = payload;
         if (characterId) {
-          await supabase.from('characters').delete().eq('id', characterId);
+          const { error } = await supabase.from('characters').delete().eq('id', characterId);
+          if (error) {
+            console.error('[Supabase Realtime Sync] character_delete error:', error.message);
+            return { success: false, error: error.message };
+          }
         }
-        return true;
+        return { success: true };
       }
 
       case 'world_upsert': {
         const w = payload;
-        if (!w || !w.id) return false;
+        if (!w || !w.id) return { success: false, error: 'Missing world id' };
         const worldRow = {
           id: w.id,
           author_id: w.authorId || null,
@@ -909,13 +1004,16 @@ export async function syncActivityImmediately(
           created_at: w.createdAt || new Date().toISOString(),
         };
         const { error } = await supabase.from('worlds').upsert(worldRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] world_upsert warning:', error.message);
-        return !error;
+        if (error) {
+          console.error('[Supabase Realtime Sync] world_upsert error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'universe_upsert': {
         const u = payload;
-        if (!u || !u.id) return false;
+        if (!u || !u.id) return { success: false, error: 'Missing universe id' };
         const uniRow = {
           id: u.id,
           slug: u.slug || null,
@@ -927,13 +1025,16 @@ export async function syncActivityImmediately(
           created_at: u.createdAt || new Date().toISOString(),
         };
         const { error } = await supabase.from('universes').upsert(uniRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] universe_upsert warning:', error.message);
-        return !error;
+        if (error) {
+          console.error('[Supabase Realtime Sync] universe_upsert error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       case 'profile_upsert': {
         const user = payload;
-        if (!user || !user.id) return false;
+        if (!user || !user.id) return { success: false, error: 'Missing user id' };
         const profRow = {
           id: user.id,
           username: user.username,
@@ -943,18 +1044,200 @@ export async function syncActivityImmediately(
           role: user.role || 'USER',
           xp: user.xp || 0,
           level: user.level || 1,
+          reading_streak: user.readingStreak || 1,
+          last_active_date: user.lastActiveDate || new Date().toISOString(),
+          followers_count: user.followersCount || 0,
+          following_count: user.followingCount || 0,
+          total_reads: user.totalReads || 0,
+          favorite_genres: user.favoriteGenres || [],
+          favorite_themes: user.favoriteThemes || [],
+          is_verified: Boolean(user.isVerifiedWriter),
         };
         const { error } = await supabase.from('profiles').upsert(profRow, { onConflict: 'id' });
-        if (error) console.warn('[Supabase Realtime Sync] profile_upsert warning:', error.message);
-        return !error;
+        if (error) {
+          console.error('[Supabase Realtime Sync] profile_upsert error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
+      }
+
+      case 'community_upsert': {
+        const comm = payload;
+        if (!comm || !comm.id) return { success: false, error: 'Missing community id' };
+        const commRow = {
+          id: comm.id,
+          slug: comm.slug,
+          name: comm.name,
+          description: comm.description || null,
+          icon: comm.iconImage || null,
+          banner: comm.bannerImage || null,
+          type: (comm.type || 'GENRE').toUpperCase(),
+          category: (comm.categories && comm.categories[0]) || null,
+          member_count: comm.memberCount || comm.membersCount || 1,
+          post_count: comm.postsCount || 0,
+          created_at: comm.createdAt || new Date().toISOString(),
+        };
+        const { error } = await supabase.from('communities').upsert(commRow, { onConflict: 'id' });
+        if (error) {
+          console.error('[Supabase Realtime Sync] community_upsert error:', error.message);
+          return { success: false, error: error.message };
+        }
+        if (comm.ownerId) {
+          await supabase.from('community_members').upsert({
+            community_id: comm.id,
+            user_id: comm.ownerId,
+            joined_at: comm.createdAt || new Date().toISOString(),
+          }, { onConflict: 'community_id,user_id' });
+        }
+        return { success: true };
+      }
+
+      case 'community_join': {
+        const { communityId, userId, memberCount } = payload;
+        if (!communityId || !userId) return { success: false, error: 'Missing communityId or userId' };
+        const { error } = await supabase.from('community_members').upsert({
+          community_id: communityId,
+          user_id: userId,
+          joined_at: new Date().toISOString(),
+        }, { onConflict: 'community_id,user_id' });
+        if (error) {
+          console.error('[Supabase Realtime Sync] community_join error:', error.message);
+          return { success: false, error: error.message };
+        }
+        if (memberCount !== undefined) {
+          await supabase.from('communities').update({ member_count: memberCount }).eq('id', communityId);
+        }
+        return { success: true };
+      }
+
+      case 'community_leave': {
+        const { communityId, userId, memberCount } = payload;
+        if (!communityId || !userId) return { success: false, error: 'Missing communityId or userId' };
+        const { error } = await supabase.from('community_members').delete().match({ community_id: communityId, user_id: userId });
+        if (error) {
+          console.error('[Supabase Realtime Sync] community_leave error:', error.message);
+          return { success: false, error: error.message };
+        }
+        if (memberCount !== undefined) {
+          await supabase.from('communities').update({ member_count: memberCount }).eq('id', communityId);
+        }
+        return { success: true };
+      }
+
+      case 'community_post_upsert': {
+        const post = payload;
+        if (!post || !post.id) return { success: false, error: 'Missing post id' };
+        const postRow = {
+          id: post.id,
+          community_id: post.communityId,
+          user_id: post.userId || post.authorId,
+          author_name: post.username || post.authorDisplayName || post.authorUsername || 'Member',
+          author_avatar: post.userAvatar || post.authorAvatar || null,
+          author_role: post.authorRole || 'Member',
+          title: post.title,
+          content: post.content || '',
+          post_type: post.type || post.postType || 'DISCUSSION',
+          media_url: post.mediaUrl || null,
+          tags: post.tags || [],
+          likes: post.likes || 0,
+          comment_count: post.commentsCount || post.commentCount || 0,
+          is_pinned: Boolean(post.isPinned),
+          is_locked: Boolean(post.isLocked),
+          created_at: post.createdAt || new Date().toISOString(),
+        };
+        const { error } = await supabase.from('community_posts').upsert(postRow, { onConflict: 'id' });
+        if (error) {
+          console.error('[Supabase Realtime Sync] community_post_upsert error:', error.message);
+          return { success: false, error: error.message };
+        }
+        if (payload.communityPostsCount !== undefined) {
+          await supabase.from('communities').update({ post_count: payload.communityPostsCount }).eq('id', post.communityId);
+        }
+        return { success: true };
+      }
+
+      case 'community_post_like': {
+        const { postId, likes } = payload;
+        if (!postId) return { success: false, error: 'Missing postId' };
+        const { error } = await supabase.from('community_posts').update({ likes }).eq('id', postId);
+        if (error) {
+          console.error('[Supabase Realtime Sync] community_post_like error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
+      }
+
+      case 'community_post_pin': {
+        const { postId, isPinned } = payload;
+        if (!postId) return { success: false, error: 'Missing postId' };
+        const { error } = await supabase.from('community_posts').update({ is_pinned: Boolean(isPinned) }).eq('id', postId);
+        if (error) {
+          console.error('[Supabase Realtime Sync] community_post_pin error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
+      }
+
+      case 'community_post_lock': {
+        const { postId, isLocked } = payload;
+        if (!postId) return { success: false, error: 'Missing postId' };
+        const { error } = await supabase.from('community_posts').update({ is_locked: Boolean(isLocked) }).eq('id', postId);
+        if (error) {
+          console.error('[Supabase Realtime Sync] community_post_lock error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
+      }
+
+      case 'notification_read': {
+        const { notificationId, userId } = payload;
+        if (!notificationId || !userId) return { success: false, error: 'Missing notificationId or userId' };
+        const { error } = await supabase.from('notifications').update({ read: true }).match({ id: notificationId, user_id: userId });
+        if (error) {
+          console.error('[Supabase Realtime Sync] notification_read error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
+      }
+
+      case 'notification_read_all': {
+        const { userId } = payload;
+        if (!userId) return { success: false, error: 'Missing userId' };
+        const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', userId);
+        if (error) {
+          console.error('[Supabase Realtime Sync] notification_read_all error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
+      }
+
+      case 'notification_upsert': {
+        const notif = payload;
+        if (!notif || !notif.id) return { success: false, error: 'Missing notification id' };
+        const notifRow = {
+          id: notif.id,
+          user_id: notif.userId,
+          type: notif.type || 'SYSTEM',
+          title: notif.title,
+          message: notif.message,
+          link: notif.link || null,
+          read: Boolean(notif.read || notif.isRead),
+          created_at: notif.createdAt || new Date().toISOString(),
+        };
+        const { error } = await supabase.from('notifications').upsert(notifRow, { onConflict: 'id' });
+        if (error) {
+          console.error('[Supabase Realtime Sync] notification_upsert error:', error.message);
+          return { success: false, error: error.message };
+        }
+        return { success: true };
       }
 
       default:
-        return false;
+        return { success: false, error: `Unknown activity type: ${activityType}` };
     }
   } catch (err: any) {
     console.warn(`[Supabase Realtime Sync Error] ${activityType}:`, err?.message);
-    return false;
+    return { success: false, error: err?.message || String(err) };
   }
 }
 
@@ -967,15 +1250,15 @@ export async function syncEntityToSupabase(
 ): Promise<boolean> {
   switch (entityType) {
     case 'story':
-      return syncActivityImmediately('story_upsert', payload);
+      return (await syncActivityImmediately('story_upsert', payload)).success;
     case 'chapter':
-      return syncActivityImmediately('chapter_upsert', { chapter: payload });
+      return (await syncActivityImmediately('chapter_upsert', { chapter: payload })).success;
     case 'profile':
-      return syncActivityImmediately('profile_upsert', payload);
+      return (await syncActivityImmediately('profile_upsert', payload)).success;
     case 'trash':
-      return syncActivityImmediately('story_delete', { record: payload, storyId: payload.story?.id || payload.id });
+      return (await syncActivityImmediately('story_delete', { record: payload, storyId: payload.story?.id || payload.id })).success;
     case 'reading_progress':
-      return syncActivityImmediately('reading_progress', payload);
+      return (await syncActivityImmediately('reading_progress', payload)).success;
     default:
       return false;
   }
@@ -1039,6 +1322,9 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
       { data: programSubmissions, error: errSubmissions },
       { data: programVotes, error: errVotes },
       { data: trash, error: errTrash },
+      { data: communitiesData },
+      { data: communityPostsData },
+      { data: notificationsData },
     ] = await Promise.all([
       supabase.from('profiles').select('*'),
       supabase.from('user_credentials').select('*'),
@@ -1059,6 +1345,9 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
       supabase.from('program_submissions').select('*'),
       supabase.from('program_votes').select('*'),
       supabase.from('recently_deleted_stories').select('*'),
+      supabase.from('communities').select('*'),
+      supabase.from('community_posts').select('*'),
+      supabase.from('notifications').select('*'),
     ]);
 
     if (errProfiles || errStories) {
@@ -1070,12 +1359,15 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
       return null;
     }
 
+    const DEFAULT_COVER = 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800';
+    const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200';
+
     const users: User[] = (profiles || []).map(p => ({
       id: p.id,
       username: p.username,
       email: p.email,
       displayName: p.display_name,
-      avatar: p.avatar,
+      avatar: p.avatar || DEFAULT_AVATAR,
       bio: p.bio,
       role: p.role,
       xp: p.xp,
@@ -1091,31 +1383,37 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
       isVerifiedWriter: p.is_verified,
     }));
 
-    const mappedStories: Story[] = (stories || []).map(s => ({
-      id: s.id,
-      authorId: s.author_id,
-      authorUsername: s.author_username || 'unknown',
-      authorDisplayName: s.author_display_name || 'Author',
-      authorAvatar: s.author_avatar || '',
-      title: s.title,
-      slug: s.slug || s.id,
-      description: s.description || '',
-      coverImage: s.cover_image || '',
-      genre: s.genre || 'Fantasy',
-      tags: s.tags || [],
-      language: 'English',
-      ageRating: s.age_rating || 'Everyone',
-      storyType: s.story_type || 'Light Novel',
-      status: s.status || 'Ongoing',
-      views: s.views || 0,
-      likes: s.like_count || 0,
-      rating: Number(s.rating || 5),
-      ratingCount: s.review_count || 0,
-      universeId: s.universe_id,
-      chaptersCount: s.total_chapters || 0,
-      createdAt: s.created_at,
-      updatedAt: s.last_updated_date || s.created_at,
-    }));
+    const userMap = new Map<string, User>();
+    users.forEach(u => userMap.set(u.id, u));
+
+    const mappedStories: Story[] = (stories || []).map(s => {
+      const authorUser = userMap.get(s.author_id);
+      return {
+        id: s.id,
+        authorId: s.author_id,
+        authorUsername: s.author_username || authorUser?.username || 'unknown',
+        authorDisplayName: s.author_display_name || authorUser?.displayName || 'Author',
+        authorAvatar: s.author_avatar || authorUser?.avatar || DEFAULT_AVATAR,
+        title: s.title,
+        slug: s.slug || s.id,
+        description: s.description || '',
+        coverImage: s.cover_image || DEFAULT_COVER,
+        genre: s.genre || 'Fantasy',
+        tags: s.tags || [],
+        language: 'English',
+        ageRating: s.age_rating || 'Everyone',
+        storyType: s.story_type || 'Light Novel',
+        status: s.status || 'Ongoing',
+        views: s.views || 0,
+        likes: s.like_count || 0,
+        rating: Number(s.rating || 5),
+        ratingCount: s.review_count || 0,
+        universeId: s.universe_id,
+        chaptersCount: s.total_chapters || 0,
+        createdAt: s.created_at,
+        updatedAt: s.last_updated_date || s.created_at,
+      };
+    });
 
     const mappedChapters: Chapter[] = (chapters || []).map(c => ({
       id: c.id,
@@ -1158,6 +1456,12 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
       }
     });
 
+    const storyMap = new Map<string, Story>();
+    mappedStories.forEach(s => storyMap.set(s.id, s));
+
+    const chapterMap = new Map<string, Chapter>();
+    mappedChapters.forEach(c => chapterMap.set(c.id, c));
+
     return {
       users,
       stories: mappedStories,
@@ -1166,20 +1470,24 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
       sessions: sessionMap,
       likes: likesMap,
       follows: followsMap,
-      readingProgress: (readingProgress || []).map(rp => ({
-        id: `${rp.user_id}_${rp.story_id}`,
-        userId: rp.user_id,
-        storyId: rp.story_id,
-        storyTitle: '',
-        storyCover: '',
-        chapterId: rp.chapter_id || '',
-        chapterNumber: Number(rp.chapter_number || 1),
-        chapterTitle: '',
-        totalChapters: 1,
-        progressPercent: Number(rp.progress_percent || 0),
-        lastPosition: Number(rp.last_position || 0),
-        lastReadAt: rp.last_read_at,
-      })),
+      readingProgress: (readingProgress || []).map(rp => {
+        const foundStory = storyMap.get(rp.story_id);
+        const foundChapter = chapterMap.get(rp.chapter_id);
+        return {
+          id: `${rp.user_id}_${rp.story_id}`,
+          userId: rp.user_id,
+          storyId: rp.story_id,
+          storyTitle: foundStory?.title || 'Story',
+          storyCover: foundStory?.coverImage || DEFAULT_COVER,
+          chapterId: rp.chapter_id || '',
+          chapterNumber: Number(rp.chapter_number || 1),
+          chapterTitle: foundChapter?.title || `Chapter ${rp.chapter_number || 1}`,
+          totalChapters: foundStory?.chaptersCount || 1,
+          progressPercent: Number(rp.progress_percent || 0),
+          lastPosition: Number(rp.last_position || 0),
+          lastReadAt: rp.last_read_at,
+        };
+      }),
       library: (library || []).map(l => ({
         id: `${l.user_id}_${l.story_id}`,
         userId: l.user_id,
@@ -1187,31 +1495,37 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
         listType: l.list_type || 'saved',
         addedAt: l.added_at,
       })),
-      reviews: (reviews || []).map(r => ({
-        id: r.id,
-        userId: r.user_id,
-        username: r.username || 'Reader',
-        userAvatar: r.user_avatar || '',
-        storyId: r.story_id,
-        rating: Number(r.rating || 5),
-        reviewText: r.review_text || '',
-        likes: Number(r.likes || 0),
-        createdAt: r.created_at,
-        updatedAt: r.created_at,
-      })),
-      comments: (comments || []).map(c => ({
-        id: c.id,
-        chapterId: c.chapter_id,
-        storyId: c.story_id,
-        userId: c.user_id,
-        username: c.username || 'User',
-        userAvatar: c.user_avatar || '',
-        content: c.content || '',
-        parentId: c.parent_id || null,
-        likes: Number(c.likes || 0),
-        likedByUsers: c.liked_by || [],
-        createdAt: c.created_at,
-      })),
+      reviews: (reviews || []).map(r => {
+        const revUser = userMap.get(r.user_id);
+        return {
+          id: r.id,
+          userId: r.user_id,
+          username: r.username || revUser?.username || 'Reader',
+          userAvatar: r.user_avatar || revUser?.avatar || DEFAULT_AVATAR,
+          storyId: r.story_id,
+          rating: Number(r.rating || 5),
+          reviewText: r.review_text || '',
+          likes: Number(r.likes || 0),
+          createdAt: r.created_at,
+          updatedAt: r.created_at,
+        };
+      }),
+      comments: (comments || []).map(c => {
+        const commUser = userMap.get(c.user_id);
+        return {
+          id: c.id,
+          chapterId: c.chapter_id,
+          storyId: c.story_id,
+          userId: c.user_id,
+          username: c.username || commUser?.username || 'User',
+          userAvatar: c.user_avatar || commUser?.avatar || DEFAULT_AVATAR,
+          content: c.content || '',
+          parentId: c.parent_id || null,
+          likes: Number(c.likes || 0),
+          likedByUsers: c.liked_by || [],
+          createdAt: c.created_at,
+        };
+      }),
       characters: (characters || []).map(ch => ({
         id: ch.id,
         storyId: ch.story_id,
@@ -1377,6 +1691,53 @@ export async function loadFullStateFromSupabase(): Promise<Partial<DatabaseSchem
         expiresAt: t.expires_at,
         deletedByUserId: t.deleted_by_user_id,
         deletedByUsername: t.deleted_by_username,
+      })),
+      communities: (communitiesData || []).map((c: any) => ({
+        id: c.id,
+        slug: c.slug,
+        name: c.name,
+        description: c.description || '',
+        iconImage: c.icon || '',
+        bannerImage: c.banner || '',
+        type: c.type || 'GENRE',
+        categories: c.category ? [c.category] : ['All'],
+        memberCount: c.member_count || 1,
+        postsCount: c.post_count || 0,
+        createdAt: c.created_at || new Date().toISOString(),
+      })),
+      communityPosts: (communityPostsData || []).map((cp: any) => ({
+        id: cp.id,
+        communityId: cp.community_id,
+        userId: cp.user_id,
+        authorId: cp.user_id || '',
+        authorUsername: cp.author_name || 'Member',
+        authorDisplayName: cp.author_name || 'Member',
+        authorAvatar: cp.author_avatar || '',
+        authorRole: cp.author_role || 'Member',
+        title: cp.title,
+        content: cp.content || '',
+        type: cp.post_type || 'DISCUSSION',
+        mediaUrl: cp.media_url || undefined,
+        tags: cp.tags || [],
+        likes: cp.likes || 0,
+        likedByUsers: [],
+        commentCount: cp.comment_count || 0,
+        commentsCount: cp.comment_count || 0,
+        isPinned: Boolean(cp.is_pinned),
+        isLocked: Boolean(cp.is_locked),
+        createdAt: cp.created_at || new Date().toISOString(),
+      })),
+      notifications: (notificationsData || []).map((n: any) => ({
+        id: n.id,
+        userId: n.user_id,
+        type: n.type || 'community_activity',
+        title: n.title,
+        message: n.message,
+        link: n.link || undefined,
+        linkUrl: n.link || '',
+        read: Boolean(n.read),
+        isRead: Boolean(n.read),
+        createdAt: n.created_at || new Date().toISOString(),
       })),
     };
   } catch (err: any) {

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { CommunityPost, User } from '../../types';
 import { api } from '../../services/api';
+import { safeImg, DEFAULT_USER_AVATAR } from '../../utils/imageOptimizer';
 
 interface CommunityFeedProps {
   posts: CommunityPost[];
@@ -263,7 +264,7 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
                   title={`View @${post.authorUsername}'s profile`}
                 >
                   <img
-                    src={post.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+                    src={safeImg(post.authorAvatar, DEFAULT_USER_AVATAR)}
                     alt={post.authorDisplayName || post.authorUsername}
                     className="w-10 h-10 rounded-2xl object-cover border border-pink-100 shadow-2xs group-hover/author:ring-2 group-hover/author:ring-[#9e3b5f]"
                   />
@@ -589,7 +590,7 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
                               title={`View @${c.authorUsername}'s profile`}
                             >
                               <img
-                                src={c.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=60&auto=format&fit=crop&q=80'}
+                                src={safeImg(c.authorAvatar, DEFAULT_USER_AVATAR)}
                                 alt={c.authorDisplayName || c.authorUsername}
                                 className="w-6 h-6 rounded-lg object-cover ring-1 ring-pink-200 group-hover/author:ring-[#9e3b5f]"
                               />

@@ -8,6 +8,7 @@ import { Story, Universe, ReadingProgress, CommunityPost, AnimeEntry, Personaliz
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR, DEFAULT_UNIVERSE_BANNER } from '../utils/imageOptimizer';
 
 interface HomeViewProps {
   onNavigate: (view: string, data?: any) => void;
@@ -190,7 +191,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               >
                 <div className="relative rounded-xl sm:rounded-2xl overflow-hidden aspect-16/10 mb-3 sm:mb-4 shadow-sm">
                   <img
-                    src={featuredStory.coverImage}
+                    src={safeImg(featuredStory.coverImage, DEFAULT_STORY_COVER)}
                     alt={featuredStory.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
@@ -215,7 +216,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <div className="flex items-center justify-between text-xs text-[#544246] px-1">
                   <div className="flex items-center gap-2">
                     <img
-                      src={featuredStory.authorAvatar}
+                      src={safeImg(featuredStory.authorAvatar, DEFAULT_USER_AVATAR)}
                       alt={featuredStory.authorDisplayName}
                       className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover border border-pink-200"
                     />
@@ -282,7 +283,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   <div>
                     <div className="relative rounded-xl sm:rounded-2xl overflow-hidden aspect-4/3 mb-2.5 sm:mb-3.5">
                       <img
-                        src={s.coverImage || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800'}
+                        src={safeImg(s.coverImage, DEFAULT_STORY_COVER)}
                         alt={s.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
@@ -380,7 +381,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       className="flex items-center gap-1.5 sm:gap-2 hover:opacity-80 transition-opacity text-left cursor-pointer group/author"
                     >
                       <img
-                        src={s.authorAvatar}
+                        src={safeImg(s.authorAvatar, DEFAULT_USER_AVATAR)}
                         alt={s.authorDisplayName}
                         className="w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover ring-1 ring-pink-200 group-hover/author:ring-[#9e3b5f]"
                       />
@@ -433,7 +434,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   className="p-3 sm:p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-50 via-white to-pink-50 border border-purple-200/80 shadow-2xs hover:shadow-xs transition flex items-center gap-3 sm:gap-4 cursor-pointer group"
                 >
                   <img
-                    src={mainStory.coverImage || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800'}
+                    src={safeImg(mainStory.coverImage, DEFAULT_STORY_COVER)}
                     alt={mainStory.title}
                     className="w-16 h-22 sm:w-20 sm:h-28 object-cover rounded-xl sm:rounded-2xl shadow-xs group-hover:scale-105 transition shrink-0"
                   />
@@ -461,7 +462,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <section className="glass-card rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-pink-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-5 bg-gradient-to-r from-white/90 via-[#fff7fb] to-[#fee7ff]/60">
           <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
             <img
-              src={continueReading.storyCover}
+              src={safeImg(continueReading.storyCover, DEFAULT_STORY_COVER)}
               alt={continueReading.storyTitle}
               className="w-12 h-16 sm:w-16 sm:h-24 object-cover rounded-lg sm:rounded-xl shadow-sm shrink-0"
             />
@@ -527,7 +528,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div>
                 <div className="relative rounded-xl sm:rounded-2xl overflow-hidden aspect-4/3 mb-2.5 sm:mb-3.5">
                   <img
-                    src={story.coverImage}
+                    src={safeImg(story.coverImage, DEFAULT_STORY_COVER)}
                     alt={story.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -567,7 +568,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   title={`View @${story.authorUsername}'s profile`}
                 >
                   <img
-                    src={story.authorAvatar}
+                    src={safeImg(story.authorAvatar, DEFAULT_USER_AVATAR)}
                     alt={story.authorDisplayName}
                     className="w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover ring-1 ring-pink-200 group-hover/author:ring-[#9e3b5f]"
                   />
@@ -687,7 +688,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-center">
                   <div className="md:col-span-5 h-44 sm:h-64 md:h-full relative overflow-hidden">
                     <img
-                      src={uni.bannerImage}
+                      src={safeImg(uni.bannerImage, DEFAULT_UNIVERSE_BANNER)}
                       alt={uni.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -762,7 +763,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               className="glass-card rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-pink-100/90 hover:shadow-md transition-all cursor-pointer group flex items-center gap-3 sm:gap-4"
             >
               <img
-                src={anime.poster}
+                src={safeImg(anime.poster, DEFAULT_STORY_COVER)}
                 alt={anime.title}
                 className="w-16 h-22 sm:w-20 sm:h-28 object-cover rounded-xl sm:rounded-2xl shadow-xs group-hover:scale-105 transition-transform shrink-0"
               />

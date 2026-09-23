@@ -6,6 +6,7 @@ import {
 import { Story } from '../types';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import { safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 interface DiscoverViewProps {
   initialSort?: string;
@@ -223,7 +224,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                 <div>
                   <div className="relative rounded-xl sm:rounded-2xl overflow-hidden aspect-3/4 mb-2.5 sm:mb-3.5 shadow-2xs">
                     <img
-                      src={story.coverImage}
+                      src={safeImg(story.coverImage, DEFAULT_STORY_COVER)}
                       alt={story.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -281,7 +282,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                     title={`View @${story.authorUsername}'s profile`}
                   >
                     <img
-                      src={story.authorAvatar}
+                      src={safeImg(story.authorAvatar, DEFAULT_USER_AVATAR)}
                       alt={story.authorDisplayName}
                       className="w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover ring-1 ring-pink-200 group-hover/author:ring-[#9e3b5f] shrink-0"
                     />

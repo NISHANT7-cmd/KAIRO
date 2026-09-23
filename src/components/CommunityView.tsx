@@ -17,6 +17,7 @@ import { CommunityDirectMessages } from './community/CommunityDirectMessages';
 import { CreatePostModal } from './community/CreatePostModal';
 import { CreateCommunityModal } from './community/CreateCommunityModal';
 import { ReportModal } from './community/ReportModal';
+import { safeImg, DEFAULT_USER_AVATAR } from '../utils/imageOptimizer';
 
 interface CommunityViewProps {
   initialCommunitySlug?: string;
@@ -172,7 +173,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                       }`}
                     >
                       <img 
-                        src={comm.iconImage || 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=80&auto=format&fit=crop&q=80'} 
+                        src={safeImg(comm.iconImage, DEFAULT_USER_AVATAR)} 
                         alt={comm.name} 
                         className="w-10 h-10 rounded-xl object-cover shadow-xs shrink-0" 
                       />
