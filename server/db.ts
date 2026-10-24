@@ -11,7 +11,8 @@ import {
   Program, ProgramParticipant, ProgramSubmission, ProgramVote,
   ProgramAnnouncement, ProgramAuditLog, ProgramCertificate,
   AdminProgramsSummary, ProgramStatus,
-  UserInterestProfile, UserBehaviorEvent, AdminRecommendationSettings
+  UserInterestProfile, UserBehaviorEvent, AdminRecommendationSettings,
+  ActiveSessionInfo, SecurityEventItem, SecurityEventType, SecurityOverviewResponse
 } from '../src/types.js';
 import {
   initialCommunities, initialPosts, initialChatRooms, initialChatMessages,
@@ -25,8 +26,16 @@ import {
   isSupabaseConfigured, checkSupabaseSchemaReady, loadFullStateFromSupabase, runSupabaseDataMigration, syncEntityToSupabase, syncActivityImmediately,
   supabaseCreateUserWithCredentials, supabaseGetCredentials, supabaseSetCredentials,
   supabaseCreateSessionRecord, supabaseValidateSessionRecord, supabaseDeleteSessionRecord,
-  supabaseFindUserById, supabaseFindUserByUsernameOrEmail
+  supabaseFindUserById, supabaseFindUserByUsernameOrEmail,
+  supabaseGetUserSessions, supabaseRevokeOtherUserSessions, supabaseRevokeAllUserSessions,
+  supabaseSyncUserMfaTable, supabaseSyncRecoveryCodesTable, supabaseInsertSecurityEvent
 } from './supabase.js';
+import {
+  createTotpEnrollment, verifyEncryptedTotpCode,
+  generateRecoveryCodeSet, verifyAndConsumeRecoveryCode, RecoveryCodeRecord,
+  ParsedDeviceMetadata, parseDeviceFromRequest, validatePasswordStrength,
+  generateSecureOneTimeToken, hashOneTimeToken, getEmailProviderStatus
+} from './security.js';
 
 // LEGACY ARCHIVE PATHS — Kept strictly for read-only offline backup/migration references.
 // In Phase 4, production data is stored exclusively in Supabase PostgreSQL.
@@ -54,9 +63,96 @@ function resolveDataPaths() {
 }
 
 export interface SessionData {
+  sessionId?: string;
   userId: string;
   createdAt: string;
+  lastActiveAt?: string;
   expiresAt: string;
+  deviceInfo?: string;
+  browser?: string;
+  os?: string;
+  ipMasked?: string;
+  mfaVerified?: boolean;
+  authState?: 'FULLY_AUTHENTICATED';
+}
+
+export interface MfaChallengeRecord {
+  challengeId: string;
+  challengeToken: string;
+  userId: string;
+  authState: 'PASSWORD_VERIFIED';
+  deviceMeta: ParsedDeviceMetadata;
+  attempts: number;
+  consumed: boolean;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface UserSecurityMeta {
+  mfaEnabled?: boolean;
+  mfaEnabledAt?: string;
+  mfaLastVerifiedAt?: string;
+  mfaLastUsedStep?: number;
+  encryptedSecret?: string;
+  pendingEncryptedSecret?: string;
+  pendingCreatedAt?: string;
+  recoveryCodes?: RecoveryCodeRecord[];
+  emailVerified?: boolean;
+  emailVerifiedAt?: string;
+  passwordChangedAt?: string;
+  knownDeviceFingerprints?: string[];
+  securityEvents?: SecurityEventItem[];
+  sessionMeta?: Record<string, {
+    sessionId: string;
+    deviceInfo: string;
+    browser: string;
+    os: string;
+    ipMasked: string;
+    createdAt: string;
+    lastActiveAt: string;
+    mfaVerified: boolean;
+  }>;
+  passwordResetToken?: {
+    tokenHash: string;
+    expiresAt: string;
+    used: boolean;
+    createdAt: string;
+  };
+  emailVerificationToken?: {
+    tokenHash: string;
+    email: string;
+    expiresAt: string;
+    used: boolean;
+    createdAt: string;
+  };
+}
+
+function extractSaltAndMeta(rawSalt: string): { cleanSalt: string; meta: UserSecurityMeta } {
+  if (!rawSalt || typeof rawSalt !== 'string') {
+    return { cleanSalt: '', meta: {} };
+  }
+  const marker = '|secmeta:';
+  const idx = rawSalt.indexOf(marker);
+  if (idx === -1) {
+    return { cleanSalt: rawSalt, meta: {} };
+  }
+  const cleanSalt = rawSalt.slice(0, idx);
+  const b64 = rawSalt.slice(idx + marker.length);
+  try {
+    const json = Buffer.from(b64, 'base64').toString('utf8');
+    const meta = JSON.parse(json) as UserSecurityMeta;
+    return { cleanSalt, meta: meta || {} };
+  } catch {
+    return { cleanSalt, meta: {} };
+  }
+}
+
+function packSaltAndMeta(cleanSalt: string, meta: UserSecurityMeta): string {
+  if (!meta || Object.keys(meta).length === 0) {
+    return cleanSalt;
+  }
+  const b64 = Buffer.from(JSON.stringify(meta), 'utf8').toString('base64');
+  return `${cleanSalt}|secmeta:${b64}`;
 }
 
 export interface PasswordRecord {
@@ -2207,21 +2303,196 @@ class DatabaseService {
   // ----------------------------------------------------
   // SESSIONS & AUTHENTICATION (STATESELESS & PERSISTENT)
   // ----------------------------------------------------
+  private mfaChallenges = new Map<string, MfaChallengeRecord>();
+
   private getSessionSecret(): string {
     return process.env.SESSION_SECRET || process.env.JWT_SECRET || 'kairo_jwt_sec_2025_prod_v1_secure_sign_key_93a1f8';
   }
 
-  public async createSession(userId: string): Promise<{ token: string; expiresAt: string }> {
+  private deriveSessionId(token: string): string {
+    return 'sess_' + crypto.createHash('sha256').update(token).digest('hex').slice(0, 16);
+  }
+
+  public createLoginMfaChallenge(userId: string, req?: any): {
+    challengeId: string;
+    challengeToken: string;
+    expiresAt: number;
+  } {
+    const deviceMeta = parseDeviceFromRequest(req);
+    const now = Date.now();
+    const expiresAtMs = now + 5 * 60 * 1000; // 5-minute strict expiration
+    const expiresAtIso = new Date(expiresAtMs).toISOString();
+    const challengeId = 'chal_' + crypto.randomBytes(16).toString('hex');
+    const secret = this.getSessionSecret();
+    const payload = `mfa_chal:${challengeId}:${userId}:${expiresAtMs}`;
+    const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    const challengeToken = `kairo_mfa_chal.${challengeId}.${userId}.${expiresAtMs}.${sig}`;
+
+    this.mfaChallenges.set(challengeId, {
+      challengeId,
+      challengeToken,
+      userId,
+      authState: 'PASSWORD_VERIFIED',
+      deviceMeta,
+      attempts: 0,
+      consumed: false,
+      createdAt: new Date(now).toISOString(),
+      expiresAt: expiresAtIso,
+    });
+
+    return { challengeId, challengeToken, expiresAt: expiresAtMs };
+  }
+
+  public consumeLoginMfaChallenge(challengeToken: string): {
+    valid: boolean;
+    userId?: string;
+    challengeId?: string;
+    deviceMeta?: ParsedDeviceMetadata;
+    reason?: string;
+  } {
+    const check = this.validateMfaChallengeToken(challengeToken);
+    if (!check.valid || !check.challengeId) {
+      return check;
+    }
+    this.recordMfaChallengeAttempt(check.challengeId, true);
+    return check;
+  }
+
+  public async createMfaChallenge(userId: string, deviceMeta: ParsedDeviceMetadata): Promise<{
+    challengeToken: string;
+    expiresAt: string;
+  }> {
+    const now = Date.now();
+    const expiresAtMs = now + 5 * 60 * 1000; // 5-minute strict expiration
+    const expiresAtIso = new Date(expiresAtMs).toISOString();
+    const challengeId = 'chal_' + crypto.randomBytes(16).toString('hex');
+    const secret = this.getSessionSecret();
+    const payload = `mfa_chal:${challengeId}:${userId}:${expiresAtMs}`;
+    const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    const challengeToken = `kairo_mfa_chal.${challengeId}.${userId}.${expiresAtMs}.${sig}`;
+
+    this.mfaChallenges.set(challengeId, {
+      challengeId,
+      challengeToken,
+      userId,
+      authState: 'PASSWORD_VERIFIED',
+      deviceMeta,
+      attempts: 0,
+      consumed: false,
+      createdAt: new Date(now).toISOString(),
+      expiresAt: expiresAtIso,
+    });
+
+    return { challengeToken, expiresAt: expiresAtIso };
+  }
+
+  public validateMfaChallengeToken(challengeToken: string): {
+    valid: boolean;
+    userId?: string;
+    challengeId?: string;
+    deviceMeta?: ParsedDeviceMetadata;
+    reason?: string;
+  } {
+    if (!challengeToken || !challengeToken.startsWith('kairo_mfa_chal.')) {
+      return { valid: false, reason: 'Invalid MFA challenge token format.' };
+    }
+    const parts = challengeToken.split('.');
+    if (parts.length !== 5) {
+      return { valid: false, reason: 'Malformed MFA challenge token.' };
+    }
+    const [, challengeId, userId, expiresAtStr, sig] = parts;
+    const expiresAtMs = parseInt(expiresAtStr, 10);
+    if (isNaN(expiresAtMs) || Date.now() > expiresAtMs) {
+      this.mfaChallenges.delete(challengeId);
+      return { valid: false, reason: 'MFA challenge has expired. Please sign in again.' };
+    }
+
+    const secret = this.getSessionSecret();
+    const payload = `mfa_chal:${challengeId}:${userId}:${expiresAtStr}`;
+    const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    try {
+      const sigBuf = Buffer.from(sig, 'hex');
+      const expBuf = Buffer.from(expectedSig, 'hex');
+      if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+        return { valid: false, reason: 'Invalid MFA challenge signature.' };
+      }
+    } catch {
+      return { valid: false, reason: 'Invalid MFA challenge signature.' };
+    }
+
+    const stored = this.mfaChallenges.get(challengeId);
+    if (stored) {
+      if (stored.consumed) {
+        return { valid: false, reason: 'MFA challenge has already been used.' };
+      }
+      if (stored.attempts >= 5) {
+        this.mfaChallenges.delete(challengeId);
+        return { valid: false, reason: 'Too many failed MFA attempts for this challenge. Please sign in again.' };
+      }
+    }
+
+    return {
+      valid: true,
+      userId,
+      challengeId,
+      deviceMeta: stored?.deviceMeta,
+    };
+  }
+
+  public recordMfaChallengeAttempt(challengeId: string, consumed = false): void {
+    const stored = this.mfaChallenges.get(challengeId);
+    if (!stored) return;
+    stored.attempts += 1;
+    if (consumed) {
+      stored.consumed = true;
+      this.mfaChallenges.delete(challengeId);
+    } else {
+      this.mfaChallenges.set(challengeId, stored);
+    }
+  }
+
+  public async createSession(
+    userId: string,
+    deviceMetaOrOpts?:
+      | ParsedDeviceMetadata
+      | {
+          req?: any;
+          deviceMeta?: ParsedDeviceMetadata;
+          mfaVerified?: boolean;
+          authState?: 'FULLY_AUTHENTICATED';
+        },
+    mfaVerifiedArg = false
+  ): Promise<{ token: string; sessionId: string; expiresAt: string }> {
+    let deviceMeta: ParsedDeviceMetadata | undefined;
+    let mfaVerified = mfaVerifiedArg;
+
+    if (deviceMetaOrOpts && 'deviceInfo' in deviceMetaOrOpts) {
+      deviceMeta = deviceMetaOrOpts as ParsedDeviceMetadata;
+    } else if (deviceMetaOrOpts) {
+      const opts = deviceMetaOrOpts as {
+        req?: any;
+        deviceMeta?: ParsedDeviceMetadata;
+        mfaVerified?: boolean;
+      };
+      deviceMeta = opts.deviceMeta || (opts.req ? parseDeviceFromRequest(opts.req) : undefined);
+      if (typeof opts.mfaVerified === 'boolean') {
+        mfaVerified = opts.mfaVerified;
+      }
+    }
+
     const now = new Date();
-    const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const nowIso = now.toISOString();
+    const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days absolute expiration
     const expiresAtMs = expires.getTime();
     const expiresAtIso = expires.toISOString();
 
-    // Create HMAC signed token for serverless cold start resilience
+    // Cryptographically random 16-byte nonce + HMAC signature
+    const nonce = crypto.randomBytes(16).toString('hex');
     const secret = this.getSessionSecret();
-    const payload = `${userId}:${expiresAtMs}`;
+    const payload = `${userId}:${expiresAtMs}:${nonce}`;
     const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-    const token = `kairo_sig.${userId}.${expiresAtMs}.${signature}`;
+    const token = `kairo_sig.${userId}.${expiresAtMs}.${nonce}.${signature}`;
+    const sessionId = this.deriveSessionId(token);
 
     // 1. Authoritative Supabase persistence
     const sbRes = await supabaseCreateSessionRecord(token, userId, expiresAtIso);
@@ -2230,44 +2501,100 @@ class DatabaseService {
       throw new Error(sbRes.error || 'Failed to persist authentication session to database.');
     }
 
+    const sessionEntry: SessionData = {
+      sessionId,
+      userId,
+      createdAt: nowIso,
+      lastActiveAt: nowIso,
+      expiresAt: expiresAtIso,
+      deviceInfo: deviceMeta?.deviceInfo || 'Web Browser',
+      browser: deviceMeta?.browser || 'Web Browser',
+      os: deviceMeta?.os || 'Desktop',
+      ipMasked: deviceMeta?.ipMasked || 'Protected Network',
+      mfaVerified,
+      authState: 'FULLY_AUTHENTICATED',
+    };
+
     // 2. Cache in runtime memory
     if (!this.db.sessions) {
       this.db.sessions = {};
     }
-    this.db.sessions[token] = {
-      userId,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAtIso
-    };
+    this.db.sessions[token] = sessionEntry;
+
+    // 3. Persist session device metadata in user's security metadata envelope
+    await this.updateUserSecurityMeta(userId, meta => {
+      const sessionMeta = { ...(meta.sessionMeta || {}) };
+      sessionMeta[sessionId] = {
+        sessionId,
+        deviceInfo: sessionEntry.deviceInfo!,
+        browser: sessionEntry.browser!,
+        os: sessionEntry.os!,
+        ipMasked: sessionEntry.ipMasked!,
+        createdAt: nowIso,
+        lastActiveAt: nowIso,
+        mfaVerified,
+      };
+      // Keep max 25 recent session meta records
+      const entries = Object.entries(sessionMeta);
+      if (entries.length > 25) {
+        entries
+          .sort((a, b) => new Date(b[1].lastActiveAt).getTime() - new Date(a[1].lastActiveAt).getTime())
+          .slice(25)
+          .forEach(([k]) => delete sessionMeta[k]);
+      }
+      return { ...meta, sessionMeta };
+    });
+
     this.commit();
 
-    return { token, expiresAt: expiresAtIso };
+    return { token, sessionId, expiresAt: expiresAtIso };
   }
 
-  public async validateSessionDetails(token: string): Promise<{ user: User | null; status: 'OK' | 'EXPIRED' | 'INVALID' | 'NOT_FOUND' | 'SUSPENDED' }> {
+  public async validateSessionDetails(token: string): Promise<{
+    user: User | null;
+    sessionId?: string;
+    authState?: 'FULLY_AUTHENTICATED' | 'PASSWORD_VERIFIED';
+    status: 'OK' | 'EXPIRED' | 'INVALID' | 'NOT_FOUND' | 'SUSPENDED' | 'MFA_REQUIRED';
+  }> {
     if (!token || typeof token !== 'string') {
       return { user: null, status: 'INVALID' };
     }
 
     const cleanToken = token.trim();
 
+    // Reject temporary PASSWORD_VERIFIED MFA challenge tokens on protected endpoints!
+    if (cleanToken.startsWith('kairo_mfa_chal.')) {
+      return { user: null, authState: 'PASSWORD_VERIFIED', status: 'MFA_REQUIRED' };
+    }
+
     // Check revocation
     if ((this.db as any).revokedTokens && (this.db as any).revokedTokens[cleanToken]) {
       return { user: null, status: 'INVALID' };
     }
 
+    const IDLE_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000; // 7 days idle timeout
+    const sessionId = this.deriveSessionId(cleanToken);
+
     // 1. In-memory quick hit
     if (this.db.sessions && this.db.sessions[cleanToken]) {
       const session = this.db.sessions[cleanToken];
-      if (new Date(session.expiresAt).getTime() < Date.now()) {
+      const nowMs = Date.now();
+      const absExpired = new Date(session.expiresAt).getTime() < nowMs;
+      const idleExpired = session.lastActiveAt
+        ? nowMs - new Date(session.lastActiveAt).getTime() > IDLE_TIMEOUT_MS
+        : false;
+
+      if (absExpired || idleExpired) {
         delete this.db.sessions[cleanToken];
         this.commit();
         await supabaseDeleteSessionRecord(cleanToken).catch(() => {});
         return { user: null, status: 'EXPIRED' };
       }
+
+      session.lastActiveAt = new Date(nowMs).toISOString();
+
       let user = this.findUserById(session.userId);
       if (!user) {
-        // Hydrate directly from Supabase if not in local memory
         user = (await supabaseFindUserById(session.userId)) || undefined;
         if (user) {
           this.db.users.push(user);
@@ -2276,35 +2603,49 @@ class DatabaseService {
       }
       if (!user) return { user: null, status: 'NOT_FOUND' };
       if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
-      return { user, status: 'OK' };
+      return { user, sessionId: session.sessionId || sessionId, authState: 'FULLY_AUTHENTICATED', status: 'OK' };
     }
 
-    // 2. Check Supabase user_sessions directly (essential for fresh serverless cold starts)
+    // 2. Check Supabase user_sessions directly (authoritative source of truth for serverless cold starts & revocation)
     const sbResult = await supabaseValidateSessionRecord(cleanToken);
     if (sbResult.status === 'OK' && sbResult.user) {
       const user = sbResult.user;
-      // Cache in memory
+      const meta = await this.getUserSecurityMeta(user.id);
+      const savedMeta = meta.sessionMeta?.[sessionId];
+
       if (!this.db.sessions) this.db.sessions = {};
       this.db.sessions[cleanToken] = {
+        sessionId,
         userId: user.id,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        createdAt: savedMeta?.createdAt || new Date().toISOString(),
+        lastActiveAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        deviceInfo: savedMeta?.deviceInfo || 'Web Browser',
+        browser: savedMeta?.browser || 'Web Browser',
+        os: savedMeta?.os || 'Desktop',
+        ipMasked: savedMeta?.ipMasked || 'Protected Network',
+        mfaVerified: Boolean(savedMeta?.mfaVerified),
+        authState: 'FULLY_AUTHENTICATED',
       };
       if (!this.db.users.some(u => u.id === user.id)) {
         this.db.users.push(user);
       }
       this.commit();
       if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
-      return { user, status: 'OK' };
+      return { user, sessionId, authState: 'FULLY_AUTHENTICATED', status: 'OK' };
     } else if (sbResult.status === 'EXPIRED') {
       return { user: null, status: 'EXPIRED' };
     }
 
-    // 3. Fallback: HMAC token validation for serverless resilience
-    if (cleanToken.startsWith('kairo_sig.')) {
+    // 3. Fallback: HMAC token validation ONLY when Supabase is not configured (local dev/offline mode)
+    // When Supabase IS configured, `user_sessions` is authoritative so revoked sessions cannot be replayed.
+    if (!isSupabaseConfigured() && cleanToken.startsWith('kairo_sig.')) {
       const parts = cleanToken.split('.');
-      if (parts.length === 4) {
-        const [, userId, expiresAtStr, signature] = parts;
+      if (parts.length === 4 || parts.length === 5) {
+        const userId = parts[1];
+        const expiresAtStr = parts[2];
+        const nonce = parts.length === 5 ? parts[3] : undefined;
+        const signature = parts.length === 5 ? parts[4] : parts[3];
         const expiresAtMs = parseInt(expiresAtStr, 10);
 
         if (isNaN(expiresAtMs) || Date.now() > expiresAtMs) {
@@ -2312,53 +2653,29 @@ class DatabaseService {
         }
 
         const secret = this.getSessionSecret();
-        const payload = `${userId}:${expiresAtStr}`;
+        const payload = nonce ? `${userId}:${expiresAtStr}:${nonce}` : `${userId}:${expiresAtStr}`;
         const expectedSig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
         const sigBuf = Buffer.from(signature, 'hex');
         const expBuf = Buffer.from(expectedSig, 'hex');
         if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) {
-          let user = this.findUserById(userId);
-          if (!user) {
-            user = (await supabaseFindUserById(userId)) || undefined;
-            if (user) {
-              this.db.users.push(user);
-              this.commit();
-            }
-          }
+          const user = this.findUserById(userId);
           if (!user) return { user: null, status: 'NOT_FOUND' };
           if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
 
-          // Persist back to Supabase and local cache
           const expiresAtIso = new Date(expiresAtMs).toISOString();
-          await supabaseCreateSessionRecord(cleanToken, userId, expiresAtIso).catch(() => {});
           if (!this.db.sessions) this.db.sessions = {};
           this.db.sessions[cleanToken] = {
+            sessionId,
             userId,
             createdAt: new Date().toISOString(),
-            expiresAt: expiresAtIso
+            lastActiveAt: new Date().toISOString(),
+            expiresAt: expiresAtIso,
+            authState: 'FULLY_AUTHENTICATED',
           };
           this.commit();
-
-          return { user, status: 'OK' };
-        } else {
-          return { user: null, status: 'INVALID' };
+          return { user, sessionId, authState: 'FULLY_AUTHENTICATED', status: 'OK' };
         }
-      }
-    }
-
-    // 4. Fallback client token format: kairo_tok_<userId>_<timestamp>
-    if (cleanToken.startsWith('kairo_tok_')) {
-      const remainder = cleanToken.replace(/^kairo_tok_/, '');
-      const lastUnderscore = remainder.lastIndexOf('_');
-      const userId = lastUnderscore !== -1 ? remainder.substring(0, lastUnderscore) : remainder;
-      let user = this.findUserById(userId) || (this.db.users || []).find(u => u.username.toLowerCase() === userId.toLowerCase());
-      if (!user) {
-        user = this.findUserById(remainder) || (await supabaseFindUserById(userId)) || undefined;
-      }
-      if (user) {
-        if (user.status === 'SUSPENDED') return { user, status: 'SUSPENDED' };
-        return { user, status: 'OK' };
       }
     }
 
@@ -2376,15 +2693,160 @@ class DatabaseService {
     if (!this.db.sessions) this.db.sessions = {};
     if (!(this.db as any).revokedTokens) (this.db as any).revokedTokens = {};
 
+    const sessionId = this.deriveSessionId(cleanToken);
+    const userId = this.db.sessions[cleanToken]?.userId;
+
     (this.db as any).revokedTokens[cleanToken] = true;
     if (this.db.sessions[cleanToken]) {
       delete this.db.sessions[cleanToken];
       this.commit();
     }
-    
+
+    if (userId) {
+      await this.updateUserSecurityMeta(userId, meta => {
+        const sessionMeta = { ...(meta.sessionMeta || {}) };
+        delete sessionMeta[sessionId];
+        return { ...meta, sessionMeta };
+      });
+    }
+
     // Await deletion from Supabase
     await supabaseDeleteSessionRecord(cleanToken);
     return true;
+  }
+
+  public async getActiveSessionsForUser(userId: string, currentToken?: string): Promise<ActiveSessionInfo[]> {
+    const currentSessionId = currentToken ? this.deriveSessionId(currentToken.trim()) : '';
+    const meta = await this.getUserSecurityMeta(userId);
+    const sessionMetaMap = meta.sessionMeta || {};
+    const nowMs = Date.now();
+
+    const tokenSet = new Map<string, { createdAt: string; expiresAt: string }>();
+
+    // Collect from memory
+    for (const [tok, sess] of Object.entries(this.db.sessions || {})) {
+      if (sess.userId === userId && new Date(sess.expiresAt).getTime() > nowMs) {
+        tokenSet.set(tok, { createdAt: sess.createdAt, expiresAt: sess.expiresAt });
+      }
+    }
+
+    // Collect from authoritative Supabase user_sessions
+    const sbSessions = await supabaseGetUserSessions(userId);
+    for (const row of sbSessions) {
+      if (row.token && new Date(row.expires_at).getTime() > nowMs) {
+        tokenSet.set(row.token, { createdAt: row.created_at, expiresAt: row.expires_at });
+      }
+    }
+
+    const result: ActiveSessionInfo[] = [];
+    for (const [tok, dates] of tokenSet.entries()) {
+      const sid = this.deriveSessionId(tok);
+      const memSess = this.db.sessions?.[tok];
+      const sm = sessionMetaMap[sid];
+      result.push({
+        id: sid,
+        sessionId: sid,
+        isCurrent: sid === currentSessionId,
+        deviceInfo: memSess?.deviceInfo || sm?.deviceInfo || 'Web Browser Session',
+        browser: memSess?.browser || sm?.browser || 'Web Browser',
+        os: memSess?.os || sm?.os || 'Desktop / Mobile',
+        ipMasked: memSess?.ipMasked || sm?.ipMasked || 'Protected Network',
+        createdAt: sm?.createdAt || dates.createdAt,
+        lastActiveAt: memSess?.lastActiveAt || sm?.lastActiveAt || dates.createdAt,
+        expiresAt: dates.expiresAt,
+        mfaVerified: Boolean(memSess?.mfaVerified ?? sm?.mfaVerified ?? meta.mfaEnabled),
+      });
+    }
+
+    return result.sort((a, b) => {
+      if (a.isCurrent && !b.isCurrent) return -1;
+      if (!a.isCurrent && b.isCurrent) return 1;
+      return new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime();
+    });
+  }
+
+  public async revokeSessionById(userId: string, targetSessionId: string): Promise<boolean> {
+    let targetToken: string | null = null;
+
+    for (const [tok, sess] of Object.entries(this.db.sessions || {})) {
+      if (sess.userId === userId && this.deriveSessionId(tok) === targetSessionId) {
+        targetToken = tok;
+        break;
+      }
+    }
+
+    if (!targetToken) {
+      const sbSessions = await supabaseGetUserSessions(userId);
+      for (const row of sbSessions) {
+        if (this.deriveSessionId(row.token) === targetSessionId) {
+          targetToken = row.token;
+          break;
+        }
+      }
+    }
+
+    if (!targetToken) return false;
+    return await this.destroySession(targetToken);
+  }
+
+  public async revokeOtherSessionsForUser(userId: string, currentToken: string): Promise<number> {
+    const cleanKeep = currentToken.trim();
+    const keepSessionId = this.deriveSessionId(cleanKeep);
+    let revokedCount = 0;
+
+    if (!this.db.sessions) this.db.sessions = {};
+    if (!(this.db as any).revokedTokens) (this.db as any).revokedTokens = {};
+
+    for (const [tok, sess] of Object.entries(this.db.sessions)) {
+      if (sess.userId === userId && tok !== cleanKeep) {
+        (this.db as any).revokedTokens[tok] = true;
+        delete this.db.sessions[tok];
+        revokedCount++;
+      }
+    }
+
+    const sbRevoked = await supabaseRevokeOtherUserSessions(userId, cleanKeep);
+    revokedCount = Math.max(revokedCount, sbRevoked);
+
+    await this.updateUserSecurityMeta(userId, meta => {
+      const currentMeta = meta.sessionMeta?.[keepSessionId];
+      return {
+        ...meta,
+        sessionMeta: currentMeta ? { [keepSessionId]: currentMeta } : {},
+      };
+    });
+
+    this.commit();
+    return revokedCount;
+  }
+
+  public async revokeAllOtherSessions(userId: string, currentToken: string): Promise<number> {
+    return this.revokeOtherSessionsForUser(userId, currentToken);
+  }
+
+  public async revokeAllSessionsForUser(userId: string): Promise<number> {
+    let revokedCount = 0;
+    if (!this.db.sessions) this.db.sessions = {};
+    if (!(this.db as any).revokedTokens) (this.db as any).revokedTokens = {};
+
+    for (const [tok, sess] of Object.entries(this.db.sessions)) {
+      if (sess.userId === userId) {
+        (this.db as any).revokedTokens[tok] = true;
+        delete this.db.sessions[tok];
+        revokedCount++;
+      }
+    }
+
+    const sbRevoked = await supabaseRevokeAllUserSessions(userId);
+    revokedCount = Math.max(revokedCount, sbRevoked);
+
+    await this.updateUserSecurityMeta(userId, meta => ({
+      ...meta,
+      sessionMeta: {},
+    }));
+
+    this.commit();
+    return revokedCount;
   }
 
   // Users
@@ -2423,6 +2885,67 @@ class DatabaseService {
     return undefined;
   }
 
+  public getUserSecurityMetaSync(userId: string): UserSecurityMeta {
+    const stored = this.db.passwords[userId];
+    if (!stored || typeof stored === 'string') return {};
+    return extractSaltAndMeta(stored.salt).meta;
+  }
+
+  public async getUserSecurityMeta(userId: string): Promise<UserSecurityMeta> {
+    let stored = this.db.passwords[userId];
+    if (!stored) {
+      const fromSb = await supabaseGetCredentials(userId);
+      if (fromSb) {
+        stored = { salt: fromSb.salt, hash: fromSb.hash };
+        this.db.passwords[userId] = stored;
+        this.commit();
+      }
+    }
+    if (!stored || typeof stored === 'string') return {};
+    return extractSaltAndMeta(stored.salt).meta;
+  }
+
+  public async updateUserSecurityMeta(
+    userId: string,
+    updater: (current: UserSecurityMeta) => UserSecurityMeta
+  ): Promise<UserSecurityMeta> {
+    let stored = this.db.passwords[userId];
+    if (!stored && isSupabaseConfigured()) {
+      const fromSb = await supabaseGetCredentials(userId);
+      if (fromSb) {
+        stored = { salt: fromSb.salt, hash: fromSb.hash };
+      }
+    }
+
+    let cleanSalt: string;
+    let hash: string;
+    let currentMeta: UserSecurityMeta = {};
+
+    if (!stored) {
+      cleanSalt = crypto.randomBytes(16).toString('hex');
+      hash = hashPassword('password123', cleanSalt);
+    } else if (typeof stored === 'string') {
+      cleanSalt = crypto.randomBytes(16).toString('hex');
+      hash = hashPassword(stored, cleanSalt);
+    } else {
+      const extracted = extractSaltAndMeta(stored.salt);
+      cleanSalt = extracted.cleanSalt;
+      currentMeta = extracted.meta;
+      hash = stored.hash;
+    }
+
+    const updatedMeta = updater(currentMeta);
+    const packedSalt = packSaltAndMeta(cleanSalt, updatedMeta);
+    this.db.passwords[userId] = { salt: packedSalt, hash };
+    this.commit();
+
+    if (isSupabaseConfigured()) {
+      await supabaseSetCredentials(userId, packedSalt, hash);
+    }
+
+    return updatedMeta;
+  }
+
   public async verifyPassword(userId: string, plain: string): Promise<boolean> {
     let stored = this.db.passwords[userId];
     
@@ -2438,6 +2961,7 @@ class DatabaseService {
 
     if (!stored) return false;
 
+    // Gradual migration for legacy plaintext seed passwords on successful login
     if (typeof stored === 'string') {
       if (stored === plain) {
         const salt = crypto.randomBytes(16).toString('hex');
@@ -2450,8 +2974,24 @@ class DatabaseService {
       return false;
     }
 
+    const { cleanSalt, meta } = extractSaltAndMeta(stored.salt);
+
+    // Handle migrated legacy records where salt === 'legacy'
+    if (cleanSalt === 'legacy') {
+      if (stored.hash === plain) {
+        const newSalt = crypto.randomBytes(16).toString('hex');
+        const newHash = hashPassword(plain, newSalt);
+        const packed = packSaltAndMeta(newSalt, meta);
+        this.db.passwords[userId] = { salt: packed, hash: newHash };
+        this.commit();
+        await supabaseSetCredentials(userId, packed, newHash);
+        return true;
+      }
+      return false;
+    }
+
     try {
-      const computedHash = hashPassword(plain, stored.salt);
+      const computedHash = hashPassword(plain, cleanSalt);
       const computedBuf = Buffer.from(computedHash, 'hex');
       const storedBuf = Buffer.from(stored.hash, 'hex');
       if (computedBuf.length !== storedBuf.length) return false;
@@ -2462,14 +3002,748 @@ class DatabaseService {
   }
 
   public async setUserPassword(userId: string, plain: string): Promise<void> {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = hashPassword(plain, salt);
-    this.db.passwords[userId] = { salt, hash };
+    const existingMeta = await this.getUserSecurityMeta(userId);
+    const now = new Date().toISOString();
+    const updatedMeta: UserSecurityMeta = {
+      ...existingMeta,
+      passwordChangedAt: now,
+    };
+    const cleanSalt = crypto.randomBytes(16).toString('hex');
+    const hash = hashPassword(plain, cleanSalt);
+    const packedSalt = packSaltAndMeta(cleanSalt, updatedMeta);
+    this.db.passwords[userId] = { salt: packedSalt, hash };
     this.commit();
-    const saved = await supabaseSetCredentials(userId, salt, hash);
-    if (!saved) {
-      throw new Error('Failed to persist updated credentials to Supabase.');
+    if (isSupabaseConfigured()) {
+      const saved = await supabaseSetCredentials(userId, packedSalt, hash);
+      if (!saved) {
+        throw new Error('Failed to persist updated credentials to Supabase.');
+      }
     }
+  }
+
+  // =========================================================================
+  // PHASE 5: TOTP MFA, RECOVERY CODES, PASSWORD RESET, EMAIL VERIFY & AUDIT
+  // =========================================================================
+
+  public async isUserMfaEnabled(userId: string): Promise<boolean> {
+    const meta = await this.getUserSecurityMeta(userId);
+    return Boolean(meta.mfaEnabled && meta.encryptedSecret);
+  }
+
+  public async startMfaEnrollment(userId: string): Promise<{
+    qrCodeDataUrl: string;
+    manualSetupKey: string;
+    manualEntryKey: string;
+    issuer: string;
+    accountLabel: string;
+    accountName: string;
+  }> {
+    const user = await this.findUserByIdAsync(userId);
+    if (!user) throw new Error('User account not found.');
+
+    const bundle = await createTotpEnrollment(user.username, user.email);
+    const now = new Date().toISOString();
+
+    await this.updateUserSecurityMeta(userId, meta => ({
+      ...meta,
+      pendingEncryptedSecret: bundle.encryptedSecret,
+      pendingCreatedAt: now,
+    }));
+
+    await supabaseSyncUserMfaTable(userId, {
+      encryptedSecret: (await this.getUserSecurityMeta(userId)).encryptedSecret || null,
+      pendingEncryptedSecret: bundle.encryptedSecret,
+      pendingCreatedAt: now,
+      enabled: Boolean((await this.getUserSecurityMeta(userId)).mfaEnabled),
+    });
+
+    const accountLabel = user.email || user.username;
+    return {
+      qrCodeDataUrl: bundle.qrCodeDataUrl,
+      manualSetupKey: bundle.manualSetupKey,
+      manualEntryKey: bundle.manualSetupKey,
+      issuer: 'KAIRO',
+      accountLabel,
+      accountName: accountLabel,
+    };
+  }
+
+  public async verifyAndEnableMfaEnrollment(
+    userId: string,
+    totpCode: string
+  ): Promise<{ success: boolean; recoveryCodes?: string[]; error?: string }> {
+    const meta = await this.getUserSecurityMeta(userId);
+    if (!meta.pendingEncryptedSecret) {
+      return {
+        success: false,
+        error: 'No pending MFA setup found. Please start the MFA enrollment flow first.',
+      };
+    }
+
+    // Check pending enrollment expiration (15 minutes)
+    if (meta.pendingCreatedAt) {
+      const ageMs = Date.now() - new Date(meta.pendingCreatedAt).getTime();
+      if (ageMs > 15 * 60 * 1000) {
+        return {
+          success: false,
+          error: 'MFA enrollment session expired. Please generate a new QR code.',
+        };
+      }
+    }
+
+    const verification = verifyEncryptedTotpCode(meta.pendingEncryptedSecret, totpCode);
+    if (!verification.valid) {
+      return {
+        success: false,
+        error: 'Invalid 6-digit authenticator code. Please check your authenticator app and try again.',
+      };
+    }
+
+    const now = new Date().toISOString();
+    const { plainCodes, records } = generateRecoveryCodeSet(userId, 10);
+
+    await this.updateUserSecurityMeta(userId, current => ({
+      ...current,
+      mfaEnabled: true,
+      mfaEnabledAt: now,
+      mfaLastVerifiedAt: now,
+      mfaLastUsedStep: verification.usedStep,
+      encryptedSecret: current.pendingEncryptedSecret,
+      pendingEncryptedSecret: undefined,
+      pendingCreatedAt: undefined,
+      recoveryCodes: records,
+    }));
+
+    await supabaseSyncUserMfaTable(userId, {
+      encryptedSecret: meta.pendingEncryptedSecret,
+      pendingEncryptedSecret: null,
+      pendingCreatedAt: null,
+      enabled: true,
+      enabledAt: now,
+      lastVerifiedAt: now,
+      lastUsedStep: verification.usedStep || null,
+    });
+
+    await supabaseSyncRecoveryCodesTable(userId, records);
+
+    return {
+      success: true,
+      recoveryCodes: plainCodes,
+    };
+  }
+
+  public async verifyUserTotp(
+    userId: string,
+    totpCode: string
+  ): Promise<{ valid: boolean; replayDetected?: boolean }> {
+    const meta = await this.getUserSecurityMeta(userId);
+    if (!meta.mfaEnabled || !meta.encryptedSecret) {
+      return { valid: false };
+    }
+
+    const res = verifyEncryptedTotpCode(meta.encryptedSecret, totpCode, meta.mfaLastUsedStep);
+    if (!res.valid) {
+      return { valid: false, replayDetected: res.replayDetected };
+    }
+
+    const now = new Date().toISOString();
+    await this.updateUserSecurityMeta(userId, current => ({
+      ...current,
+      mfaLastVerifiedAt: now,
+      mfaLastUsedStep: res.usedStep,
+    }));
+
+    await supabaseSyncUserMfaTable(userId, {
+      encryptedSecret: meta.encryptedSecret,
+      enabled: true,
+      enabledAt: meta.mfaEnabledAt || now,
+      lastVerifiedAt: now,
+      lastUsedStep: res.usedStep || null,
+    });
+
+    return { valid: true };
+  }
+
+  public async verifyUserTotpCode(userId: string, totpCode: string): Promise<boolean> {
+    const res = await this.verifyUserTotp(userId, totpCode);
+    return res.valid;
+  }
+
+  public async verifyAndUseRecoveryCode(
+    userId: string,
+    inputCode: string
+  ): Promise<{ valid: boolean; remainingCount: number; remainingCodes: number }> {
+    const meta = await this.getUserSecurityMeta(userId);
+    if (!meta.mfaEnabled || !Array.isArray(meta.recoveryCodes)) {
+      return { valid: false, remainingCount: 0, remainingCodes: 0 };
+    }
+
+    const { matched, updatedRecords } = verifyAndConsumeRecoveryCode(
+      userId,
+      inputCode,
+      meta.recoveryCodes
+    );
+
+    if (!matched) {
+      const remaining = meta.recoveryCodes.filter(r => !r.used).length;
+      return { valid: false, remainingCount: remaining, remainingCodes: remaining };
+    }
+
+    const now = new Date().toISOString();
+    await this.updateUserSecurityMeta(userId, current => ({
+      ...current,
+      mfaLastVerifiedAt: now,
+      recoveryCodes: updatedRecords,
+    }));
+
+    await supabaseSyncRecoveryCodesTable(userId, updatedRecords);
+
+    const remainingCount = updatedRecords.filter(r => !r.used).length;
+    return { valid: true, remainingCount, remainingCodes: remainingCount };
+  }
+
+  public async regenerateUserRecoveryCodes(userId: string): Promise<{
+    success: boolean;
+    recoveryCodes: string[];
+    error?: string;
+  }> {
+    const meta = await this.getUserSecurityMeta(userId);
+    if (!meta.mfaEnabled) {
+      return {
+        success: false,
+        recoveryCodes: [],
+        error: 'Two-Factor Authentication must be enabled before generating recovery codes.',
+      };
+    }
+    const { plainCodes, records } = generateRecoveryCodeSet(userId, 10);
+    await this.updateUserSecurityMeta(userId, current => ({
+      ...current,
+      recoveryCodes: records,
+    }));
+    await supabaseSyncRecoveryCodesTable(userId, records);
+    return { success: true, recoveryCodes: plainCodes };
+  }
+
+  public async disableUserMfa(userId: string): Promise<void> {
+    await this.updateUserSecurityMeta(userId, current => ({
+      ...current,
+      mfaEnabled: false,
+      mfaEnabledAt: undefined,
+      mfaLastVerifiedAt: undefined,
+      mfaLastUsedStep: undefined,
+      encryptedSecret: undefined,
+      pendingEncryptedSecret: undefined,
+      pendingCreatedAt: undefined,
+      recoveryCodes: [],
+    }));
+
+    await supabaseSyncUserMfaTable(userId, {
+      encryptedSecret: null,
+      pendingEncryptedSecret: null,
+      pendingCreatedAt: null,
+      enabled: false,
+      enabledAt: null,
+      lastVerifiedAt: null,
+      lastUsedStep: null,
+    });
+
+    await supabaseSyncRecoveryCodesTable(userId, []);
+  }
+
+  public async createPasswordResetRequest(emailOrUsername: string): Promise<{
+    userFound: boolean;
+    userId?: string;
+    rawToken?: string;
+    expiresAt?: string;
+  }> {
+    const user = await this.findUserByEmailOrUsernameAsync(emailOrUsername);
+    if (!user) {
+      return { userFound: false };
+    }
+
+    const { rawToken, tokenHash } = generateSecureOneTimeToken();
+    const now = Date.now();
+    const expiresAt = new Date(now + 15 * 60 * 1000).toISOString(); // 15-minute short expiration
+
+    await this.updateUserSecurityMeta(user.id, current => ({
+      ...current,
+      passwordResetToken: {
+        tokenHash,
+        expiresAt,
+        used: false,
+        createdAt: new Date(now).toISOString(),
+      },
+    }));
+
+    return {
+      userFound: true,
+      userId: user.id,
+      rawToken,
+      expiresAt,
+    };
+  }
+
+  public async confirmPasswordReset(
+    identifier: string,
+    rawToken: string,
+    newPassword: string,
+    totpOrRecoveryCode?: string
+  ): Promise<{ success: boolean; userId?: string; mfaRequired?: boolean; error?: string }> {
+    const user = await this.findUserByEmailOrUsernameAsync(identifier);
+    if (!user) {
+      return { success: false, error: 'Invalid or expired password reset token.' };
+    }
+
+    const meta = await this.getUserSecurityMeta(user.id);
+    const record = meta.passwordResetToken;
+    if (!record || record.used) {
+      return { success: false, error: 'Invalid or already used password reset token.' };
+    }
+
+    if (new Date(record.expiresAt).getTime() < Date.now()) {
+      return { success: false, error: 'Password reset token has expired. Please request a new one.' };
+    }
+
+    const candidateHash = hashOneTimeToken(rawToken);
+    try {
+      const a = Buffer.from(candidateHash, 'hex');
+      const b = Buffer.from(record.tokenHash, 'hex');
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return { success: false, error: 'Invalid or expired password reset token.' };
+      }
+    } catch {
+      return { success: false, error: 'Invalid or expired password reset token.' };
+    }
+
+    // If account has MFA enabled, require TOTP or Recovery Code to complete password reset
+    if (meta.mfaEnabled && meta.encryptedSecret) {
+      if (!totpOrRecoveryCode) {
+        return {
+          success: false,
+          mfaRequired: true,
+          error: 'This account is protected by Two-Factor Authentication. Please enter your 6-digit authenticator code or a recovery code.',
+        };
+      }
+      const totpRes = await this.verifyUserTotp(user.id, totpOrRecoveryCode);
+      if (!totpRes.valid) {
+        const recRes = await this.verifyAndUseRecoveryCode(user.id, totpOrRecoveryCode);
+        if (!recRes.valid) {
+          return {
+            success: false,
+            mfaRequired: true,
+            error: 'Invalid authenticator code or recovery code.',
+          };
+        }
+      }
+    }
+
+    // Mark token used and update password
+    await this.updateUserSecurityMeta(user.id, current => ({
+      ...current,
+      passwordResetToken: current.passwordResetToken
+        ? { ...current.passwordResetToken, used: true }
+        : undefined,
+    }));
+
+    await this.setUserPassword(user.id, newPassword);
+    await this.revokeAllSessionsForUser(user.id);
+
+    return { success: true, userId: user.id };
+  }
+
+  public async createEmailVerificationRequest(userId: string): Promise<{
+    rawToken: string;
+    expiresAt: string;
+    email: string;
+  }> {
+    const user = await this.findUserByIdAsync(userId);
+    if (!user) throw new Error('User not found.');
+
+    const { rawToken, tokenHash } = generateSecureOneTimeToken();
+    const now = Date.now();
+    const expiresAt = new Date(now + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+
+    await this.updateUserSecurityMeta(userId, current => ({
+      ...current,
+      emailVerificationToken: {
+        tokenHash,
+        email: user.email,
+        expiresAt,
+        used: false,
+        createdAt: new Date(now).toISOString(),
+      },
+    }));
+
+    return { rawToken, expiresAt, email: user.email };
+  }
+
+  public async verifyEmailWithToken(
+    userId: string,
+    rawToken: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const meta = await this.getUserSecurityMeta(userId);
+    if (meta.emailVerified) {
+      return { success: true };
+    }
+
+    const record = meta.emailVerificationToken;
+    if (!record || record.used) {
+      return { success: false, error: 'Invalid or already used verification token.' };
+    }
+
+    if (new Date(record.expiresAt).getTime() < Date.now()) {
+      return { success: false, error: 'Verification token has expired. Please request a new one.' };
+    }
+
+    const candidateHash = hashOneTimeToken(rawToken);
+    try {
+      const a = Buffer.from(candidateHash, 'hex');
+      const b = Buffer.from(record.tokenHash, 'hex');
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return { success: false, error: 'Invalid verification token.' };
+      }
+    } catch {
+      return { success: false, error: 'Invalid verification token.' };
+    }
+
+    const now = new Date().toISOString();
+    await this.updateUserSecurityMeta(userId, current => ({
+      ...current,
+      emailVerified: true,
+      emailVerifiedAt: now,
+      emailVerificationToken: current.emailVerificationToken
+        ? { ...current.emailVerificationToken, used: true }
+        : undefined,
+    }));
+
+    return { success: true };
+  }
+
+  public async createPasswordResetForUser(
+    emailOrUsername: string,
+    req?: any
+  ): Promise<{
+    userFound: boolean;
+    userId?: string;
+    emailDeliveryConfigured: boolean;
+    providerMessage: string;
+  }> {
+    const providerStatus = getEmailProviderStatus();
+    const res = await this.createPasswordResetRequest(emailOrUsername);
+    if (res.userFound && res.userId) {
+      await this.recordSecurityEvent(
+        res.userId,
+        'password_reset_requested',
+        'Password recovery link requested',
+        req,
+        false
+      );
+    }
+    return {
+      userFound: res.userFound,
+      userId: res.userId,
+      emailDeliveryConfigured: providerStatus.configured,
+      providerMessage: providerStatus.provider,
+    };
+  }
+
+  public async completePasswordResetWithToken(
+    rawToken: string,
+    newPassword: string,
+    req?: any
+  ): Promise<{ success: boolean; userId?: string; error?: string }> {
+    const pwValid = validatePasswordStrength(newPassword);
+    if (!pwValid.valid) {
+      return { success: false, error: pwValid.error || 'Password does not meet security requirements.' };
+    }
+
+    const cleanToken = String(rawToken || '').trim();
+    if (!cleanToken) {
+      return { success: false, error: 'Reset token is required.' };
+    }
+
+    const candidateHash = hashOneTimeToken(cleanToken);
+    const candidateBuf = Buffer.from(candidateHash, 'hex');
+
+    let matchedUser: User | undefined;
+    for (const u of this.db.users) {
+      const meta = await this.getUserSecurityMeta(u.id);
+      const rec = meta.passwordResetToken;
+      if (!rec || rec.used) continue;
+      if (new Date(rec.expiresAt).getTime() < Date.now()) continue;
+      try {
+        const storedBuf = Buffer.from(rec.tokenHash, 'hex');
+        if (storedBuf.length === candidateBuf.length && crypto.timingSafeEqual(storedBuf, candidateBuf)) {
+          matchedUser = u;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (!matchedUser) {
+      return { success: false, error: 'Invalid or expired password reset token.' };
+    }
+
+    await this.updateUserSecurityMeta(matchedUser.id, current => ({
+      ...current,
+      passwordResetToken: current.passwordResetToken
+        ? { ...current.passwordResetToken, used: true }
+        : undefined,
+    }));
+
+    await this.setUserPassword(matchedUser.id, newPassword);
+    await this.revokeAllSessionsForUser(matchedUser.id);
+    await this.recordSecurityEvent(
+      matchedUser.id,
+      'password_reset_completed',
+      'Password reset completed via single-use recovery token; all existing sessions revoked',
+      req,
+      false
+    );
+
+    return { success: true, userId: matchedUser.id };
+  }
+
+  public async createEmailVerificationForUser(
+    userId: string,
+    req?: any
+  ): Promise<{
+    emailDeliveryConfigured: boolean;
+    providerMessage: string;
+    expiresAt: string;
+  }> {
+    const providerStatus = getEmailProviderStatus();
+    const res = await this.createEmailVerificationRequest(userId);
+    return {
+      emailDeliveryConfigured: providerStatus.configured,
+      providerMessage: providerStatus.provider,
+      expiresAt: res.expiresAt,
+    };
+  }
+
+  public async verifyEmailToken(
+    rawToken: string,
+    req?: any
+  ): Promise<{ success: boolean; userId?: string; error?: string }> {
+    const cleanToken = String(rawToken || '').trim();
+    if (!cleanToken) {
+      return { success: false, error: 'Verification token is required.' };
+    }
+
+    const candidateHash = hashOneTimeToken(cleanToken);
+    const candidateBuf = Buffer.from(candidateHash, 'hex');
+
+    let matchedUser: User | undefined;
+    for (const u of this.db.users) {
+      const meta = await this.getUserSecurityMeta(u.id);
+      const rec = meta.emailVerificationToken;
+      if (!rec || rec.used) continue;
+      if (new Date(rec.expiresAt).getTime() < Date.now()) continue;
+      try {
+        const storedBuf = Buffer.from(rec.tokenHash, 'hex');
+        if (storedBuf.length === candidateBuf.length && crypto.timingSafeEqual(storedBuf, candidateBuf)) {
+          matchedUser = u;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (!matchedUser) {
+      return { success: false, error: 'Invalid or expired verification token.' };
+    }
+
+    const verifyRes = await this.verifyEmailWithToken(matchedUser.id, cleanToken);
+    if (!verifyRes.success) {
+      return verifyRes;
+    }
+
+    await this.recordSecurityEvent(
+      matchedUser.id,
+      'email_verified',
+      `Email address (${matchedUser.email}) verified`,
+      req,
+      false
+    );
+
+    return { success: true, userId: matchedUser.id };
+  }
+
+  public createNotification(data: {
+    userId: string;
+    type: Notification['type'];
+    title: string;
+    message: string;
+    linkUrl?: string;
+  }): Notification {
+    const notif: Notification = {
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: data.userId,
+      type: data.type,
+      title: data.title,
+      message: data.message,
+      linkUrl: data.linkUrl || '#profile/me',
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    };
+    if (!this.db.notifications) this.db.notifications = [];
+    this.db.notifications.unshift(notif);
+    this.commit();
+    return notif;
+  }
+
+  public async recordSecurityEvent(
+    userId: string | undefined,
+    eventType: SecurityEventType,
+    descriptionOrDeviceMeta: string | ParsedDeviceMetadata,
+    reqOrOptions?: any,
+    isSuspiciousArg?: boolean,
+    metadataArg?: Record<string, any>
+  ): Promise<SecurityEventItem> {
+    const now = new Date().toISOString();
+
+    let description = '';
+    let deviceMeta: ParsedDeviceMetadata;
+    let isSuspicious = Boolean(isSuspiciousArg);
+    let severity: 'INFO' | 'WARNING' | 'CRITICAL' = isSuspicious ? 'WARNING' : 'INFO';
+    let rawMetadata: Record<string, any> = metadataArg || {};
+
+    if (typeof descriptionOrDeviceMeta === 'string') {
+      description = descriptionOrDeviceMeta;
+      deviceMeta = parseDeviceFromRequest(reqOrOptions);
+    } else {
+      deviceMeta = descriptionOrDeviceMeta || parseDeviceFromRequest();
+      description = eventType.replace(/_/g, ' ');
+      if (reqOrOptions && typeof reqOrOptions === 'object') {
+        isSuspicious = Boolean(reqOrOptions.isSuspicious);
+        severity = reqOrOptions.severity || (isSuspicious ? 'WARNING' : 'INFO');
+        rawMetadata = reqOrOptions.metadata || {};
+      }
+    }
+
+    const safeMetadata: Record<string, any> = { ...rawMetadata };
+
+    // Strip any accidental sensitive keys from metadata
+    delete safeMetadata.password;
+    delete safeMetadata.secret;
+    delete safeMetadata.totpSecret;
+    delete safeMetadata.recoveryCode;
+    delete safeMetadata.token;
+
+    if (userId) {
+      const meta = await this.getUserSecurityMeta(userId);
+      const knownDevices = meta.knownDeviceFingerprints || [];
+
+      // Check for new device on successful login
+      if (eventType === 'login_success' || eventType === 'mfa_success') {
+        if (knownDevices.length > 0 && !knownDevices.includes(deviceMeta.deviceFingerprint)) {
+          safeMetadata.newDeviceDetected = true;
+        }
+      }
+
+      // Check for repeated failures
+      const recentEvents = (meta.securityEvents || []).slice(0, 10);
+      const recentFailures = recentEvents.filter(
+        e =>
+          (e.eventType === 'login_failed' || e.eventType === 'mfa_failed') &&
+          Date.now() - new Date(e.createdAt).getTime() < 15 * 60 * 1000
+      ).length;
+
+      if ((eventType === 'login_failed' || eventType === 'mfa_failed') && recentFailures >= 2) {
+        isSuspicious = true;
+        severity = recentFailures >= 4 ? 'CRITICAL' : 'WARNING';
+        safeMetadata.repeatedFailuresCount = recentFailures + 1;
+      }
+    }
+
+    const event: SecurityEventItem = {
+      id: `sec_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+      userId,
+      eventType,
+      description,
+      severity,
+      deviceInfo: deviceMeta.deviceInfo,
+      ipMasked: deviceMeta.ipMasked,
+      isSuspicious,
+      metadata: safeMetadata,
+      createdAt: now,
+    };
+
+    if (userId) {
+      await this.updateUserSecurityMeta(userId, current => {
+        const events = [event, ...(current.securityEvents || [])].slice(0, 50);
+        const known = new Set(current.knownDeviceFingerprints || []);
+        if (eventType === 'login_success' || eventType === 'mfa_success') {
+          known.add(deviceMeta.deviceFingerprint);
+        }
+        return {
+          ...current,
+          securityEvents: events,
+          knownDeviceFingerprints: Array.from(known).slice(-20),
+        };
+      });
+
+      // Notify user in-app if suspicious activity or critical security change occurred
+      if (isSuspicious || eventType === 'mfa_disabled' || eventType === 'password_changed') {
+        const titleMap: Record<string, string> = {
+          mfa_disabled: 'Security Alert: Two-Factor Authentication Disabled',
+          password_changed: 'Security Notice: Account Password Updated',
+          login_failed: 'Suspicious Activity: Multiple Failed Sign-In Attempts',
+          mfa_failed: 'Security Alert: Multiple Failed 2FA Verification Attempts',
+        };
+        const title = titleMap[eventType] || 'Account Security Alert';
+        const message = isSuspicious
+          ? `Unusual sign-in activity was detected from ${deviceMeta.deviceInfo} (${deviceMeta.ipMasked}). Review your active sessions in Account Security.`
+          : `This security change was completed from ${deviceMeta.deviceInfo} (${deviceMeta.ipMasked}).`;
+
+        this.createNotification({
+          userId,
+          type: 'system',
+          title,
+          message,
+          linkUrl: '#profile/me',
+        });
+      }
+    }
+
+    await supabaseInsertSecurityEvent(event);
+    return event;
+  }
+
+  public async getSecurityEventsForUser(userId: string): Promise<SecurityEventItem[]> {
+    const meta = await this.getUserSecurityMeta(userId);
+    return meta.securityEvents || [];
+  }
+
+  public async getSecurityOverviewForUser(
+    userId: string,
+    currentToken?: string
+  ): Promise<SecurityOverviewResponse> {
+    const meta = await this.getUserSecurityMeta(userId);
+    const activeSessions = await this.getActiveSessionsForUser(userId, currentToken);
+    const codes = meta.recoveryCodes || [];
+    const remaining = codes.filter(c => !c.used).length;
+    const events = meta.securityEvents || [];
+    const suspiciousCount = events.filter(e => e.isSuspicious).length;
+    const emailProvider = getEmailProviderStatus();
+
+    return {
+      mfaEnabled: Boolean(meta.mfaEnabled && meta.encryptedSecret),
+      mfaEnabledAt: meta.mfaEnabledAt,
+      mfaLastVerifiedAt: meta.mfaLastVerifiedAt,
+      recoveryCodesRemaining: meta.mfaEnabled ? remaining : 0,
+      recoveryCodesTotal: meta.mfaEnabled ? codes.length : 0,
+      emailVerified: Boolean(meta.emailVerified),
+      emailVerifiedAt: meta.emailVerifiedAt,
+      emailDeliveryConfigured: emailProvider.configured,
+      emailProviderName: emailProvider.provider,
+      passwordChangedAt: meta.passwordChangedAt,
+      activeSessionsCount: activeSessions.length,
+      suspiciousEventsCount: suspiciousCount,
+    };
   }
 
   public async createUser(userData: Partial<User>, password = 'password123'): Promise<User> {
@@ -2498,6 +3772,8 @@ class DatabaseService {
       favoriteGenres: userData.favoriteGenres || ['Fantasy', 'Anime-Inspired'],
       favoriteThemes: userData.favoriteThemes || ['Original Worlds'],
       createdAt: now,
+      mfaEnabled: false,
+      emailVerified: false,
     };
 
     // Calculate salt and scrypt hash
@@ -2536,6 +3812,7 @@ class DatabaseService {
     }
 
     const profile = (this.db.userInterestProfiles && this.db.userInterestProfiles[user.id]) || undefined;
+    const secMeta = this.getUserSecurityMetaSync(user.id);
 
     return {
       ...user,
@@ -2545,7 +3822,11 @@ class DatabaseService {
       streakDays: streak,
       totalReads: Math.max(user.totalReads ?? 0, chaptersReadCount),
       hasCompletedOnboarding: profile ? profile.hasCompletedOnboarding : false,
-      interestProfile: profile
+      interestProfile: profile,
+      mfaEnabled: Boolean(secMeta.mfaEnabled && secMeta.encryptedSecret),
+      emailVerified: Boolean(secMeta.emailVerified ?? user.emailVerified),
+      emailVerifiedAt: secMeta.emailVerifiedAt || user.emailVerifiedAt,
+      passwordChangedAt: secMeta.passwordChangedAt || user.passwordChangedAt,
     };
   }
 
@@ -2619,6 +3900,19 @@ class DatabaseService {
     enrichedUser.followersCount = followers.length;
     enrichedUser.followingCount = Math.max(user.followingCount || 0, followingCount);
 
+    // Strip private security & email metadata from public profile view if viewer is not the owner
+    const sanitizedUser: User = isSelf
+      ? enrichedUser
+      : {
+          ...enrichedUser,
+          email: '',
+          mfaEnabled: undefined,
+          emailVerified: undefined,
+          emailVerifiedAt: undefined,
+          passwordChangedAt: undefined,
+          interestProfile: undefined,
+        };
+
     // Stories authored by user
     const allAuthoredStories = (this.db.stories || []).filter(s => 
       s.authorId === userId || 
@@ -2670,7 +3964,7 @@ class DatabaseService {
     const chaptersCount = stories.reduce((sum, s) => sum + (s.chaptersCount || 0), 0);
 
     return {
-      user: enrichedUser,
+      user: sanitizedUser,
       isFollowing,
       isSelf,
       stories,

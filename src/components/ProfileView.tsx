@@ -11,6 +11,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { Story, PublicUserProfile, User } from '../types';
 import { ImageUploader } from './ImageUploader';
+import { AccountSecuritySection } from './profile/AccountSecuritySection';
 import { FALLBACK_USERS, FALLBACK_STORIES, FALLBACK_UNIVERSES } from '../services/fallbackData';
 import { optimizeImageFile, safeImg, DEFAULT_STORY_COVER, DEFAULT_USER_AVATAR, DEFAULT_UNIVERSE_BANNER } from '../utils/imageOptimizer';
 
@@ -47,7 +48,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [profileData, setProfileData] = useState<PublicUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'stories' | 'posts' | 'universes' | 'theories' | 'shelf' | 'awards' | 'about' | 'taste'>('stories');
+  const [activeTab, setActiveTab] = useState<'stories' | 'posts' | 'universes' | 'theories' | 'shelf' | 'awards' | 'about' | 'taste' | 'security'>('stories');
   const [tasteProfileData, setTasteProfileData] = useState<{ profile: any; storyDna: any } | null>(null);
   const [loadingTaste, setLoadingTaste] = useState(false);
   
@@ -127,9 +128,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   useEffect(() => {
     if (requestedTab) {
-      const validTabs = ['stories', 'posts', 'universes', 'theories', 'shelf', 'awards', 'about', 'taste'];
+      const validTabs = ['stories', 'posts', 'universes', 'theories', 'shelf', 'awards', 'about', 'taste', 'security'];
       if (validTabs.includes(requestedTab)) {
         setActiveTab(requestedTab as any);
+      } else if (requestedTab === 'settings') {
+        setActiveTab('security');
       } else if (requestedTab === 'journey') {
         setActiveTab('about');
       }
@@ -164,9 +167,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       // Set initial tab appropriately if not explicitly requested
       if (requestedTab) {
-        const validTabs = ['stories', 'posts', 'universes', 'theories', 'shelf', 'awards', 'about', 'taste'];
+        const validTabs = ['stories', 'posts', 'universes', 'theories', 'shelf', 'awards', 'about', 'taste', 'security'];
         if (validTabs.includes(requestedTab)) {
           setActiveTab(requestedTab as any);
+        } else if (requestedTab === 'settings') {
+          setActiveTab('security');
         } else if (requestedTab === 'journey') {
           setActiveTab('about');
         }
@@ -576,6 +581,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     <span>Tune Taste</span>
                   </button>
 
+                  <button
+                    id="profile-account-security-btn"
+                    onClick={() => setActiveTab('security')}
+                    className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200/90 text-xs font-bold text-[#635882] flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                  >
+                    <Shield className="w-3.5 h-3.5 text-[#635882]" />
+                    <span>Account Security</span>
+                  </button>
+
                   {(user.role === 'WRITER' || user.role === 'ADMIN') && onOpenStudio && (
                     <button
                       onClick={onOpenStudio}
@@ -823,6 +837,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             <span>Story DNA & Taste</span>
+          </button>
+        )}
+
+        {isSelf && (
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'security'
+                ? 'bg-[#635882] text-white shadow-xs'
+                : 'text-[#544246] hover:bg-pink-50'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>Account Security & 2FA</span>
           </button>
         )}
 
@@ -1352,6 +1380,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             ))}
           </div>
         </div>
+      )}
+
+      {/* TAB: ACCOUNT SETTINGS -> SECURITY & TWO-FACTOR AUTHENTICATION */}
+      {activeTab === 'security' && isSelf && (
+        <AccountSecuritySection />
       )}
 
       {/* TAB 7: ABOUT & EXPLORER DOSSIER */}

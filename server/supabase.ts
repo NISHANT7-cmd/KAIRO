@@ -2017,3 +2017,163 @@ export async function supabaseDeleteSessionRecord(token: string): Promise<boolea
   return true;
 }
 
+export async function supabaseGetUserSessions(userId: string): Promise<Array<{
+  token: string;
+  user_id: string;
+  created_at: string;
+  expires_at: string;
+  session_id?: string;
+  device_info?: string;
+  browser?: string;
+  os?: string;
+  ip_masked?: string;
+  last_active_at?: string;
+  mfa_verified?: boolean;
+}>> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('user_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) {
+    return [];
+  }
+  return data;
+}
+
+export async function supabaseRevokeOtherUserSessions(userId: string, keepToken: string): Promise<number> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return 0;
+
+  const { data } = await supabase
+    .from('user_sessions')
+    .select('token')
+    .eq('user_id', userId);
+
+  const tokensToDelete = (data || [])
+    .map((r: any) => r.token)
+    .filter((t: string) => t && t !== keepToken);
+
+  if (tokensToDelete.length > 0) {
+    await supabase
+      .from('user_sessions')
+      .delete()
+      .eq('user_id', userId)
+      .neq('token', keepToken);
+  }
+  return tokensToDelete.length;
+}
+
+export async function supabaseRevokeAllUserSessions(userId: string): Promise<number> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return 0;
+
+  const { data } = await supabase
+    .from('user_sessions')
+    .select('token')
+    .eq('user_id', userId);
+
+  const count = (data || []).length;
+  if (count > 0) {
+    await supabase
+      .from('user_sessions')
+      .delete()
+      .eq('user_id', userId);
+  }
+  return count;
+}
+
+export async function supabaseSyncUserMfaTable(
+  userId: string,
+  mfaData: {
+    encryptedSecret?: string | null;
+    pendingEncryptedSecret?: string | null;
+    pendingCreatedAt?: string | null;
+    enabled: boolean;
+    enabledAt?: string | null;
+    lastVerifiedAt?: string | null;
+    lastUsedStep?: number | null;
+  }
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  try {
+    await supabase.from('user_mfa').upsert({
+      user_id: userId,
+      encrypted_secret: mfaData.encryptedSecret || null,
+      pending_encrypted_secret: mfaData.pendingEncryptedSecret || null,
+      pending_created_at: mfaData.pendingCreatedAt || null,
+      enabled: mfaData.enabled,
+      enabled_at: mfaData.enabledAt || null,
+      last_verified_at: mfaData.lastVerifiedAt || null,
+      last_used_step: mfaData.lastUsedStep || null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+  } catch {
+    // Non-blocking if migration 004 table not yet created in SQL editor (data also persisted in user_credentials envelope)
+  }
+}
+
+export async function supabaseSyncRecoveryCodesTable(
+  userId: string,
+  records: Array<{ id: string; codeHash: string; used: boolean; usedAt?: string; createdAt: string }>
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  try {
+    await supabase.from('user_recovery_codes').delete().eq('user_id', userId);
+    if (records.length > 0) {
+      await supabase.from('user_recovery_codes').insert(
+        records.map(r => ({
+          id: r.id,
+          user_id: userId,
+          code_hash: r.codeHash,
+          used: r.used,
+          used_at: r.usedAt || null,
+          created_at: r.createdAt,
+        }))
+      );
+    }
+  } catch {
+    // Non-blocking if migration 004 table not yet created in SQL editor
+  }
+}
+
+export async function supabaseInsertSecurityEvent(event: {
+  id: string;
+  userId?: string;
+  eventType: string;
+  severity: string;
+  deviceInfo: string;
+  ipMasked: string;
+  isSuspicious: boolean;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  try {
+    await supabase.from('user_security_events').insert({
+      id: event.id,
+      user_id: event.userId || null,
+      event_type: event.eventType,
+      severity: event.severity,
+      device_info: event.deviceInfo,
+      ip_masked: event.ipMasked,
+      is_suspicious: event.isSuspicious,
+      metadata: event.metadata || {},
+      created_at: event.createdAt,
+    });
+  } catch {
+    // Non-blocking if migration 004 table not yet created in SQL editor
+  }
+}
+
+

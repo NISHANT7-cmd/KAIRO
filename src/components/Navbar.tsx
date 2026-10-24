@@ -230,6 +230,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <span>{t('nav_profile', 'My Profile & Badges')}</span>
                     </button>
 
+                    <button
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        onNavigate('profile', { username: user.username, tab: 'security' });
+                      }}
+                      className="w-full px-3 py-2 rounded-xl text-xs font-medium text-[#26152b] hover:bg-[#fee7ff] flex items-center justify-between transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-[#635882]" />
+                        <span>Account Security & 2FA</span>
+                      </div>
+                      {user.mfaEnabled && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                          2FA ON
+                        </span>
+                      )}
+                    </button>
+
                     {onOpenMyTaste && (
                       <button
                         onClick={() => {
