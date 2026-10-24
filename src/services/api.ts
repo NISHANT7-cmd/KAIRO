@@ -8,59 +8,26 @@ import {
   AdminProgramsSummary, ProgramStatus,
   UserInterestProfile, PersonalizedHomeFeed, PersonalizedDiscoverFeed, StoryDna,
   AdminRecommendationSettings,
-  DeletedStoryRecord,
-  ActiveSessionInfo, SecurityEventItem, SecurityOverviewResponse,
-  MfaChallengeResponse, MfaEnrollmentStartResponse, MfaEnrollmentVerifyResponse
+  DeletedStoryRecord
 } from '../types';
 import { getStaticFallback, FALLBACK_STORIES, FALLBACK_UNIVERSES, FALLBACK_USERS } from './fallbackData';
 import { ensureSafePayloadImage } from '../utils/imageOptimizer';
 
 const TOKEN_KEY = 'kairo_auth_token';
-let inMemorySessionToken: string | null = null;
-
-// Clean up any legacy client-side plaintext credential cache immediately
-if (typeof window !== 'undefined') {
-  try {
-    localStorage.removeItem('kairo_client_users');
-  } catch {}
-}
 
 export function getStoredToken(): string | null {
-  if (inMemorySessionToken) return inMemorySessionToken;
-  if (typeof window === 'undefined') return null;
-  try {
-    const fromSession = sessionStorage.getItem(TOKEN_KEY);
-    if (fromSession) {
-      inMemorySessionToken = fromSession;
-      return fromSession;
-    }
-    // Preserve existing authenticated sessions seamlessly by migrating any legacy token to sessionStorage
-    const legacyToken = localStorage.getItem(TOKEN_KEY);
-    if (legacyToken) {
-      inMemorySessionToken = legacyToken;
-      sessionStorage.setItem(TOKEN_KEY, legacyToken);
-      localStorage.removeItem(TOKEN_KEY);
-      return legacyToken;
-    }
-  } catch {}
-  return null;
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 export function setStoredToken(token: string | null) {
-  inMemorySessionToken = token;
-  if (typeof window === 'undefined') return;
-  try {
-    if (token) {
-      sessionStorage.setItem(TOKEN_KEY, token);
-      localStorage.removeItem(TOKEN_KEY);
-    } else {
-      sessionStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(TOKEN_KEY);
-    }
-  } catch {}
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
 }
 
-const DEMO_FALLBACK_USERS: Array<User> = [
+const DEMO_FALLBACK_USERS: Array<User & { password: string }> = [
   {
     id: 'usr_admin',
     username: 'admin',
@@ -79,6 +46,7 @@ const DEMO_FALLBACK_USERS: Array<User> = [
     favoriteGenres: ['All Genres'],
     favoriteThemes: ['All Themes'],
     createdAt: '2024-12-01T00:00:00Z',
+    password: 'admin123',
     status: 'ACTIVE',
     isVerifiedWriter: true,
   },
@@ -100,6 +68,7 @@ const DEMO_FALLBACK_USERS: Array<User> = [
     favoriteGenres: ['Fantasy', 'Sci-Fi', 'Light Novel'],
     favoriteThemes: ['Magic Systems', 'Character Growth', 'Space Opera'],
     createdAt: '2025-01-10T10:00:00Z',
+    password: 'password123',
     status: 'ACTIVE',
     isVerifiedWriter: true,
   },
@@ -121,6 +90,7 @@ const DEMO_FALLBACK_USERS: Array<User> = [
     favoriteGenres: ['Dark Fantasy', 'Mystery', 'Action'],
     favoriteThemes: ['Grimdark', 'Political Intrigue', 'Rivalries'],
     createdAt: '2025-01-05T12:00:00Z',
+    password: 'password123',
     status: 'ACTIVE',
     isVerifiedWriter: true,
   },
@@ -142,17 +112,25 @@ const DEMO_FALLBACK_USERS: Array<User> = [
     favoriteGenres: ['Romance', 'Fantasy', 'Isekai'],
     favoriteThemes: ['Wholesome', 'Slice of Life', 'Magic Academia'],
     createdAt: '2025-02-01T08:00:00Z',
+    password: 'password123',
     status: 'ACTIVE',
     isVerifiedWriter: false,
   }
 ];
 
-function getLocalUsers(): Array<User> {
-  return [];
+function getLocalUsers(): Array<User & { password?: string }> {
+  try {
+    const raw = localStorage.getItem('kairo_client_users');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
-function saveLocalUsers(_users: Array<User>) {
-  // Never store user credentials in localStorage
+function saveLocalUsers(users: Array<User & { password?: string }>) {
+  try {
+    localStorage.setItem('kairo_client_users', JSON.stringify(users));
+  } catch {}
 }
 
 export function getActiveLocalUser(): User | null {
@@ -357,7 +335,6 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
     ...(options.headers as Record<string, string>),
   };
 
@@ -377,7 +354,7 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     }
 
     try {
-      const res = await fetch(url, { ...options, headers, credentials: 'include' });
+      const res = await fetch(url, { ...options, headers });
       const contentType = res.headers.get('content-type') || '';
 
       // Guard against HTML returned when serverless route falls back to index.html
@@ -487,7 +464,7 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  // Auth & Phase 5 Security
+  // Auth
   async signup(data: {
     username: string;
     email: string;
@@ -499,199 +476,121 @@ export const api = {
     favoriteGenres?: string[];
     favoriteThemes?: string[];
   }) {
-    const res = await request<{
-      token: string;
-      user: User;
-      authState?: string;
-      emailVerification?: {
-        status: string;
-        emailDeliveryConfigured: boolean;
-        providerMessage: string;
+    try {
+      const res = await request<{ token: string; user: User }>('/api/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      setStoredToken(res.token);
+      setActiveLocalUser(res.user);
+      return res;
+    } catch (err: any) {
+      if (!isServerFailure(err)) {
+        throw err;
+      }
+      // Vercel serverless offline/404/500 fallback
+      const cleanUsername = data.username.toLowerCase().trim();
+      const cleanEmail = data.email.toLowerCase().trim();
+
+      const allUsers = [...DEMO_FALLBACK_USERS, ...getLocalUsers()];
+      const exists = allUsers.some(u => u.username.toLowerCase() === cleanUsername || u.email.toLowerCase() === cleanEmail);
+      if (exists) {
+        throw new Error('A user with this username or email already exists');
+      }
+
+      const assignedRole = data.role === 'WRITER' ? 'WRITER' : 'USER';
+      const newUser: User = {
+        id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        username: cleanUsername,
+        email: cleanEmail,
+        displayName: data.displayName?.trim() || data.username.trim(),
+        avatar: data.avatar || (assignedRole === 'WRITER' 
+          ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80' 
+          : 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80'),
+        bio: data.bio || (assignedRole === 'WRITER' ? 'Author & Storyteller on KAIRO.' : 'Story explorer on KAIRO.'),
+        favoriteGenres: data.favoriteGenres || ['Fantasy', 'Anime-Inspired'],
+        favoriteThemes: data.favoriteThemes || ['World Building'],
+        role: assignedRole,
+        status: 'ACTIVE',
+        isVerifiedWriter: assignedRole === 'WRITER',
+        xp: 0,
+        level: 1,
+        readingStreak: 1,
+        lastActiveDate: new Date().toISOString(),
+        followersCount: 0,
+        followingCount: 0,
+        totalReads: 0,
+        createdAt: new Date().toISOString(),
       };
-    }>('/api/auth/signup', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    setStoredToken(res.token);
-    setActiveLocalUser(res.user);
-    return res;
-  },
 
-  async login(loginId: string, password: string): Promise<
-    | { mfaRequired: false; token: string; user: User; authState: 'FULLY_AUTHENTICATED' }
-    | MfaChallengeResponse
-  > {
-    const res = await request<any>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ login: loginId, password }),
-    });
+      const localUsers = getLocalUsers();
+      localUsers.push({ ...newUser, password: data.password });
+      saveLocalUsers(localUsers);
 
-    if (res.mfaRequired) {
-      // Password verified, MFA challenge required. Do NOT store a session token yet!
-      return res as MfaChallengeResponse;
+      const fallbackToken = 'kairo_tok_' + newUser.id + '_' + Date.now();
+      setStoredToken(fallbackToken);
+      setActiveLocalUser(newUser);
+
+      return { token: fallbackToken, user: newUser };
     }
-
-    setStoredToken(res.token);
-    setActiveLocalUser(res.user);
-    return {
-      mfaRequired: false,
-      token: res.token,
-      user: res.user,
-      authState: 'FULLY_AUTHENTICATED',
-    };
   },
 
-  async verifyMfaLogin(data: {
-    mfaChallengeToken: string;
-    code: string;
-    method?: 'totp' | 'recovery_code';
-  }) {
-    const res = await request<{
-      mfaRequired: false;
-      authState: 'FULLY_AUTHENTICATED';
-      token: string;
-      user: User;
-      recoveryCodeUsed?: boolean;
-      remainingRecoveryCodes?: number;
-    }>('/api/auth/mfa/verify-login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    setStoredToken(res.token);
-    setActiveLocalUser(res.user);
-    return res;
+  async login(loginId: string, password: string) {
+    try {
+      const res = await request<{ token: string; user: User }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ login: loginId, password }),
+      });
+      setStoredToken(res.token);
+      setActiveLocalUser(res.user);
+      return res;
+    } catch (err: any) {
+      if (!isServerFailure(err)) {
+        throw err;
+      }
+      // Vercel serverless offline/404/500 fallback
+      const cleanLogin = loginId.toLowerCase().trim();
+      const allUsers = [...DEMO_FALLBACK_USERS, ...getLocalUsers()];
+      const match = allUsers.find(
+        u => (u.username.toLowerCase() === cleanLogin || u.email.toLowerCase() === cleanLogin)
+      );
+
+      if (!match || match.password !== password) {
+        throw new Error('Invalid username/email or password');
+      }
+
+      if (match.status === 'SUSPENDED') {
+        throw new Error('Access denied: Your account has been suspended by platform administration.');
+      }
+
+      const { password: _, ...cleanUser } = match;
+      const fallbackToken = 'kairo_tok_' + cleanUser.id + '_' + Date.now();
+      setStoredToken(fallbackToken);
+      setActiveLocalUser(cleanUser as User);
+
+      return { token: fallbackToken, user: cleanUser as User };
+    }
   },
 
   async getMe() {
-    const res = await request<{ user: User; authState?: string }>('/api/auth/me');
-    setActiveLocalUser(res.user);
-    return res;
-  },
-
-  async getSecurityOverview(): Promise<SecurityOverviewResponse> {
-    return request<SecurityOverviewResponse>('/api/auth/security/overview');
-  },
-
-  async startMfaEnrollment(currentPassword: string): Promise<MfaEnrollmentStartResponse> {
-    return request<MfaEnrollmentStartResponse>('/api/auth/mfa/enroll/start', {
-      method: 'POST',
-      body: JSON.stringify({ currentPassword }),
-    });
-  },
-
-  async verifyMfaEnrollment(code: string): Promise<MfaEnrollmentVerifyResponse & { user?: User }> {
-    const res = await request<MfaEnrollmentVerifyResponse & { user?: User }>('/api/auth/mfa/enroll/verify', {
-      method: 'POST',
-      body: JSON.stringify({ code }),
-    });
-    if (res.user) {
-      setActiveLocalUser(res.user);
+    const token = getStoredToken();
+    if (!token) {
+      throw new Error('No active token');
     }
-    return res;
-  },
-
-  async regenerateRecoveryCodes(data: { currentPassword: string; totpCode: string }) {
-    return request<{ recoveryCodes: string[]; message: string }>('/api/auth/mfa/recovery-codes/regenerate', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  async disableMfa(data: { currentPassword: string; code: string }) {
-    const res = await request<{ enabled: boolean; user?: User; message: string }>('/api/auth/mfa/disable', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    if (res.user) {
+    try {
+      const res = await request<{ user: User }>('/api/auth/me');
       setActiveLocalUser(res.user);
+      return res;
+    } catch (err: any) {
+      if (!isServerFailure(err)) {
+        throw err;
+      }
+      const localUser = getActiveLocalUser();
+      if (localUser) {
+        return { user: localUser };
+      }
+      throw err;
     }
-    return res;
-  },
-
-  async changePassword(data: {
-    currentPassword: string;
-    newPassword: string;
-    totpCode?: string;
-    revokeOtherSessions?: boolean;
-  }) {
-    const res = await request<{
-      success: boolean;
-      revokedOtherSessionsCount: number;
-      user?: User;
-      message: string;
-    }>('/api/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    if (res.user) {
-      setActiveLocalUser(res.user);
-    }
-    return res;
-  },
-
-  async requestPasswordReset(emailOrUsername: string) {
-    return request<{
-      success: boolean;
-      message: string;
-      emailDeliveryConfigured: boolean;
-      providerNote?: string;
-    }>('/api/auth/password-reset/request', {
-      method: 'POST',
-      body: JSON.stringify({ emailOrUsername }),
-    });
-  },
-
-  async confirmPasswordReset(data: { token: string; newPassword: string }) {
-    return request<{ success: boolean; message: string }>('/api/auth/password-reset/confirm', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  async sendVerificationEmail() {
-    return request<{
-      success: boolean;
-      emailDeliveryConfigured: boolean;
-      providerMessage: string;
-      message: string;
-    }>('/api/auth/email/send-verification', {
-      method: 'POST',
-    });
-  },
-
-  async verifyEmailToken(token: string) {
-    return request<{ success: boolean; message: string }>('/api/auth/email/verify', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
-  },
-
-  async getActiveSessions(): Promise<{ sessions: ActiveSessionInfo[] }> {
-    return request<{ sessions: ActiveSessionInfo[] }>('/api/auth/sessions');
-  },
-
-  async revokeSession(sessionId: string) {
-    return request<{
-      success: boolean;
-      revokedCurrentSession: boolean;
-      message: string;
-    }>(`/api/auth/sessions/${encodeURIComponent(sessionId)}`, {
-      method: 'DELETE',
-    });
-  },
-
-  async revokeAllOtherSessions() {
-    return request<{
-      success: boolean;
-      revokedCount: number;
-      message: string;
-    }>('/api/auth/sessions/revoke-others', {
-      method: 'POST',
-    });
-  },
-
-  async getSecurityEvents(): Promise<{ events: SecurityEventItem[] }> {
-    return request<{ events: SecurityEventItem[] }>('/api/auth/security/events');
   },
 
   async updateProfile(updates: Partial<User>) {

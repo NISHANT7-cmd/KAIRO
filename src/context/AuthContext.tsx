@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Notification, MfaChallengeResponse } from '../types';
+import { User, Notification } from '../types';
 import { api, getStoredToken, getActiveLocalUser, ApiError } from '../services/api';
 
 interface SignupData {
@@ -20,17 +20,12 @@ interface AuthContextType {
   notifications: Notification[];
   unreadNotifsCount: number;
   isAuthModalOpen: boolean;
-  pendingMfaChallenge: MfaChallengeResponse | null;
   openAuthModal: () => void;
   closeAuthModal: () => void;
-  clearMfaChallenge: () => void;
-  login: (login: string, password: string) => Promise<MfaChallengeResponse | void>;
-  completeMfaLogin: (mfaChallengeToken: string, code: string, method?: 'totp' | 'recovery_code') => Promise<{ recoveryCodeUsed?: boolean; remainingRecoveryCodes?: number }>;
+  login: (login: string, password: string) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
-  changePassword: (currentPassword: string, newPassword: string, totpCode?: string, revokeOtherSessions?: boolean) => Promise<{ message: string; revokedOtherSessionsCount: number }>;
-  recoverPassword: (emailOrUsername: string) => Promise<{ message: string; emailDeliveryConfigured: boolean; providerNote?: string }>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -43,17 +38,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [pendingMfaChallenge, setPendingMfaChallenge] = useState<MfaChallengeResponse | null>(null);
 
-  const openAuthModal = () => {
-    setPendingMfaChallenge(null);
-    setIsAuthModalOpen(true);
-  };
-  const closeAuthModal = () => {
-    setPendingMfaChallenge(null);
-    setIsAuthModalOpen(false);
-  };
-  const clearMfaChallenge = () => setPendingMfaChallenge(null);
+  const openAuthModal = () => setIsAuthModalOpen(true);
+  const closeAuthModal = () => setIsAuthModalOpen(false);
 
   const fetchNotifs = async () => {
     try {
@@ -67,8 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     try {
       const token = getStoredToken();
-      const cachedUser = getActiveLocalUser();
-      if (!token && !cachedUser) {
+      if (!token) {
         setUser(null);
         setNotifications([]);
         return;
@@ -97,7 +83,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         err?.code === 'EXPIRED_TOKEN' ||
         err?.code === 'INVALID_TOKEN' ||
         err?.code === 'MISSING_TOKEN' ||
-        err?.code === 'MFA_REQUIRED' ||
         err?.code === 'ACCOUNT_SUSPENDED';
 
       if (isAuthRejection) {
@@ -128,43 +113,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     api.syncClientHydration().catch(() => {});
   }, [user?.id]);
 
-  const login = async (loginId: string, password: string): Promise<MfaChallengeResponse | void> => {
+  const login = async (loginId: string, password: string) => {
     const res = await api.login(loginId, password);
-    if (res.mfaRequired === true) {
-      // Password verified, MFA challenge required. Do NOT set user until MFA code is verified!
-      setPendingMfaChallenge(res);
-      return res;
-    }
-    setPendingMfaChallenge(null);
     setUser(res.user);
     await fetchNotifs();
-  };
-
-  const completeMfaLogin = async (
-    mfaChallengeToken: string,
-    code: string,
-    method: 'totp' | 'recovery_code' = 'totp'
-  ) => {
-    const res = await api.verifyMfaLogin({ mfaChallengeToken, code, method });
-    setPendingMfaChallenge(null);
-    setUser(res.user);
-    await fetchNotifs();
-    return {
-      recoveryCodeUsed: res.recoveryCodeUsed,
-      remainingRecoveryCodes: res.remainingRecoveryCodes,
-    };
   };
 
   const signup = async (data: SignupData) => {
     const res = await api.signup(data);
-    setPendingMfaChallenge(null);
     setUser(res.user);
     await fetchNotifs();
   };
 
   const logout = async () => {
     await api.logout();
-    setPendingMfaChallenge(null);
     setUser(null);
     setNotifications([]);
   };
@@ -172,36 +134,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfile = async (updates: Partial<User>) => {
     const res = await api.updateProfile(updates);
     setUser(res.user);
-  };
-
-  const changePassword = async (
-    currentPassword: string,
-    newPassword: string,
-    totpCode?: string,
-    revokeOtherSessions = true
-  ) => {
-    const res = await api.changePassword({
-      currentPassword,
-      newPassword,
-      totpCode,
-      revokeOtherSessions,
-    });
-    if (res.user) {
-      setUser(res.user);
-    }
-    return {
-      message: res.message,
-      revokedOtherSessionsCount: res.revokedOtherSessionsCount,
-    };
-  };
-
-  const recoverPassword = async (emailOrUsername: string) => {
-    const res = await api.requestPasswordReset(emailOrUsername);
-    return {
-      message: res.message,
-      emailDeliveryConfigured: res.emailDeliveryConfigured,
-      providerNote: res.providerNote,
-    };
   };
 
   const markNotificationRead = async (id: string) => {
@@ -223,17 +155,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       notifications,
       unreadNotifsCount,
       isAuthModalOpen,
-      pendingMfaChallenge,
       openAuthModal,
       closeAuthModal,
-      clearMfaChallenge,
       login,
-      completeMfaLogin,
       signup,
       logout,
       updateProfile,
-      changePassword,
-      recoverPassword,
       markNotificationRead,
       markAllNotificationsRead,
       refreshUser

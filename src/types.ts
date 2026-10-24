@@ -28,102 +28,7 @@ export interface User {
   publishedStoriesCount?: number;
   hasCompletedOnboarding?: boolean;
   interestProfile?: UserInterestProfile;
-  mfaEnabled?: boolean;
-  emailVerified?: boolean;
-  emailVerifiedAt?: string;
-  passwordChangedAt?: string;
 }
-
-export type AuthSessionState = 'PASSWORD_VERIFIED' | 'FULLY_AUTHENTICATED';
-
-export interface ActiveSessionInfo {
-  id: string;
-  sessionId: string;
-  isCurrent: boolean;
-  deviceInfo: string;
-  browser: string;
-  os: string;
-  ipMasked: string;
-  createdAt: string;
-  lastActiveAt: string;
-  expiresAt: string;
-  mfaVerified: boolean;
-}
-
-export type SecurityEventType =
-  | 'signup'
-  | 'login_success'
-  | 'login_failed'
-  | 'mfa_challenge_issued'
-  | 'mfa_success'
-  | 'mfa_failed'
-  | 'mfa_enabled'
-  | 'mfa_disabled'
-  | 'recovery_code_used'
-  | 'recovery_codes_regenerated'
-  | 'password_changed'
-  | 'password_reset_requested'
-  | 'password_reset_completed'
-  | 'email_verification_sent'
-  | 'email_verified'
-  | 'session_revoked'
-  | 'logout'
-  | 'logout_all_sessions'
-  | 'suspicious_activity_detected';
-
-export interface SecurityEventItem {
-  id: string;
-  userId?: string;
-  eventType: SecurityEventType;
-  description: string;
-  severity: 'INFO' | 'WARNING' | 'CRITICAL';
-  deviceInfo: string;
-  ipMasked: string;
-  isSuspicious: boolean;
-  metadata?: Record<string, any>;
-  createdAt: string;
-}
-
-export interface SecurityOverviewResponse {
-  mfaEnabled: boolean;
-  mfaEnabledAt?: string;
-  mfaLastVerifiedAt?: string;
-  recoveryCodesRemaining: number;
-  recoveryCodesTotal: number;
-  emailVerified: boolean;
-  emailVerifiedAt?: string;
-  emailDeliveryConfigured: boolean;
-  emailProviderName: string;
-  passwordChangedAt?: string;
-  activeSessionsCount: number;
-  suspiciousEventsCount: number;
-}
-
-export interface MfaChallengeResponse {
-  mfaRequired: true;
-  authState: 'PASSWORD_VERIFIED';
-  mfaChallengeToken: string;
-  challengeExpiresAt: string;
-  maskedEmail?: string;
-  methods: ('totp' | 'recovery_code')[];
-  message: string;
-}
-
-export interface MfaEnrollmentStartResponse {
-  qrCodeDataUrl: string;
-  manualEntryKey: string;
-  manualSetupKey?: string;
-  issuer: string;
-  accountName: string;
-  accountLabel?: string;
-}
-
-export interface MfaEnrollmentVerifyResponse {
-  enabled: boolean;
-  recoveryCodes: string[];
-  message: string;
-}
-
 
 export interface PublicUserProfile {
   user: User;
@@ -791,7 +696,7 @@ export interface AnimeEntry {
 export interface Notification {
   id: string;
   userId: string;
-  type: 'new_chapter' | 'comment_reply' | 'new_follower' | 'theory_reaction' | 'community_activity' | 'recommendation' | 'achievement' | 'author_announcement' | 'system';
+  type: 'new_chapter' | 'comment_reply' | 'new_follower' | 'theory_reaction' | 'community_activity' | 'recommendation' | 'achievement' | 'author_announcement';
   title: string;
   message: string;
   linkUrl: string;

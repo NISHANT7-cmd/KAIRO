@@ -3,21 +3,6 @@ import { dbService } from './db.js';
 import { recommendationService } from './recommendationService.js';
 import { User, UserInterestProfile } from '../src/types.js';
 import { isSupabaseConfigured, getSupabaseClient, runSupabaseDataMigration, loadFullStateFromSupabase, checkSupabaseSchemaReady } from './supabase.js';
-import {
-  checkRateLimit,
-  recordRateLimitFailure,
-  clearRateLimit,
-  extractRequestDeviceMeta,
-  setSecureSessionCookie,
-  clearSecureSessionCookie,
-  setMfaChallengeCookie,
-  clearMfaChallengeCookie,
-  extractSessionCookie,
-  extractMfaChallengeCookie,
-  validatePasswordStrength,
-  maskEmailAddress,
-  getEmailProviderStatus,
-} from './security.js';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -26,48 +11,27 @@ dotenv.config();
 
 const app = express();
 
-// Universal CORS & Security Headers
+// Universal CORS & Preflight headers
 app.use((req: Request, res: Response, next: NextFunction) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, X-CSRF-Token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
   next();
 });
 
-// Structured Logging for Security & Diagnostics (never logs passwords, TOTP secrets, or recovery codes)
-const SENSITIVE_KEYS = new Set(['password', 'currentPassword', 'newPassword', 'secret', 'totpSecret', 'encryptedSecret', 'recoveryCode', 'recoveryCodes', 'code', 'totpCode', 'token', 'mfaChallengeToken']);
-function sanitizeLogMeta(meta: Record<string, any> = {}): Record<string, any> {
-  const clean: Record<string, any> = {};
-  for (const [k, v] of Object.entries(meta)) {
-    if (SENSITIVE_KEYS.has(k)) {
-      clean[k] = '[REDACTED]';
-    } else {
-      clean[k] = v;
-    }
-  }
-  return clean;
-}
-
+// Structured Logging for Security & Diagnostics
 function logAuth(event: string, meta: Record<string, any> = {}) {
   const timestamp = new Date().toISOString();
-  console.log(`[AUTH] ${timestamp} [${event}]`, JSON.stringify(sanitizeLogMeta(meta)));
+  console.log(`[AUTH] ${timestamp} [${event}]`, JSON.stringify(meta));
 }
 
 function logAuthError(event: string, err: any, meta: Record<string, any> = {}) {
   const timestamp = new Date().toISOString();
-  console.error(`[AUTH_ERROR] ${timestamp} [${event}]`, err?.message || err, JSON.stringify(sanitizeLogMeta(meta)));
+  console.error(`[AUTH_ERROR] ${timestamp} [${event}]`, err?.message || err, JSON.stringify(meta));
 }
 
 // Safely handle bodies in Vercel Serverless / Express environments
@@ -98,69 +62,35 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Helper to extract bearer token or HttpOnly session cookie
-function extractRequestToken(req: Request): { token: string | null; source: 'bearer' | 'cookie' | 'none'; malformed?: boolean } {
-  const authHeader = req.headers.authorization;
-  if (authHeader) {
-    if (!authHeader.toLowerCase().startsWith('bearer ')) {
-      return { token: null, source: 'bearer', malformed: true };
-    }
-    const token = authHeader.substring(7).trim();
-    if (token) return { token, source: 'bearer' };
-  }
-  const cookieToken = extractSessionCookie(req);
-  if (cookieToken) {
-    return { token: cookieToken, source: 'cookie' };
-  }
-  return { token: null, source: 'none' };
-}
-
-// Early Session Hydration Middleware: populates req.user if valid FULLY_AUTHENTICATED token/cookie is provided
+// Early Session Hydration Middleware: populates req.user if valid bearer token is provided
 app.use(async (req: Request, res: Response, next: NextFunction) => {
-  const { token, source } = extractRequestToken(req);
-  if (token) {
-    // CSRF defense when relying solely on automatic browser cookies on state-changing requests
-    const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method.toUpperCase());
-    if (source === 'cookie' && isMutating) {
-      const origin = req.headers.origin || req.headers.referer || '';
-      const host = req.headers.host || '';
-      const hasCustomHeader = Boolean(req.headers['x-requested-with'] || req.headers['x-csrf-token'] || (req.headers['content-type'] && req.headers['content-type'].includes('application/json')));
-      const sameOrigin = !origin || (host && origin.includes(host));
-      if (!sameOrigin && !hasCustomHeader) {
-        (req as any).authResult = {
-          user: null,
-          status: 403,
-          code: 'INVALID_TOKEN',
-          message: 'Cross-site request blocked by CSRF protection.'
-        };
-        return next();
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    const token = authHeader.substring(7).trim();
+    if (token) {
+      try {
+        const result = await dbService.validateSessionDetails(token);
+        if (result.status === 'OK' && result.user) {
+          (req as any).user = result.user;
+          (req as any).authResult = { user: result.user, status: 200, code: 'OK', message: 'Session verified successfully.' };
+        } else {
+          (req as any).authResult = {
+            user: result.user || null,
+            status: result.status === 'SUSPENDED' ? 403 : 401,
+            code: result.status === 'SUSPENDED' ? 'SUSPENDED' : result.status === 'EXPIRED' ? 'EXPIRED_TOKEN' : 'INVALID_TOKEN',
+            message: result.status === 'SUSPENDED' ? 'Access denied: Account suspended.' : 'Session expired or invalid.'
+          };
+        }
+      } catch (err) {
+        // non-blocking for unauthenticated endpoints
       }
-    }
-
-    try {
-      const result = await dbService.validateSessionDetails(token);
-      if (result.status === 'OK' && result.user && result.authState === 'FULLY_AUTHENTICATED') {
-        (req as any).user = result.user;
-        (req as any).sessionToken = token;
-        (req as any).sessionId = result.sessionId;
-        (req as any).authResult = { user: result.user, status: 200, code: 'OK', message: 'Session verified successfully.' };
-      } else {
-        (req as any).authResult = {
-          user: result.user || null,
-          status: result.status === 'SUSPENDED' ? 403 : 401,
-          code: result.status === 'SUSPENDED' ? 'SUSPENDED' : result.status === 'EXPIRED' ? 'EXPIRED_TOKEN' : result.status === 'MFA_REQUIRED' ? 'MFA_REQUIRED' : 'INVALID_TOKEN',
-          message: result.status === 'SUSPENDED' ? 'Access denied: Account suspended.' : result.status === 'MFA_REQUIRED' ? 'Two-factor authentication verification required.' : 'Session expired or invalid.'
-        };
-      }
-    } catch (err) {
-      // non-blocking for unauthenticated endpoints
     }
   }
   next();
 });
 
-// Dedicated Upload endpoint for gallery/internal storage uploads (requires authentication)
-app.post('/api/upload', requireAuth, (req: Request, res: Response) => {
+// Dedicated Upload endpoint for gallery/internal storage uploads
+app.post('/api/upload', (req: Request, res: Response) => {
   const { image, name } = req.body || {};
   if (!image || typeof image !== 'string') {
     return res.status(400).json({ error: 'Image data URL or string is required' });
@@ -175,7 +105,7 @@ app.post('/api/upload', requireAuth, (req: Request, res: Response) => {
 interface AuthVerificationResult {
   user: User | null;
   status: number;
-  code: 'OK' | 'MISSING_TOKEN' | 'MALFORMED_HEADER' | 'INVALID_TOKEN' | 'EXPIRED_TOKEN' | 'USER_NOT_FOUND' | 'SUSPENDED' | 'MFA_REQUIRED';
+  code: 'OK' | 'MISSING_TOKEN' | 'MALFORMED_HEADER' | 'INVALID_TOKEN' | 'EXPIRED_TOKEN' | 'USER_NOT_FOUND' | 'SUSPENDED';
   message: string;
 }
 
@@ -185,19 +115,22 @@ async function verifyAuthToken(req: Request): Promise<AuthVerificationResult> {
     return (req as any).authResult as AuthVerificationResult;
   }
 
-  const extracted = extractRequestToken(req);
-  if (extracted.malformed) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return { user: null, status: 401, code: 'MISSING_TOKEN', message: 'No authorization header provided.' };
+  }
+
+  if (!authHeader.toLowerCase().startsWith('bearer ')) {
     return { user: null, status: 401, code: 'MALFORMED_HEADER', message: 'Authorization header format must be: Bearer <token>' };
   }
-  if (!extracted.token) {
-    return { user: null, status: 401, code: 'MISSING_TOKEN', message: 'Authentication required. Please sign in.' };
+
+  const token = authHeader.substring(7).trim();
+  if (!token) {
+    return { user: null, status: 401, code: 'MISSING_TOKEN', message: 'Bearer token string is empty.' };
   }
 
-  const result = await dbService.validateSessionDetails(extracted.token);
+  const result = await dbService.validateSessionDetails(token);
 
-  if (result.status === 'MFA_REQUIRED' || result.authState === 'PASSWORD_VERIFIED') {
-    return { user: null, status: 401, code: 'MFA_REQUIRED', message: 'Two-factor authentication challenge must be verified before accessing protected resources.' };
-  }
   if (result.status === 'EXPIRED') {
     return { user: null, status: 401, code: 'EXPIRED_TOKEN', message: 'Session has expired. Please sign in again.' };
   }
@@ -214,8 +147,6 @@ async function verifyAuthToken(req: Request): Promise<AuthVerificationResult> {
   const verified: AuthVerificationResult = { user: result.user, status: 200, code: 'OK', message: 'Session verified successfully.' };
   (req as any).authResult = verified;
   (req as any).user = result.user;
-  (req as any).sessionToken = extracted.token;
-  (req as any).sessionId = result.sessionId;
   return verified;
 }
 
@@ -267,21 +198,10 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 // ----------------------------------------------------
-// AUTH, MFA, SESSIONS & ACCOUNT SECURITY ENDPOINTS
+// AUTH ENDPOINTS
 // ----------------------------------------------------
 app.post('/api/auth/signup', async (req: Request, res: Response) => {
   try {
-    const deviceMeta = extractRequestDeviceMeta(req);
-    const rateCheck = checkRateLimit([`signup:ip:${deviceMeta.ipHash}`], { maxAttempts: 8, windowMs: 15 * 60 * 1000 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Too many registration attempts. Please try again in ${rateCheck.retryAfterSeconds} seconds.`,
-        code: 'RATE_LIMITED',
-        retryAfterSeconds: rateCheck.retryAfterSeconds,
-      });
-    }
-
     const { username, email, password, displayName, favoriteGenres, favoriteThemes, role, bio, avatar } = req.body || {};
     logAuth('SIGNUP_ATTEMPT', { username, email, role });
 
@@ -290,22 +210,16 @@ app.post('/api/auth/signup', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Username, email, and password are required', code: 'MISSING_FIELDS' });
     }
 
-    const pwValidation = validatePasswordStrength(String(password));
-    if (!pwValidation.valid) {
-      return res.status(400).json({ error: pwValidation.message, code: 'WEAK_PASSWORD' });
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long', code: 'PASSWORD_TOO_SHORT' });
     }
 
-    const cleanUsername = String(username).trim().toLowerCase();
-    const cleanEmail = String(email).trim().toLowerCase();
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      return res.status(400).json({ error: 'Please enter a valid email address.', code: 'INVALID_EMAIL' });
-    }
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
 
     // Check database for existing account (both in-memory cache and Supabase)
     const existing = (await dbService.findUserByEmailOrUsernameAsync(cleanUsername)) || (await dbService.findUserByEmailOrUsernameAsync(cleanEmail));
     if (existing) {
-      recordRateLimitFailure([`signup:ip:${deviceMeta.ipHash}`]);
       logAuth('SIGNUP_FAILED_DUPLICATE', { username: cleanUsername, email: cleanEmail });
       return res.status(400).json({ error: 'A user with this username or email already exists', code: 'USER_EXISTS' });
     }
@@ -327,41 +241,14 @@ app.post('/api/auth/signup', async (req: Request, res: Response) => {
       role: assignedRole,
       status: 'ACTIVE',
       isVerifiedWriter: assignedRole === 'WRITER',
-    }, String(password));
-
-    // Create email verification record (never returns raw token in API response)
-    const emailVerif = await dbService.createEmailVerificationForUser(user.id, req);
+    }, password);
 
     // Await authoritative session creation in Supabase user_sessions table
-    const session = await dbService.createSession(user.id, {
-      req,
-      mfaVerified: false,
-      authState: 'FULLY_AUTHENTICATED',
-    });
-    setSecureSessionCookie(res, session.token);
-
-    await dbService.recordSecurityEvent(
-      user.id,
-      'signup',
-      'Account created and initial session established',
-      req,
-      false,
-      { role: assignedRole, emailDeliveryConfigured: emailVerif.emailDeliveryConfigured }
-    );
-
+    const session = await dbService.createSession(user.id);
     const enrichedUser = dbService.getUserEnriched(user);
 
     logAuth('SIGNUP_SUCCESS', { userId: user.id, username: user.username, role: user.role });
-    return res.status(201).json({
-      token: session.token,
-      user: enrichedUser,
-      authState: 'FULLY_AUTHENTICATED',
-      emailVerification: {
-        status: 'pending',
-        emailDeliveryConfigured: emailVerif.emailDeliveryConfigured,
-        providerMessage: emailVerif.providerMessage,
-      },
-    });
+    return res.status(201).json({ token: session.token, user: enrichedUser });
   } catch (err: any) {
     logAuthError('SIGNUP_INTERNAL_ERROR', err);
     return res.status(500).json({ error: err.message || 'Internal server error during registration', code: 'INTERNAL_ERROR' });
@@ -370,35 +257,18 @@ app.post('/api/auth/signup', async (req: Request, res: Response) => {
 
 app.post('/api/auth/login', async (req: Request, res: Response) => {
   try {
-    const login = String(req.body?.login || req.body?.emailOrUsername || req.body?.username || req.body?.email || '').trim();
+    const login = req.body?.login || req.body?.emailOrUsername || req.body?.username || req.body?.email;
     const password = req.body?.password;
-    const deviceMeta = extractRequestDeviceMeta(req);
-    const normalizedLogin = login.toLowerCase();
-
-    logAuth('LOGIN_ATTEMPT', { login: normalizedLogin, device: deviceMeta.deviceInfo });
+    logAuth('LOGIN_ATTEMPT', { login });
 
     if (!login || !password) {
-      logAuth('LOGIN_FAILED_MISSING_CREDENTIALS', { login: normalizedLogin });
+      logAuth('LOGIN_FAILED_MISSING_CREDENTIALS', { login });
       return res.status(400).json({ error: 'Login identifier and password are required', code: 'MISSING_CREDENTIALS' });
-    }
-
-    // Progressive brute-force rate limiting by IP and account identifier
-    const rateKeys = [`login:ip:${deviceMeta.ipHash}`, `login:acct:${normalizedLogin}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 5, windowMs: 15 * 60 * 1000, maxDelaySeconds: 180 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      logAuth('LOGIN_RATE_LIMITED', { login: normalizedLogin, retryAfterSeconds: rateCheck.retryAfterSeconds });
-      return res.status(429).json({
-        error: `Too many sign-in attempts. Please wait ${rateCheck.retryAfterSeconds} seconds before trying again.`,
-        code: 'RATE_LIMITED',
-        retryAfterSeconds: rateCheck.retryAfterSeconds,
-      });
     }
 
     const user = await dbService.findUserByEmailOrUsernameAsync(login);
     if (!user) {
-      recordRateLimitFailure(rateKeys);
-      logAuth('LOGIN_FAILED_USER_NOT_FOUND', { login: normalizedLogin });
+      logAuth('LOGIN_FAILED_USER_NOT_FOUND', { login });
       return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
     }
 
@@ -407,234 +277,32 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Account suspended: Please contact platform administration.', code: 'ACCOUNT_SUSPENDED' });
     }
 
-    const valid = await dbService.verifyPassword(user.id, String(password));
+    const valid = await dbService.verifyPassword(user.id, password);
     if (!valid) {
-      recordRateLimitFailure(rateKeys);
-      const afterFail = checkRateLimit(rateKeys, { maxAttempts: 5 });
-      const isRepeatedFailure = !afterFail.allowed || afterFail.remainingAttempts <= 1;
-      await dbService.recordSecurityEvent(
-        user.id,
-        'login_failed',
-        isRepeatedFailure
-          ? 'Multiple failed password sign-in attempts detected'
-          : 'Failed password sign-in attempt',
-        req,
-        isRepeatedFailure
-      );
       logAuth('LOGIN_FAILED_INVALID_PASSWORD', { userId: user.id, username: user.username });
       return res.status(401).json({ error: 'Invalid username or password', code: 'INVALID_CREDENTIALS' });
     }
 
-    // Check if Two-Factor Authentication (TOTP MFA) is enabled for this user
-    const mfaEnabled = await dbService.isUserMfaEnabled(user.id);
-    if (mfaEnabled) {
-      // IMPORTANT: Do NOT create the final fully authenticated session before MFA verification!
-      clearSecureSessionCookie(res);
-      const challenge = dbService.createLoginMfaChallenge(user.id, req);
-      setMfaChallengeCookie(res, challenge.challengeToken);
-
-      logAuth('LOGIN_MFA_CHALLENGE_ISSUED', { userId: user.id, username: user.username });
-      return res.status(200).json({
-        mfaRequired: true,
-        authState: 'PASSWORD_VERIFIED',
-        mfaChallengeToken: challenge.challengeToken,
-        challengeExpiresAt: new Date(challenge.expiresAt).toISOString(),
-        maskedEmail: maskEmailAddress(user.email),
-        methods: ['totp', 'recovery_code'],
-        message: 'Password verified. Please enter your 6-digit authenticator code or a recovery code to complete sign-in.',
-      });
-    }
-
-    // MFA is disabled -> create full session immediately
-    clearRateLimit(rateKeys);
-    const session = await dbService.createSession(user.id, {
-      req,
-      mfaVerified: false,
-      authState: 'FULLY_AUTHENTICATED',
-    });
-    setSecureSessionCookie(res, session.token);
-
-    await dbService.recordSecurityEvent(
-      user.id,
-      'login_success',
-      `Signed in from ${deviceMeta.deviceInfo}`,
-      req,
-      false,
-      { sessionId: session.sessionId, mfaUsed: false }
-    );
-
+    const session = await dbService.createSession(user.id);
     const enrichedUser = dbService.getUserEnriched(user);
 
     logAuth('LOGIN_SUCCESS', { userId: user.id, username: user.username, role: user.role });
-    return res.json({
-      mfaRequired: false,
-      authState: 'FULLY_AUTHENTICATED',
-      token: session.token,
-      user: enrichedUser,
-    });
+    return res.json({ token: session.token, user: enrichedUser });
   } catch (err: any) {
     logAuthError('LOGIN_INTERNAL_ERROR', err);
     return res.status(500).json({ error: err.message || 'Internal server error during authentication', code: 'INTERNAL_ERROR' });
   }
 });
 
-// Complete MFA Login Challenge (TOTP or One-Time Recovery Code) -> Transitions PASSWORD_VERIFIED to FULLY_AUTHENTICATED
-app.post('/api/auth/mfa/verify-login', async (req: Request, res: Response) => {
-  try {
-    const deviceMeta = extractRequestDeviceMeta(req);
-    const challengeToken = String(req.body?.mfaChallengeToken || extractMfaChallengeCookie(req) || '').trim();
-    const rawCode = String(req.body?.code || '').trim();
-    const method = req.body?.method === 'recovery_code' ? 'recovery_code' : 'totp';
-
-    if (!challengeToken || !rawCode) {
-      return res.status(400).json({
-        error: 'MFA challenge token and verification code are required.',
-        code: 'MISSING_MFA_PARAMS',
-      });
-    }
-
-    const rateKeys = [`mfa_login:ip:${deviceMeta.ipHash}`, `mfa_login:chal:${challengeToken.slice(0, 24)}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 5, windowMs: 10 * 60 * 1000, maxDelaySeconds: 120 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Too many verification attempts. Please wait ${rateCheck.retryAfterSeconds} seconds.`,
-        code: 'RATE_LIMITED',
-        retryAfterSeconds: rateCheck.retryAfterSeconds,
-      });
-    }
-
-    const challengeCheck = dbService.consumeLoginMfaChallenge(challengeToken);
-    if (!challengeCheck.valid || !challengeCheck.userId) {
-      recordRateLimitFailure(rateKeys);
-      clearMfaChallengeCookie(res);
-      return res.status(401).json({
-        error: challengeCheck.reason || 'MFA challenge expired or invalid. Please sign in again.',
-        code: 'MFA_CHALLENGE_EXPIRED',
-      });
-    }
-
-    const user = await dbService.findUserByIdAsync(challengeCheck.userId);
-    if (!user || user.status === 'SUSPENDED') {
-      clearMfaChallengeCookie(res);
-      return res.status(403).json({
-        error: 'Account unavailable or suspended.',
-        code: 'ACCOUNT_SUSPENDED',
-      });
-    }
-
-    let verified = false;
-    let recoveryCodeUsed = false;
-    let remainingRecoveryCodes: number | undefined;
-
-    const looksLikeRecoveryCode = method === 'recovery_code' || rawCode.replace(/[\s-]/g, '').length >= 8;
-
-    if (looksLikeRecoveryCode) {
-      const recResult = await dbService.verifyAndUseRecoveryCode(user.id, rawCode);
-      if (recResult.valid) {
-        verified = true;
-        recoveryCodeUsed = true;
-        remainingRecoveryCodes = recResult.remainingCodes;
-      }
-    } else {
-      verified = await dbService.verifyUserTotpCode(user.id, rawCode);
-    }
-
-    if (!verified) {
-      recordRateLimitFailure(rateKeys);
-      const afterFail = checkRateLimit(rateKeys, { maxAttempts: 5 });
-      const isSuspicious = !afterFail.allowed || afterFail.remainingAttempts <= 1;
-
-      await dbService.recordSecurityEvent(
-        user.id,
-        'mfa_failed',
-        `Failed ${looksLikeRecoveryCode ? 'recovery code' : 'authenticator code'} verification during sign-in`,
-        req,
-        isSuspicious
-      );
-
-      // Issue a fresh short-lived challenge token so the user can retry their code without re-typing password (unless rate limited)
-      const replacementChallenge = dbService.createLoginMfaChallenge(user.id, req);
-      setMfaChallengeCookie(res, replacementChallenge.challengeToken);
-
-      logAuth('LOGIN_MFA_FAILED', { userId: user.id, method: looksLikeRecoveryCode ? 'recovery_code' : 'totp' });
-      return res.status(401).json({
-        error: looksLikeRecoveryCode
-          ? 'Invalid or already used recovery code.'
-          : 'Invalid 6-digit authenticator code. Please check your authenticator app and try again.',
-        code: 'INVALID_MFA_CODE',
-        mfaChallengeToken: replacementChallenge.challengeToken,
-      });
-    }
-
-    // MFA Verified! Clear challenge & rate limits, and create FULLY_AUTHENTICATED session
-    clearRateLimit(rateKeys);
-    clearMfaChallengeCookie(res);
-
-    const session = await dbService.createSession(user.id, {
-      req,
-      mfaVerified: true,
-      authState: 'FULLY_AUTHENTICATED',
-    });
-    setSecureSessionCookie(res, session.token);
-
-    if (recoveryCodeUsed) {
-      await dbService.recordSecurityEvent(
-        user.id,
-        'recovery_code_used',
-        `Signed in using a one-time recovery code (${remainingRecoveryCodes ?? 0} remaining)`,
-        req,
-        false,
-        { remainingRecoveryCodes }
-      );
-    } else {
-      await dbService.recordSecurityEvent(
-        user.id,
-        'mfa_success',
-        `Two-factor authentication verified via authenticator app`,
-        req,
-        false
-      );
-    }
-
-    await dbService.recordSecurityEvent(
-      user.id,
-      'login_success',
-      `Signed in with 2FA from ${deviceMeta.deviceInfo}`,
-      req,
-      false,
-      { sessionId: session.sessionId, mfaUsed: true, recoveryCodeUsed }
-    );
-
-    const enrichedUser = dbService.getUserEnriched(user);
-    logAuth('LOGIN_MFA_SUCCESS', { userId: user.id, recoveryCodeUsed });
-
-    return res.json({
-      mfaRequired: false,
-      authState: 'FULLY_AUTHENTICATED',
-      token: session.token,
-      user: enrichedUser,
-      recoveryCodeUsed,
-      remainingRecoveryCodes,
-    });
-  } catch (err: any) {
-    logAuthError('LOGIN_MFA_INTERNAL_ERROR', err);
-    return res.status(500).json({ error: err.message || 'Internal server error during MFA verification', code: 'INTERNAL_ERROR' });
-  }
-});
-
 app.post('/api/auth/logout', async (req: Request, res: Response) => {
-  const user = getUserFromReq(req);
-  const { token } = extractRequestToken(req);
-  if (token) {
-    await dbService.destroySession(token);
-    logAuth('LOGOUT_SUCCESS', { userId: user?.id });
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    const token = authHeader.substring(7).trim();
+    if (token) {
+      await dbService.destroySession(token);
+      logAuth('LOGOUT_SUCCESS', { tokenLength: token.length });
+    }
   }
-  if (user) {
-    await dbService.recordSecurityEvent(user.id, 'logout', 'Signed out of current device session', req, false);
-  }
-  clearSecureSessionCookie(res);
-  clearMfaChallengeCookie(res);
   return res.json({ success: true, message: 'Signed out successfully' });
 });
 
@@ -651,604 +319,7 @@ app.get('/api/auth/me', async (req: Request, res: Response) => {
 
   const enrichedUser = dbService.getUserEnriched(auth.user);
   logAuth('GET_ME_VERIFIED', { userId: auth.user.id, username: auth.user.username });
-  return res.json({ user: enrichedUser, authState: 'FULLY_AUTHENTICATED' });
-});
-
-// ----------------------------------------------------
-// ACCOUNT SECURITY OVERVIEW, MFA ENROLLMENT, RECOVERY CODES & SESSIONS
-// ----------------------------------------------------
-
-// 1. Security Overview (MFA status, remaining recovery codes count, email verification status, active sessions count)
-app.get('/api/auth/security/overview', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const currentToken = (req as any).sessionToken as string | undefined;
-    const overview = await dbService.getSecurityOverviewForUser(user.id, currentToken);
-    return res.json(overview);
-  } catch (err: any) {
-    logAuthError('SECURITY_OVERVIEW_ERROR', err);
-    return res.status(500).json({ error: 'Failed to load account security overview' });
-  }
-});
-
-// 2. Start MFA Enrollment (Requires current password; generates encrypted pending TOTP secret + QR code + manual key)
-app.post('/api/auth/mfa/enroll/start', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const { currentPassword } = req.body || {};
-
-    if (!currentPassword) {
-      return res.status(400).json({ error: 'Current password is required to set up Two-Factor Authentication.', code: 'PASSWORD_REQUIRED' });
-    }
-
-    const rateKeys = [`mfa_enroll_start:user:${user.id}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 5, windowMs: 10 * 60 * 1000 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Too many attempts. Please wait ${rateCheck.retryAfterSeconds} seconds.`,
-        code: 'RATE_LIMITED',
-      });
-    }
-
-    const validPassword = await dbService.verifyPassword(user.id, String(currentPassword));
-    if (!validPassword) {
-      recordRateLimitFailure(rateKeys);
-      await dbService.recordSecurityEvent(user.id, 'login_failed', 'Failed password confirmation during 2FA setup attempt', req, false);
-      return res.status(401).json({ error: 'Incorrect current password.', code: 'INVALID_PASSWORD' });
-    }
-
-    clearRateLimit(rateKeys);
-    const enrollment = await dbService.startMfaEnrollment(user.id);
-    logAuth('MFA_ENROLLMENT_STARTED', { userId: user.id });
-
-    return res.json({
-      qrCodeDataUrl: enrollment.qrCodeDataUrl,
-      manualEntryKey: enrollment.manualEntryKey,
-      issuer: enrollment.issuer,
-      accountName: enrollment.accountName,
-    });
-  } catch (err: any) {
-    logAuthError('MFA_ENROLL_START_ERROR', err);
-    return res.status(500).json({ error: err.message || 'Failed to start MFA enrollment' });
-  }
-});
-
-// 3. Verify & Activate MFA Enrollment (Verifies 6-digit TOTP code, enables MFA, generates & returns one-time recovery codes ONCE)
-app.post('/api/auth/mfa/enroll/verify', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const { code } = req.body || {};
-
-    if (!code) {
-      return res.status(400).json({ error: 'Please enter the 6-digit code from your authenticator app.', code: 'CODE_REQUIRED' });
-    }
-
-    const rateKeys = [`mfa_enroll_verify:user:${user.id}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 6, windowMs: 10 * 60 * 1000 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Too many verification attempts. Please wait ${rateCheck.retryAfterSeconds} seconds.`,
-        code: 'RATE_LIMITED',
-      });
-    }
-
-    const result = await dbService.verifyAndEnableMfaEnrollment(user.id, String(code));
-    if (!result.success || !result.recoveryCodes) {
-      recordRateLimitFailure(rateKeys);
-      await dbService.recordSecurityEvent(user.id, 'mfa_failed', 'Failed 2FA enrollment code verification', req, false);
-      return res.status(400).json({
-        error: result.error || 'Invalid authenticator code. Please try again.',
-        code: 'INVALID_TOTP_CODE',
-      });
-    }
-
-    clearRateLimit(rateKeys);
-    await dbService.recordSecurityEvent(
-      user.id,
-      'mfa_enabled',
-      'Two-Factor Authentication (TOTP) enabled and recovery codes generated',
-      req,
-      false
-    );
-
-    const enrichedUser = dbService.getUserEnriched(user);
-    logAuth('MFA_ENABLED_SUCCESS', { userId: user.id });
-
-    return res.json({
-      enabled: true,
-      recoveryCodes: result.recoveryCodes,
-      user: enrichedUser,
-      message: 'Two-Factor Authentication is now enabled. Save your recovery codes in a safe place—they will only be shown once.',
-    });
-  } catch (err: any) {
-    logAuthError('MFA_ENROLL_VERIFY_ERROR', err);
-    return res.status(500).json({ error: err.message || 'Failed to verify MFA enrollment' });
-  }
-});
-
-// 4. Regenerate Recovery Codes (Requires currentPassword + valid TOTP code; invalidates old recovery codes)
-app.post('/api/auth/mfa/recovery-codes/regenerate', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const { currentPassword, totpCode } = req.body || {};
-
-    if (!currentPassword || !totpCode) {
-      return res.status(400).json({
-        error: 'Both your current password and a 6-digit authenticator code are required to regenerate recovery codes.',
-        code: 'MISSING_CREDENTIALS',
-      });
-    }
-
-    const rateKeys = [`mfa_regen_codes:user:${user.id}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Too many attempts. Please wait ${rateCheck.retryAfterSeconds} seconds.`,
-        code: 'RATE_LIMITED',
-      });
-    }
-
-    const validPassword = await dbService.verifyPassword(user.id, String(currentPassword));
-    if (!validPassword) {
-      recordRateLimitFailure(rateKeys);
-      return res.status(401).json({ error: 'Incorrect current password.', code: 'INVALID_PASSWORD' });
-    }
-
-    const validTotp = await dbService.verifyUserTotpCode(user.id, String(totpCode));
-    if (!validTotp) {
-      recordRateLimitFailure(rateKeys);
-      await dbService.recordSecurityEvent(user.id, 'mfa_failed', 'Failed 2FA verification during recovery code regeneration', req, false);
-      return res.status(401).json({ error: 'Invalid 6-digit authenticator code.', code: 'INVALID_TOTP_CODE' });
-    }
-
-    clearRateLimit(rateKeys);
-    const regen = await dbService.regenerateUserRecoveryCodes(user.id);
-    if (!regen.success || !regen.recoveryCodes) {
-      return res.status(400).json({ error: regen.error || 'Failed to regenerate recovery codes.' });
-    }
-
-    await dbService.recordSecurityEvent(
-      user.id,
-      'recovery_codes_regenerated',
-      'Generated new one-time recovery codes and invalidated previous codes',
-      req,
-      false
-    );
-
-    logAuth('MFA_RECOVERY_CODES_REGENERATED', { userId: user.id });
-    return res.json({
-      recoveryCodes: regen.recoveryCodes,
-      message: 'New recovery codes generated. Previous recovery codes have been permanently invalidated.',
-    });
-  } catch (err: any) {
-    logAuthError('MFA_REGEN_CODES_ERROR', err);
-    return res.status(500).json({ error: err.message || 'Failed to regenerate recovery codes' });
-  }
-});
-
-// 5. Disable MFA (Requires strong authentication: currentPassword + current TOTP code or unused recovery code)
-app.post('/api/auth/mfa/disable', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const { currentPassword, code } = req.body || {};
-
-    if (!currentPassword || !code) {
-      return res.status(400).json({
-        error: 'Disabling Two-Factor Authentication requires both your current password and a current authenticator or recovery code.',
-        code: 'STRONG_AUTH_REQUIRED',
-      });
-    }
-
-    const rateKeys = [`mfa_disable:user:${user.id}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Too many attempts. Please wait ${rateCheck.retryAfterSeconds} seconds.`,
-        code: 'RATE_LIMITED',
-      });
-    }
-
-    const validPassword = await dbService.verifyPassword(user.id, String(currentPassword));
-    if (!validPassword) {
-      recordRateLimitFailure(rateKeys);
-      return res.status(401).json({ error: 'Incorrect current password.', code: 'INVALID_PASSWORD' });
-    }
-
-    const cleanCode = String(code).trim();
-    let codeValid = await dbService.verifyUserTotpCode(user.id, cleanCode);
-    if (!codeValid && cleanCode.replace(/[\s-]/g, '').length >= 8) {
-      const recCheck = await dbService.verifyAndUseRecoveryCode(user.id, cleanCode);
-      codeValid = recCheck.valid;
-    }
-
-    if (!codeValid) {
-      recordRateLimitFailure(rateKeys);
-      await dbService.recordSecurityEvent(user.id, 'mfa_failed', 'Failed 2FA verification when attempting to disable MFA', req, true);
-      return res.status(401).json({
-        error: 'Invalid authenticator code or recovery code.',
-        code: 'INVALID_MFA_CODE',
-      });
-    }
-
-    clearRateLimit(rateKeys);
-    await dbService.disableUserMfa(user.id);
-    await dbService.recordSecurityEvent(
-      user.id,
-      'mfa_disabled',
-      'Two-Factor Authentication disabled and recovery codes invalidated',
-      req,
-      false
-    );
-
-    const enrichedUser = dbService.getUserEnriched(user);
-    logAuth('MFA_DISABLED', { userId: user.id });
-
-    return res.json({
-      enabled: false,
-      user: enrichedUser,
-      message: 'Two-Factor Authentication has been disabled and all recovery codes have been invalidated.',
-    });
-  } catch (err: any) {
-    logAuthError('MFA_DISABLE_ERROR', err);
-    return res.status(500).json({ error: err.message || 'Failed to disable Two-Factor Authentication' });
-  }
-});
-
-// 6. Change Password (Requires current session + currentPassword + MFA code if MFA is enabled; revokes other sessions)
-const handleChangePassword = async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const currentToken = (req as any).sessionToken as string | undefined;
-    const { currentPassword, newPassword, totpCode, revokeOtherSessions = true } = req.body || {};
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({
-        error: 'Current password and new password are required.',
-        code: 'MISSING_FIELDS',
-      });
-    }
-
-    const pwValidation = validatePasswordStrength(String(newPassword));
-    if (!pwValidation.valid) {
-      return res.status(400).json({ error: pwValidation.message, code: 'WEAK_PASSWORD' });
-    }
-
-    if (String(currentPassword) === String(newPassword)) {
-      return res.status(400).json({ error: 'New password must be different from your current password.', code: 'SAME_PASSWORD' });
-    }
-
-    const rateKeys = [`change_pw:user:${user.id}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Too many password change attempts. Please wait ${rateCheck.retryAfterSeconds} seconds.`,
-        code: 'RATE_LIMITED',
-      });
-    }
-
-    const validCurrent = await dbService.verifyPassword(user.id, String(currentPassword));
-    if (!validCurrent) {
-      recordRateLimitFailure(rateKeys);
-      await dbService.recordSecurityEvent(user.id, 'login_failed', 'Incorrect current password during password change attempt', req, false);
-      return res.status(401).json({ error: 'Your current password is incorrect.', code: 'INVALID_PASSWORD' });
-    }
-
-    // If MFA is enabled, require MFA confirmation for password change
-    const mfaEnabled = await dbService.isUserMfaEnabled(user.id);
-    if (mfaEnabled) {
-      if (!totpCode) {
-        return res.status(400).json({
-          error: 'Two-Factor Authentication is enabled on your account. Please enter your 6-digit authenticator code to confirm this password change.',
-          code: 'MFA_CONFIRMATION_REQUIRED',
-          mfaRequired: true,
-        });
-      }
-      const cleanCode = String(totpCode).trim();
-      let mfaValid = await dbService.verifyUserTotpCode(user.id, cleanCode);
-      if (!mfaValid && cleanCode.replace(/[\s-]/g, '').length >= 8) {
-        const recResult = await dbService.verifyAndUseRecoveryCode(user.id, cleanCode);
-        mfaValid = recResult.valid;
-      }
-      if (!mfaValid) {
-        recordRateLimitFailure(rateKeys);
-        await dbService.recordSecurityEvent(user.id, 'mfa_failed', 'Failed 2FA confirmation during password change attempt', req, true);
-        return res.status(401).json({ error: 'Invalid authenticator code.', code: 'INVALID_MFA_CODE' });
-      }
-    }
-
-    clearRateLimit(rateKeys);
-    await dbService.setUserPassword(user.id, String(newPassword));
-
-    let revokedOtherSessionsCount = 0;
-    if (revokeOtherSessions !== false && currentToken) {
-      revokedOtherSessionsCount = await dbService.revokeAllOtherSessions(user.id, currentToken);
-    }
-
-    await dbService.recordSecurityEvent(
-      user.id,
-      'password_changed',
-      `Password updated${revokedOtherSessionsCount > 0 ? ` and ${revokedOtherSessionsCount} other session(s) revoked` : ''}`,
-      req,
-      false,
-      { revokedOtherSessionsCount }
-    );
-
-    const enrichedUser = dbService.getUserEnriched(user);
-    logAuth('PASSWORD_CHANGED_SUCCESS', { userId: user.id, revokedOtherSessionsCount });
-
-    return res.json({
-      success: true,
-      revokedOtherSessionsCount,
-      user: enrichedUser,
-      message: revokedOtherSessionsCount > 0
-        ? `Password updated successfully. ${revokedOtherSessionsCount} other active session(s) were signed out.`
-        : 'Password updated successfully.',
-    });
-  } catch (err: any) {
-    logAuthError('PASSWORD_CHANGE_ERROR', err);
-    return res.status(500).json({ error: err.message || 'Failed to update password' });
-  }
-};
-
-app.post('/api/auth/change-password', requireAuth, handleChangePassword);
-app.post('/api/auth/password/change', requireAuth, handleChangePassword);
-
-// 7. Password Reset Request & Account Recovery (Never reveals if email exists; never resets password directly without token)
-const handlePasswordResetRequest = async (req: Request, res: Response) => {
-  try {
-    const deviceMeta = extractRequestDeviceMeta(req);
-    const identifier = String(req.body?.identifier || req.body?.emailOrUsername || req.body?.email || req.body?.login || '').trim().toLowerCase();
-
-    if (!identifier) {
-      return res.status(400).json({ error: 'Please provide your email address or username.', code: 'MISSING_IDENTIFIER' });
-    }
-
-    const rateKeys = [`pw_reset_req:ip:${deviceMeta.ipHash}`, `pw_reset_req:id:${identifier}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 4, windowMs: 15 * 60 * 1000, maxDelaySeconds: 120 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Too many recovery requests. Please wait ${rateCheck.retryAfterSeconds} seconds before trying again.`,
-        code: 'RATE_LIMITED',
-        retryAfterSeconds: rateCheck.retryAfterSeconds,
-      });
-    }
-
-    // Record attempt for rate limiting
-    recordRateLimitFailure(rateKeys);
-
-    const result = await dbService.createPasswordResetForUser(identifier, req);
-    logAuth('PASSWORD_RESET_REQUESTED', { emailDeliveryConfigured: result.emailDeliveryConfigured });
-
-    // IMPORTANT: Generic response so we NEVER reveal whether an email/username exists
-    return res.json({
-      success: true,
-      message: "If an account exists for that address, you'll receive recovery instructions.",
-      emailDeliveryConfigured: result.emailDeliveryConfigured,
-      providerNote: result.providerMessage,
-    });
-  } catch (err: any) {
-    logAuthError('PASSWORD_RESET_REQUEST_ERROR', err);
-    return res.status(500).json({ error: 'Unable to process password reset request at this time.' });
-  }
-};
-
-app.post('/api/auth/password-reset/request', handlePasswordResetRequest);
-app.post('/api/auth/password/reset-request', handlePasswordResetRequest);
-app.post('/api/auth/password/reset', handlePasswordResetRequest);
-app.post('/api/auth/recover', handlePasswordResetRequest);
-
-// 8. Complete Password Reset with Single-Use Token
-const handlePasswordResetConfirm = async (req: Request, res: Response) => {
-  try {
-    const deviceMeta = extractRequestDeviceMeta(req);
-    const { token, newPassword } = req.body || {};
-
-    if (!token || !newPassword) {
-      return res.status(400).json({ error: 'Reset token and new password are required.', code: 'MISSING_FIELDS' });
-    }
-
-    const rateKeys = [`pw_reset_confirm:ip:${deviceMeta.ipHash}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Too many attempts. Please wait ${rateCheck.retryAfterSeconds} seconds.`,
-        code: 'RATE_LIMITED',
-      });
-    }
-
-    const result = await dbService.completePasswordResetWithToken(String(token), String(newPassword), req);
-    if (!result.success) {
-      recordRateLimitFailure(rateKeys);
-      return res.status(400).json({ error: result.error || 'Invalid or expired password reset token.', code: 'INVALID_RESET_TOKEN' });
-    }
-
-    clearRateLimit(rateKeys);
-    logAuth('PASSWORD_RESET_COMPLETED', { userId: result.userId });
-
-    return res.json({
-      success: true,
-      message: 'Your password has been reset and all previous sessions have been invalidated. You may now sign in with your new password.',
-    });
-  } catch (err: any) {
-    logAuthError('PASSWORD_RESET_CONFIRM_ERROR', err);
-    return res.status(500).json({ error: 'Failed to complete password reset.' });
-  }
-};
-
-app.post('/api/auth/password-reset/confirm', handlePasswordResetConfirm);
-app.post('/api/auth/password/reset-confirm', handlePasswordResetConfirm);
-app.post('/api/auth/password/confirm-reset', handlePasswordResetConfirm);
-
-// 9. Email Verification Endpoints
-app.post('/api/auth/email/send-verification', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const rateKeys = [`email_verify_send:user:${user.id}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 4, windowMs: 15 * 60 * 1000 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({
-        error: `Please wait ${rateCheck.retryAfterSeconds} seconds before requesting another verification email.`,
-        code: 'RATE_LIMITED',
-      });
-    }
-
-    recordRateLimitFailure(rateKeys);
-    const result = await dbService.createEmailVerificationForUser(user.id, req);
-
-    await dbService.recordSecurityEvent(
-      user.id,
-      'email_verification_sent',
-      `Email verification token generated (${result.emailDeliveryConfigured ? 'dispatched via provider' : 'pending SMTP/API provider configuration'})`,
-      req,
-      false
-    );
-
-    return res.json({
-      success: true,
-      emailDeliveryConfigured: result.emailDeliveryConfigured,
-      providerMessage: result.providerMessage,
-      message: result.emailDeliveryConfigured
-        ? 'Verification instructions have been sent to your email address.'
-        : 'Verification token generated securely on server. Outbound email delivery requires RESEND_API_KEY, SENDGRID_API_KEY, or SMTP_HOST in environment variables.',
-    });
-  } catch (err: any) {
-    logAuthError('EMAIL_VERIFY_SEND_ERROR', err);
-    return res.status(500).json({ error: 'Failed to generate email verification token.' });
-  }
-});
-
-app.post('/api/auth/email/verify', async (req: Request, res: Response) => {
-  try {
-    const deviceMeta = extractRequestDeviceMeta(req);
-    const { token } = req.body || {};
-    if (!token) {
-      return res.status(400).json({ error: 'Verification token is required.', code: 'MISSING_TOKEN' });
-    }
-
-    const rateKeys = [`email_verify_confirm:ip:${deviceMeta.ipHash}`];
-    const rateCheck = checkRateLimit(rateKeys, { maxAttempts: 6, windowMs: 15 * 60 * 1000 });
-    if (!rateCheck.allowed) {
-      res.setHeader('Retry-After', String(rateCheck.retryAfterSeconds));
-      return res.status(429).json({ error: 'Too many attempts. Please try again later.', code: 'RATE_LIMITED' });
-    }
-
-    const result = await dbService.verifyEmailToken(String(token), req);
-    if (!result.success) {
-      recordRateLimitFailure(rateKeys);
-      return res.status(400).json({ error: result.error || 'Invalid or expired verification token.', code: 'INVALID_VERIFICATION_TOKEN' });
-    }
-
-    clearRateLimit(rateKeys);
-    return res.json({
-      success: true,
-      message: 'Your email address has been verified.',
-    });
-  } catch (err: any) {
-    logAuthError('EMAIL_VERIFY_CONFIRM_ERROR', err);
-    return res.status(500).json({ error: 'Failed to verify email token.' });
-  }
-});
-
-// 10. Device / Active Session Management Endpoints
-app.get('/api/auth/sessions', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const currentToken = (req as any).sessionToken as string | undefined;
-    const sessions = await dbService.getActiveSessionsForUser(user.id, currentToken);
-    return res.json({ sessions });
-  } catch (err: any) {
-    logAuthError('GET_SESSIONS_ERROR', err);
-    return res.status(500).json({ error: 'Failed to retrieve active sessions.' });
-  }
-});
-
-app.delete('/api/auth/sessions/:sessionId', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const targetSessionId = req.params.sessionId;
-    const currentSessionId = (req as any).sessionId as string | undefined;
-
-    const revoked = await dbService.revokeSessionById(user.id, targetSessionId);
-    if (!revoked) {
-      return res.status(404).json({ error: 'Session not found or already revoked.' });
-    }
-
-    const isCurrent = currentSessionId === targetSessionId;
-    if (isCurrent) {
-      clearSecureSessionCookie(res);
-    }
-
-    await dbService.recordSecurityEvent(
-      user.id,
-      'session_revoked',
-      isCurrent ? 'Signed out current device session' : `Revoked device session (${targetSessionId.slice(0, 10)})`,
-      req,
-      false,
-      { revokedSessionId: targetSessionId, isCurrent }
-    );
-
-    logAuth('SESSION_REVOKED', { userId: user.id, targetSessionId, isCurrent });
-    return res.json({
-      success: true,
-      revokedCurrentSession: isCurrent,
-      message: isCurrent ? 'Current session signed out.' : 'Device session revoked immediately.',
-    });
-  } catch (err: any) {
-    logAuthError('REVOKE_SESSION_ERROR', err);
-    return res.status(500).json({ error: 'Failed to revoke session.' });
-  }
-});
-
-app.post('/api/auth/sessions/revoke-others', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const currentToken = (req as any).sessionToken as string | undefined;
-    if (!currentToken) {
-      return res.status(400).json({ error: 'Active session token not found.' });
-    }
-
-    const revokedCount = await dbService.revokeAllOtherSessions(user.id, currentToken);
-    await dbService.recordSecurityEvent(
-      user.id,
-      'logout_all_sessions',
-      `Signed out all other active devices (${revokedCount} session(s) revoked)`,
-      req,
-      false,
-      { revokedCount }
-    );
-
-    logAuth('REVOKE_ALL_OTHER_SESSIONS', { userId: user.id, revokedCount });
-    return res.json({
-      success: true,
-      revokedCount,
-      message: revokedCount > 0
-        ? `Signed out of ${revokedCount} other active device(s).`
-        : 'No other active device sessions found.',
-    });
-  } catch (err: any) {
-    logAuthError('REVOKE_OTHER_SESSIONS_ERROR', err);
-    return res.status(500).json({ error: 'Failed to sign out other devices.' });
-  }
-});
-
-// 11. Security Audit Log Endpoint
-app.get('/api/auth/security/events', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user as User;
-    const events = await dbService.getSecurityEventsForUser(user.id);
-    return res.json({ events });
-  } catch (err: any) {
-    logAuthError('GET_SECURITY_EVENTS_ERROR', err);
-    return res.status(500).json({ error: 'Failed to retrieve security activity log.' });
-  }
+  return res.json({ user: enrichedUser });
 });
 
 app.patch('/api/auth/profile', requireAuth, async (req: Request, res: Response) => {
@@ -1852,12 +923,6 @@ app.post('/api/posts/:id/vote', requireAuth, (req: Request, res: Response) => {
 
 app.post('/api/posts/:id/pin', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user as User;
-    const post = dbService.getCommunityPostById(req.params.id, user.id);
-    if (!post) return res.status(404).json({ error: 'Post not found' });
-    if (post.authorId !== user.id && user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Forbidden: Only the post author or an administrator can pin this post.' });
-    }
     const { isPinned } = req.body;
     const ok = await dbService.pinPost(req.params.id, Boolean(isPinned));
     return res.json({ success: ok });
@@ -1869,12 +934,6 @@ app.post('/api/posts/:id/pin', requireAuth, async (req: Request, res: Response) 
 
 app.post('/api/posts/:id/lock', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user as User;
-    const post = dbService.getCommunityPostById(req.params.id, user.id);
-    if (!post) return res.status(404).json({ error: 'Post not found' });
-    if (post.authorId !== user.id && user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Forbidden: Only the post author or an administrator can lock this post.' });
-    }
     const { isLocked } = req.body;
     const ok = await dbService.lockPost(req.params.id, Boolean(isLocked));
     return res.json({ success: ok });
@@ -1885,12 +944,6 @@ app.post('/api/posts/:id/lock', requireAuth, async (req: Request, res: Response)
 });
 
 app.delete('/api/posts/:id', requireAuth, (req: Request, res: Response) => {
-  const user = (req as any).user as User;
-  const post = dbService.getCommunityPostById(req.params.id, user.id);
-  if (!post) return res.status(404).json({ error: 'Post not found' });
-  if (post.authorId !== user.id && user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Forbidden: You can only delete your own community posts.' });
-  }
   const ok = dbService.deleteCommunityPost(req.params.id);
   return res.json({ success: ok });
 });
@@ -1957,13 +1010,13 @@ app.post('/api/chat/rooms/:roomId/messages/:messageId/react', requireAuth, (req:
   return res.json({ reactions });
 });
 
-app.post('/api/chat/rooms/:roomId/pin', requireAdmin, (req: Request, res: Response) => {
+app.post('/api/chat/rooms/:roomId/pin', requireAuth, (req: Request, res: Response) => {
   const { message } = req.body;
   const ok = dbService.pinChatMessage(req.params.roomId, message);
   return res.json({ success: ok });
 });
 
-app.post('/api/chat/rooms/:roomId/lock', requireAdmin, (req: Request, res: Response) => {
+app.post('/api/chat/rooms/:roomId/lock', requireAuth, (req: Request, res: Response) => {
   const { isLocked } = req.body;
   const ok = dbService.lockChatRoom(req.params.roomId, Boolean(isLocked));
   return res.json({ success: ok });
@@ -2322,14 +1375,11 @@ app.get('/api/search', (req: Request, res: Response) => {
 });
 
 app.get('/api/users/:username', (req: Request, res: Response) => {
-  const viewer = getUserFromReq(req);
   const user = dbService.findUserByEmailOrUsername(req.params.username);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  const isSelf = Boolean(viewer && viewer.id === user.id);
-  const safeUser = isSelf ? user : { ...user, email: '' };
-  const stories = dbService.getStories().filter(s => s.authorId === user.id && (isSelf || s.status !== 'Draft'));
+  const stories = dbService.getStories().filter(s => s.authorId === user.id);
   const badges = dbService.getUserBadges(user.id);
-  return res.json({ user: safeUser, stories, badges });
+  return res.json({ user, stories, badges });
 });
 
 // ----------------------------------------------------
@@ -2882,10 +1932,10 @@ app.post('/api/sync/hydrate', (req: Request, res: Response) => {
   }
 });
 
-// Database Safe Export & Backup (Master Admin Only)
-app.get('/api/admin/db/export', requireAdmin, (req: Request, res: Response) => {
+// Database Safe Export & Backup (for offline preservation)
+app.get('/api/admin/db/export', (req: Request, res: Response) => {
   const raw = dbService.getRaw();
-  // Strip sensitive hashed passwords and session tokens from export
+  // Strip sensitive hashed passwords from export
   const safeExport = {
     ...raw,
     passwords: {},
@@ -2898,8 +1948,8 @@ app.get('/api/admin/db/export', requireAdmin, (req: Request, res: Response) => {
   });
 });
 
-// Supabase Status & Production Health (Master Admin Only)
-app.get('/api/admin/supabase/status', requireAdmin, async (req: Request, res: Response) => {
+// Supabase Status & Production Health
+app.get('/api/admin/supabase/status', async (req: Request, res: Response) => {
   const configured = isSupabaseConfigured();
   const client = getSupabaseClient();
   let connectionStatus = 'UNCONFIGURED';
@@ -2976,14 +2026,13 @@ app.get('/api/admin/supabase/status', requireAdmin, async (req: Request, res: Re
   });
 });
 
-// Provide full SQL Schema Migration for 1-Click Copy in Admin UI (Master Admin Only)
-app.get('/api/admin/supabase/sql', requireAdmin, async (req: Request, res: Response) => {
+// Provide full SQL Schema Migration for 1-Click Copy in Admin UI
+app.get('/api/admin/supabase/sql', async (req: Request, res: Response) => {
   try {
-    const requestedFile = req.query.file === '004' ? '004_phase5_security_mfa_and_rls.sql' : '001_initial_schema.sql';
-    const migrationPath = path.resolve(process.cwd(), 'supabase', 'migrations', requestedFile);
+    const migrationPath = path.resolve(process.cwd(), 'supabase', 'migrations', '001_initial_schema.sql');
     if (fs.existsSync(migrationPath)) {
       const sqlContent = fs.readFileSync(migrationPath, 'utf-8');
-      return res.json({ success: true, sql: sqlContent, filename: requestedFile });
+      return res.json({ success: true, sql: sqlContent, filename: '001_initial_schema.sql' });
     }
     return res.status(404).json({ success: false, error: 'Migration file not found.' });
   } catch (err: any) {
