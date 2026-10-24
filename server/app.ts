@@ -899,7 +899,7 @@ app.post('/api/auth/mfa/disable', requireAuth, async (req: Request, res: Respons
 });
 
 // 6. Change Password (Requires current session + currentPassword + MFA code if MFA is enabled; revokes other sessions)
-app.post('/api/auth/change-password', requireAuth, async (req: Request, res: Response) => {
+const handleChangePassword = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user as User;
     const currentToken = (req as any).sessionToken as string | undefined;
@@ -993,13 +993,16 @@ app.post('/api/auth/change-password', requireAuth, async (req: Request, res: Res
     logAuthError('PASSWORD_CHANGE_ERROR', err);
     return res.status(500).json({ error: err.message || 'Failed to update password' });
   }
-});
+};
+
+app.post('/api/auth/change-password', requireAuth, handleChangePassword);
+app.post('/api/auth/password/change', requireAuth, handleChangePassword);
 
 // 7. Password Reset Request & Account Recovery (Never reveals if email exists; never resets password directly without token)
 const handlePasswordResetRequest = async (req: Request, res: Response) => {
   try {
     const deviceMeta = extractRequestDeviceMeta(req);
-    const identifier = String(req.body?.emailOrUsername || req.body?.email || req.body?.login || '').trim().toLowerCase();
+    const identifier = String(req.body?.identifier || req.body?.emailOrUsername || req.body?.email || req.body?.login || '').trim().toLowerCase();
 
     if (!identifier) {
       return res.status(400).json({ error: 'Please provide your email address or username.', code: 'MISSING_IDENTIFIER' });
@@ -1036,10 +1039,12 @@ const handlePasswordResetRequest = async (req: Request, res: Response) => {
 };
 
 app.post('/api/auth/password-reset/request', handlePasswordResetRequest);
+app.post('/api/auth/password/reset-request', handlePasswordResetRequest);
+app.post('/api/auth/password/reset', handlePasswordResetRequest);
 app.post('/api/auth/recover', handlePasswordResetRequest);
 
 // 8. Complete Password Reset with Single-Use Token
-app.post('/api/auth/password-reset/confirm', async (req: Request, res: Response) => {
+const handlePasswordResetConfirm = async (req: Request, res: Response) => {
   try {
     const deviceMeta = extractRequestDeviceMeta(req);
     const { token, newPassword } = req.body || {};
@@ -1075,7 +1080,11 @@ app.post('/api/auth/password-reset/confirm', async (req: Request, res: Response)
     logAuthError('PASSWORD_RESET_CONFIRM_ERROR', err);
     return res.status(500).json({ error: 'Failed to complete password reset.' });
   }
-});
+};
+
+app.post('/api/auth/password-reset/confirm', handlePasswordResetConfirm);
+app.post('/api/auth/password/reset-confirm', handlePasswordResetConfirm);
+app.post('/api/auth/password/confirm-reset', handlePasswordResetConfirm);
 
 // 9. Email Verification Endpoints
 app.post('/api/auth/email/send-verification', requireAuth, async (req: Request, res: Response) => {
